@@ -16,7 +16,8 @@ from pymodaq.utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataFromPlugins, DataToExport, DataRaw
 from pymodaq.utils import math_utils as mutils
 
-from pymodaq_plugins_optical_2D_shaping.algorithms.base import AlgoBase
+from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import InputIntensity, AlgoBase
 
 logger = set_logger(get_module_name(__file__))
 
@@ -58,47 +59,14 @@ except ImportError:
     ifft2 = np.fft.ifft2
     fftshift = np.fft.fftshift
     ifftshift = np.fft.ifftshift
-    print("Warning: using numpy FFT implementation.  Consider using pyFFTW for faster Fourier transforms.")
+    print("Warning: using numpy FFT implementation.  "
+          "Consider using pyFFTW for faster Fourier transforms.")
 
 
-class InputIntensity:
-    def __init__(self, npixels=(768, 1024), size_pixel=0.036, size=(11, 11)):
-        self.size_pixel = size_pixel  # pixel size of SLM in mm
-        self.size_x = size[1]  # x-axis intensity beam size in mm (FWHM)
-        self.size_y = size[0]  # y-axis intensity beam size in mm (FWHM)
+@AlgorithmFactory.register_algorithm()
+class GbSax(AlgoBase):
 
-        self.npixels = npixels
-        x = np.arange(0, npixels[1], 1)
-        y = np.arange(0, npixels[0], 1)
-
-        #   ===   Amplitude   ===============================================
-        self._amp = np.sqrt(mutils.gauss2D(x, npixels[1] / 2, self.size_x / size_pixel,
-                                           y, npixels[0] / 2, self.size_y / size_pixel))
-
-    @property
-    def amplitude(self):
-        return self._amp
-
-    @property
-    def intensity(self):
-        return np.power(self._amp, 2.)
-
-    def normalise_to_intensity(self, data_int: np.ndarray):
-        """ Normalise an intensity like 2D array to this input total intensity
-
-        Parameters
-        ----------
-        data_int: ndarray
-            the array to be normalised with respect to the total intensity
-
-        Returns
-        -------
-        ndarray
-        """
-        return data_int * np.sum(self.intensity) / np.sum(data_int)
-
-
-class GBSAX(AlgoBase):
+    ALGO_NAME = 'Gerchberg–Saxton'
 
     def __init__(self, input_size=(11, 11)):
         super().__init__()
@@ -111,7 +79,7 @@ class GBSAX(AlgoBase):
         self.input_intensity = InputIntensity(npixels=self.object_shape, size=self.input_size)
 
         self.field_object: np.ndarray = None
-        self.field_image: np.nd_array = None
+        self.field_image: np.ndarray = None
         self.field_object_phase: np.ndarray = None
         self._sse: float = 100
 
@@ -254,7 +222,7 @@ if __name__ == '__main__':
     widget.layout().addWidget(image_widget)
 
     widget_main.show()
-    gbsax = GBSAX()
+    gbsax = GbSax()
     gbsax.load_image()
 
     image_viewer.show_data(DataFromPlugins('GB', data=[gbsax.target_intensity, np.abs(gbsax.field_image)**2]))

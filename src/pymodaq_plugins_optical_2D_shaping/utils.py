@@ -4,7 +4,7 @@ Created the 31/08/2023
 
 @author: Sebastien Weber
 """
-from abc import ABC, abstractproperty
+from abc import ABC
 from typing import List
 from pathlib import Path
 import importlib
@@ -13,14 +13,14 @@ import inspect
 import numpy as np
 import warnings
 
-from pymodaq.extensions.pid.utils import DataToActuatorPID, DataToExport
+from pymodaq.extensions.pid.utils import DataToExport
 from pymodaq.utils.managers.modules_manager import ModulesManager
-from pymodaq.utils.config import BaseConfig, USER
+from pymodaq.utils.config import BaseConfig
 from pymodaq.utils.daq_utils import find_dict_in_list_from_key_val, get_entrypoints
 from pymodaq.utils.logger import set_logger, get_module_name
 from pymodaq.utils.plotting.data_viewers.viewer import ViewersEnum
 from pymodaq.utils.parameter import Parameter
-
+from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory
 
 logger = set_logger(get_module_name(__file__))
 
@@ -56,15 +56,14 @@ class DataToActuatorOpti(DataToExport):
     def __repr__(self):
         return f'{super().__repr__()}: {self.mode}'
 
-
 class OptimisationModelGeneric(ABC):
-    optimisation_algorithm = abstractproperty()
 
     actuators_name: List[str] = []
     detectors_name: List[str] = []
     observables_dim: List[ViewersEnum] = []
 
-    params = []
+    params = [{'title': 'Algorithm', 'name': 'algorithm', 'type': 'list',
+               'limits': algo_factory.algorithms, 'value':  algo_factory.algorithms[0]}]
 
     def __init__(self, optimisation_controller: 'Optimisation'):
         self.optimisation_controller = optimisation_controller  # instance of the pid_controller using this model
@@ -168,3 +167,5 @@ def get_optimisation_models(model_name=None):
         return models_import
     else:
         return find_dict_in_list_from_key_val(models_import, 'name', model_name)
+
+
