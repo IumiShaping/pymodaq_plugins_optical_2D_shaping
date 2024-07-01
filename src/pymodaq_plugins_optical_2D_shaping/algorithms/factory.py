@@ -58,7 +58,6 @@ class AlgorithmFactory:
         """Factory command to get registered algorithms
         .
         This method gets the appropriate executor class from the registry
-        and instantiates it.
 
         Parameters
         ----------
@@ -73,7 +72,7 @@ class AlgorithmFactory:
         if algo_name not in cls.algorithms_registry:
             raise ValueError(f".{algo_name} is not a supported Algorithm.")
 
-        return cls.algorithms_registry[algo_name]()
+        return cls.algorithms_registry[algo_name]
 
     @property
     def algorithms(self):
