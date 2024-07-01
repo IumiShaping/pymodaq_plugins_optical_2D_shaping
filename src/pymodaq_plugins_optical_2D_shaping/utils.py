@@ -5,7 +5,7 @@ Created the 31/08/2023
 @author: Sebastien Weber
 """
 from abc import ABC
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 import importlib
 import pkgutil
@@ -20,7 +20,9 @@ from pymodaq.utils.daq_utils import find_dict_in_list_from_key_val, get_entrypoi
 from pymodaq.utils.logger import set_logger, get_module_name
 from pymodaq.utils.plotting.data_viewers.viewer import ViewersEnum
 from pymodaq.utils.parameter import Parameter
-from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory
+
+from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
+from pymodaq_plugins_optical_2D_shaping.target_loaders import target_loader_factory, TargetLoader
 
 logger = set_logger(get_module_name(__file__))
 
@@ -63,15 +65,18 @@ class OptimisationModelGeneric(ABC):
     detectors_name: List[str] = []
     observables_dim: List[ViewersEnum] = []
 
-    params = [{'title': 'Algorithm', 'name': 'algorithm', 'type': 'list',
-               'limits': algo_factory.algorithms, 'value':  algo_factory.algorithms[0]}]
+    params = []
 
     def __init__(self, optimisation_controller: 'Optimisation'):
         self.optimisation_controller = optimisation_controller  # instance of the pid_controller using this model
         self.modules_manager: ModulesManager = optimisation_controller.modules_manager
 
-        self.settings = self.optimisation_controller.settings.child('models', 'model_params')  # set of parameters
+        self.settings: Parameter =\
+            self.optimisation_controller.settings.child('models', 'model_params')  # set of parameters
         self.check_modules(self.modules_manager)
+
+        self._algorithm: Optional[AlgoBase] = None
+        self._target_loader: Optional[TargetLoader] = None
 
     def check_modules(self, modules_manager):
         for act in self.actuators_name:
@@ -99,6 +104,9 @@ class OptimisationModelGeneric(ABC):
     def ini_models(self):
         self.modules_manager.selected_actuators_name = self.actuators_name
         self.modules_manager.selected_detectors_name = self.detectors_name
+
+        self._algorithm = algo_factory.get_algorithm(self.settings['algorithm'])()
+        self._target_loader = target_loader_factory.get_target_loader(self.settings['loader'])()
 
     def convert_input(self, measurements: DataToExport) -> DataToExport:
         """

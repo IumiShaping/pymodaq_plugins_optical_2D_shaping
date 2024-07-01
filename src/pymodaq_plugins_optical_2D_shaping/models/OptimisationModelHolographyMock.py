@@ -36,8 +36,8 @@ class OptimisationModelHolographyMock(OptimisationModelGeneric):
          'filetype': True},
         {'title': 'Send target to algo', 'name': 'send_target', 'type': 'bool_push', 'label': 'Send'},
         {'title': 'Apply Mask', 'name': 'apply_mask', 'type': 'bool',},
-        {'title': 'Flip ud', 'name': 'flipud', 'type': 'bool', 'value': 'False'},
-        {'title': 'Flip lr', 'name': 'fliplr', 'type': 'bool', 'value': 'True'},
+        {'title': 'Flip ud', 'name': 'flipud', 'type': 'bool', 'value': False},
+        {'title': 'Flip lr', 'name': 'fliplr', 'type': 'bool', 'value': True},
         {'title': 'Move X', 'name': 'move_x', 'type': 'float', 'value': 0.},
         {'title': 'Move Y', 'name': 'move_y', 'type': 'float', 'value': 0.},
     ]

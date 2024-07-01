@@ -21,7 +21,8 @@ from pymodaq.utils.managers.modules_manager import ModulesManager
 from pymodaq.utils.config import Config
 
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
-
+from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
+from pymodaq_plugins_optical_2D_shaping.target_loaders import target_loader_factory, TargetLoader
 
 logger = set_logger(get_module_name(__file__))
 
@@ -36,6 +37,16 @@ class OpticalShaping(gutils.CustomApp):
     models = get_optimisation_models()
 
     params = [
+        {'title': 'Algorithm', 'name': 'algorithm', 'type': 'list',
+         'limits': algo_factory.algorithms, 'value': algo_factory.algorithms[0]},
+        {'title': 'Algo Settings', 'name': 'algo_settings', 'type': 'group', },
+        {'title': 'Target Loader', 'name': 'loader', 'type': 'list',
+         'limits': target_loader_factory.target_loaders,
+         'value': target_loader_factory.target_loaders[0]},
+        {'title': 'Loader Settings', 'name': 'loader_settings', 'type': 'group',
+         'children': target_loader_factory.get_target_loader(
+             target_loader_factory.target_loaders[0]).params},
+
         {'title': 'Models', 'name': 'models', 'type': 'group', 'expanded': True, 'visible': True, 'children': [
             {'title': 'Models class:', 'name': 'model_class', 'type': 'list',
              'limits': [d['name'] for d in models]},
@@ -46,8 +57,6 @@ class OpticalShaping(gutils.CustomApp):
              {'title': 'Units:', 'name': 'units', 'type': 'str', 'value': ''}]},
         # here only to be compatible with DAQ_Scan, the model could update it
 
-        {'title': 'Main Settings:', 'name': 'main_settings', 'expanded': True, 'type': 'group', 'children': []},
-
     ]
 
     def __init__(self, dockarea, dashboard):
@@ -56,6 +65,8 @@ class OpticalShaping(gutils.CustomApp):
         self.viewer_fitness: Viewer0D = None
         self.viewer_observable: ViewerDispatcher = None
         self.model_class: OptimisationModelGeneric = None
+
+        self._target_loader = target_loader_factory.get_target_loader(self.settings['loader'])
 
         self.setup_ui()
 
@@ -94,6 +105,11 @@ class OpticalShaping(gutils.CustomApp):
 
         if len(self.models) != 0:
             self.get_set_model_params(self.models[0]['name'])
+
+    def get_set_loader_params(self, loader_name: str):
+        self.settings.child('loader_settings').clearChildren()
+        loader_class = target_loader_factory.get_target_loader(loader_name)
+        self.settings.child('loader_settings').addChildren(loader_class.params)
 
     def get_set_model_params(self, model_name):
         self.settings.child('models', 'model_params').clearChildren()
@@ -136,6 +152,8 @@ class OpticalShaping(gutils.CustomApp):
         elif param.name() in putils.iter_children(self.settings.child('models', 'model_params'), []):
             if self.model_class is not None:
                 self.model_class.update_settings(param)
+        elif param.name() == 'loader':
+            self.get_set_loader_params(param.name())
 
     def setup_actions(self):
         logger.debug('setting actions')
@@ -329,46 +347,44 @@ class OptimisationRunner(QtCore.QObject):
             logger.exception(str(e))
 
 
-def main(init_qt=True):
-    import sys
+def main_only_app():
     from pathlib import Path
     from pymodaq.utils.daq_utils import get_set_preset_path
+    from pymodaq.utils.gui_utils.utils import mkQApp
+    from pymodaq.utils.gui_utils.loader_utils import load_dashboard_with_preset
 
-    if init_qt:  # used for the test suite
-        app = QtWidgets.QApplication(sys.argv)
-        if config('style', 'darkstyle'):
-            import qdarkstyle
-            app.setStyleSheet(qdarkstyle.load_stylesheet())
-
-    from pymodaq.dashboard import DashBoard
+    app = mkQApp('Optical Shaping')
 
     win = QtWidgets.QMainWindow()
-    area = gutils.dock.DockArea()
+    area = gutils.DockArea()
     win.setCentralWidget(area)
     win.resize(1000, 500)
     win.setWindowTitle('PyMoDAQ Dashboard')
+    win.show()
 
-    dashboard = DashBoard(area)
-    daq_scan = None
-    file = Path(get_set_preset_path()).joinpath(f"{'holography'}.xml")
-    if file.exists():
-        dashboard.set_preset_mode(file)
-        daq_scan = dashboard.load_extension_from_name('Optimisation')
-    else:
-        msgBox = QtWidgets.QMessageBox()
-        msgBox.setText(f"The default file specified in the configuration file does not exists!\n"
-                       f"{file}\n"
-                       f"Impossible to load the DAQScan Module")
-        msgBox.setStandardButtons(msgBox.Ok)
-        ret = msgBox.exec()
+    optical_app = OpticalShaping(area, None)
 
-    if init_qt:
-        sys.exit(app.exec_())
-    return dashboard, daq_scan, win
+    app.exec()
+
+
+def main():
+    import sys
+    from pathlib import Path
+    from pymodaq.utils.daq_utils import get_set_preset_path
+    from pymodaq.utils.gui_utils.utils import mkQApp
+    from pymodaq.utils.gui_utils.loader_utils import load_dashboard_with_preset
+
+    app = mkQApp('Optical Shaping')
+
+    preset_file_name = str(Path(get_set_preset_path()).joinpath(f"{'holography'}.xml"))
+    dashboard, extension, win = load_dashboard_with_preset(preset_file_name, 'Optical Shaping')
+    app.exec()
+
+    return dashboard, extension, win
 
 
 if __name__ == '__main__':
-    main()
+    main_only_app()
 
 
 
