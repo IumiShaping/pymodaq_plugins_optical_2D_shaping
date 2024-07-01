@@ -1,4 +1,4 @@
-from .factory import TargetLoaderFactory, register_loaders
+from .factory import TargetLoaderFactory, register_loaders, TargetLoader
 
 register_loaders()
 

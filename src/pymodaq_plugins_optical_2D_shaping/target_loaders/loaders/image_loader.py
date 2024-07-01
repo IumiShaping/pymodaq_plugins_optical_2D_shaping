@@ -1,3 +1,4 @@
+import numpy as np
 from pathlib import Path
 from typing import Union
 
@@ -6,6 +7,7 @@ from skimage.color import rgb2gray
 from skimage.transform import rescale, resize
 from pymodaq.utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataFromPlugins, DataToExport, DataRaw
+from pymodaq.utils.parameter import Parameter
 from pymodaq.utils.gui_utils.file_io import select_file
 
 from pymodaq_plugins_optical_2D_shaping.target_loaders.utils import (TargetLoader, LoadTypeEnum,
@@ -23,6 +25,30 @@ logger = set_logger(get_module_name(__file__))
 class ImageFileLoader(TargetLoader):
 
     LOADER_NAME = 'ImageFileLoader'
+
+    params = TargetLoader.params + \
+        [{'title': 'Amplitude File path:', 'name': 'amp_target_file',
+          'type': 'browsepath', 'value': '', 'filetype': True},
+         {'title': 'Phase File path:', 'name': 'phase_target_file', 'type': 'browsepath',
+          'value': '', 'filetype': True},
+         ]
+
+    def value_changed(self, param: Parameter):
+        super().value_changed(param)
+
+        if param.name() == 'amp_target_file':
+            if Path(param.value()).is_file():
+                self.load_image_from_name(fname=Path(param.value()),
+                                          load_type=LoadTypeEnum.AMPLITUDE)
+                logger.info(f'Amplitude Image loaded from {param.value()}')
+                self.update_viewers()
+
+        elif param.name() == 'phase_target_file':
+            if Path(param.value()).is_file():
+                self.load_image_from_name(fname=Path(param.value()),
+                                          load_type=LoadTypeEnum.PHASE)
+                logger.info(f'Phase Image loaded from {param.value()}')
+                self.update_viewers()
 
     def load(self, *args, load_type=LoadTypeEnum.AMPLITUDE, **kwargs):
         self.load_image(load_type)
@@ -49,16 +75,21 @@ class ImageFileLoader(TargetLoader):
                     img_array = rgb2gray(img_array[..., 0:3])
 
                 if load_type == LoadTypeEnum.AMPLITUDE:
-                    self.field.amplitude = img_array
+                    self.field.amplitude = np.flipud(img_array)
                 else:
-                    self.field.phase = img_array
+                    self.field.phase = np.flipud(img_array)
 
             except Exception as e:
                 logger.exception(str(e))
 
 
 if __name__ == '__main__':
-    loader = ImageFileLoader()
-    loader.load_image()
+    from pymodaq.utils.gui_utils.utils import mkQApp
 
-    print(loader.field)
+    app = mkQApp('ImageLoader')
+    loader = ImageFileLoader()
+    loader.settings_tree.show()
+    loader.target_widget.show()
+
+    app.exec()
+

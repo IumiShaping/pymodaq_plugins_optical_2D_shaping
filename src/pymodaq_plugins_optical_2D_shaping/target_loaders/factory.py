@@ -56,7 +56,6 @@ class TargetLoaderFactory:
         """Factory command to get registered target loaders
         .
         This method gets the appropriate executor class from the registry
-        and instantiates it.
 
         Parameters
         ----------
@@ -71,7 +70,7 @@ class TargetLoaderFactory:
         if loader_name not in cls.loader_registry:
             raise ValueError(f".{loader_name} is not a supported Algorithm.")
 
-        return cls.loader_registry[loader_name]()
+        return cls.loader_registry[loader_name]
 
     @property
     def target_loaders(self):
