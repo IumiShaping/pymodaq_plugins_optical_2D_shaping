@@ -56,6 +56,7 @@ class DataToActuatorOpti(DataToExport):
     def __repr__(self):
         return f'{super().__repr__()}: {self.mode}'
 
+
 class OptimisationModelGeneric(ABC):
 
     actuators_name: List[str] = []
@@ -134,7 +135,7 @@ class OptimisationModelGeneric(ABC):
 
 def get_optimisation_models(model_name=None):
     """
-    Get PID Models as a list to instantiate Control Actuators per degree of liberty in the model
+    Get Optimisation Models as a list to instantiate Control Actuators per degree of liberty in the model
 
     Returns
     -------
