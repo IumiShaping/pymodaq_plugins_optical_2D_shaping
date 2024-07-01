@@ -1,5 +1,29 @@
+from importlib import import_module
+from pathlib import Path
+
 from typing import Callable
+
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase
+
+
+def register_algorithms(parent_module_name: str = 'pymodaq_plugins_optical_2D_shaping'):
+    """ Browse modules containing algorithms for optical shaping and register them in the factory"""
+    algorithms = []
+    try:
+        algorithm_module = import_module(f'{parent_module_name}.algorithms.algorithms')
+
+        algorithm_path = Path(algorithm_module.__path__[0])
+
+        for file in algorithm_path.iterdir():
+            if file.is_file() and 'py' in file.suffix and file.stem != '__init__':
+                try:
+                    algorithms.append(import_module(f'.{file.stem}', algorithm_module.__name__))
+                except ModuleNotFoundError:
+                    pass
+    except ModuleNotFoundError:
+        pass
+    finally:
+        return algorithms
 
 
 class AlgorithmFactory:

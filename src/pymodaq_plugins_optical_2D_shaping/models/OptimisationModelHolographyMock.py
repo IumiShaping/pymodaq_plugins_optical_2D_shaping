@@ -4,17 +4,19 @@ from pathlib import Path
 import numpy as np
 from qtpy import QtWidgets, QtCore
 
-from pymodaq_plugins_optical_2D_shaping.utils import OptimisationModelGeneric, DataToActuatorOpti
-from pymodaq_plugins_optical_2D_shaping.algorithms.gershberg_saxton import GBSAX
 from pymodaq.utils.plotting.utils.plot_utils import RoiInfo
 from pymodaq.utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataToExport, DataActuator, DataWithAxes, DataRaw
 from pymodaq.utils.plotting.data_viewers import Viewer2D, ViewersEnum
-
 from pymodaq.utils import gui_utils as gutils
 
 from skimage.io import imread
 from skimage.color import rgb2gray
+
+from pymodaq_plugins_optical_2D_shaping.utils import OptimisationModelGeneric, DataToActuatorOpti
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase
+from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory
+
 
 if TYPE_CHECKING:
     from pymodaq_plugins_optical_2D_shaping.extensions.optical_shaping import OpticalShaping
@@ -24,15 +26,14 @@ logger = set_logger(get_module_name(__file__))
 
 class OptimisationModelHolographyMock(OptimisationModelGeneric):
 
-    optimisation_algorithm = GBSAX()
-
     actuators_name = ["Shaper"]
     detectors_name = ["Camera Carac"]
     observables_dim = [ViewersEnum('Data2D'), ViewersEnum('Data2D')]
 
-    params = [
+    params = OptimisationModelGeneric.params + [
         {'title': 'Target From:', 'name': 'target_source', 'type': 'list', 'limits': ['file']},
-        {'title': 'File path:', 'name': 'target_file', 'type': 'browsepath', 'value': '', 'filetype': True},
+        {'title': 'File path:', 'name': 'target_file', 'type': 'browsepath', 'value': '',
+         'filetype': True},
         {'title': 'Send target to algo', 'name': 'send_target', 'type': 'bool_push', 'label': 'Send'},
         {'title': 'Apply Mask', 'name': 'apply_mask', 'type': 'bool',},
         {'title': 'Flip ud', 'name': 'flipud', 'type': 'bool', 'value': 'False'},
@@ -41,7 +42,7 @@ class OptimisationModelHolographyMock(OptimisationModelGeneric):
         {'title': 'Move Y', 'name': 'move_y', 'type': 'float', 'value': 0.},
     ]
 
-    def __init__(self, optimisation_controller: 'Optimisation'):
+    def __init__(self, optimisation_controller: 'OpticalShaping'):
         super().__init__(optimisation_controller)
 
         self.other_detectors: List[str] = []
@@ -50,8 +51,8 @@ class OptimisationModelHolographyMock(OptimisationModelGeneric):
         target_dock = gutils.Dock('Target')
         widget_target = QtWidgets.QWidget()
         target_dock.addWidget(widget_target)
-        self.optimisation_controller.dockarea.addDock(target_dock, 'bottom',
-                                                      self.optimisation_controller.docks['settings'])
+        self.optimisation_controller.dockarea.addDock(
+            target_dock, 'bottom', self.optimisation_controller.docks['settings'])
         self.viewer_target = Viewer2D(widget_target)
         self.viewer_target.roi_select_signal.connect(self.set_mask)
         self.mask: RoiInfo = None
@@ -114,7 +115,8 @@ class OptimisationModelHolographyMock(OptimisationModelGeneric):
             data.data[0] = np.zeros(data.data[0].shape)
             data.data[0][int(self.mask.origin[0]): int(self.mask.origin[0]+self.mask.size[0]),
                          int(self.mask.origin[1]): int(self.mask.origin[1]+self.mask.size[1])] = \
-                self._temp_target_data.data[0][int(self.mask.origin[0]): int(self.mask.origin[0]+self.mask.size[0]),
+                self._temp_target_data.data[0][int(self.mask.origin[0]): int(self.mask.origin[0] +
+                                                                             self.mask.size[0]),
                          int(self.mask.origin[1]): int(self.mask.origin[1]+self.mask.size[1])]
             data = self.transform_image(data)
             self.optimisation_algorithm.load_target_data(data)
@@ -136,7 +138,8 @@ class OptimisationModelHolographyMock(OptimisationModelGeneric):
         super().ini_models()
         self.set_source()
 
-        self.optimisation_algorithm: GBSAX = self.modules_manager.actuators[0].controller  # specific of the MockModel
+        # self.optimisation_algorithm: AlgoBase = self.modules_manager.actuators[0].controller  # specific of the MockModel
+        self.optimisation_algorithm: AlgoBase = algo_factory.get_algorithm(self.settings['algorithm'])
 
         self.optimisation_algorithm.load_image()
 

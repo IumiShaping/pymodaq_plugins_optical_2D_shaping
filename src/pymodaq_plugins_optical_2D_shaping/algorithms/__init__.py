@@ -1,5 +1,6 @@
-from factory import AlgorithmFactory
-from .gershberg_saxton import GbSax  # for registering to work
+from .factory import AlgorithmFactory, register_algorithms
+
+register_algorithms()
 
 
 algo_factory = AlgorithmFactory()
