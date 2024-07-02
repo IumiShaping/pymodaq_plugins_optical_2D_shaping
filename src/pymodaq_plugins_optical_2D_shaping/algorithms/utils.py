@@ -1,7 +1,7 @@
 from abc import ABC, abstractproperty
 
 import numpy as np
-from utils import math_utils as mutils
+from pymodaq.utils import math_utils as mutils
 
 
 class InputIntensity:
