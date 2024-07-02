@@ -22,7 +22,8 @@ from pymodaq.utils.config import Config
 
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
-from pymodaq_plugins_optical_2D_shaping.target_loaders import target_loader_factory, TargetLoader
+
+from pymodaq_plugins_optical_2D_shaping.target_loaders.target_app import TargetApp, Field
 
 logger = set_logger(get_module_name(__file__))
 
@@ -40,12 +41,6 @@ class OpticalShaping(gutils.CustomApp):
         {'title': 'Algorithm', 'name': 'algorithm', 'type': 'list',
          'limits': algo_factory.algorithms, 'value': algo_factory.algorithms[0]},
         {'title': 'Algo Settings', 'name': 'algo_settings', 'type': 'group', },
-        {'title': 'Target Loader', 'name': 'loader', 'type': 'list',
-         'limits': target_loader_factory.target_loaders,
-         'value': target_loader_factory.target_loaders[0]},
-        {'title': 'Loader Settings', 'name': 'loader_settings', 'type': 'group',
-         'children': target_loader_factory.get_target_loader(
-             target_loader_factory.target_loaders[0]).params},
 
         {'title': 'Models', 'name': 'models', 'type': 'group', 'expanded': True, 'visible': True, 'children': [
             {'title': 'Models class:', 'name': 'model_class', 'type': 'list',
@@ -66,9 +61,15 @@ class OpticalShaping(gutils.CustomApp):
         self.viewer_observable: ViewerDispatcher = None
         self.model_class: OptimisationModelGeneric = None
 
-        self._target_loader = target_loader_factory.get_target_loader(self.settings['loader'])
+        self._target_loader = TargetApp(dockarea)
+        self._target_field: Field = None
+
+        self._algorithm =
 
         self.setup_ui()
+
+    def update_target(self, field: Field):
+        self._target_field = field
 
     def setup_docks(self):
         """
@@ -87,13 +88,6 @@ class OpticalShaping(gutils.CustomApp):
         self.docks['settings'] = gutils.Dock('Settings')
         self.dockarea.addDock(self.docks['settings'])
         self.docks['settings'].addWidget(self.settings_tree)
-
-        # widget_fitness = QtWidgets.QWidget()
-        # self.viewer_fitness = Viewer0D(widget_fitness)
-        # self.docks['fitness'] = gutils.Dock('Fitness')
-        # self.dockarea.addDock(self.docks['fitness'], 'right', self.docks['settings'])
-        # self.docks['fitness'].addWidget(widget_fitness)
-
         widget_observable = QtWidgets.QWidget()
         widget_observable.setLayout(QtWidgets.QHBoxLayout())
         observable_dockarea = gutils.DockArea()
@@ -105,11 +99,6 @@ class OpticalShaping(gutils.CustomApp):
 
         if len(self.models) != 0:
             self.get_set_model_params(self.models[0]['name'])
-
-    def get_set_loader_params(self, loader_name: str):
-        self.settings.child('loader_settings').clearChildren()
-        loader_class = target_loader_factory.get_target_loader(loader_name)
-        self.settings.child('loader_settings').addChildren(loader_class.params)
 
     def get_set_model_params(self, model_name):
         self.settings.child('models', 'model_params').clearChildren()
@@ -173,6 +162,8 @@ class OpticalShaping(gutils.CustomApp):
         self.connect_action('ini_runner', self.ini_optimisation_runner)
         self.connect_action('run', self.run_optimisation)
         self.connect_action('pause', self.pause_runner)
+
+        self._target_loader.field_signal.connect(self.update_target)
 
     def pause_runner(self):
         self.command_runner.emit(utils.ThreadCommand('pause_PID', self.is_action_checked('pause')))
