@@ -1,7 +1,17 @@
-from abc import ABC, abstractproperty
+
+from abc import ABCMeta, abstractproperty
 
 import numpy as np
+from qtpy import QtWidgets
 from pymodaq.utils import math_utils as mutils
+from pymodaq.utils.managers.parameter_manager import ParameterManager, Parameter
+from pymodaq.utils.enums import BaseEnum
+from pymodaq.utils.logger import set_logger, get_module_name
+
+from pymodaq_plugins_optical_2D_shaping.target_loaders.field import Field, GaussianIntensityField
+
+
+logger = set_logger(get_module_name(__file__))
 
 
 class InputIntensity:
@@ -41,7 +51,19 @@ class InputIntensity:
         return data_int * np.sum(self.intensity) / np.sum(data_int)
 
 
-class AlgoBase(ABC):
+class AlgoParameterManager(ParameterManager):
+    settings_name = 'algo_settings'
+
+    def __init__(self):
+        super().__init__()
+        self.settings_tree.header().setVisible(True)
+        self.settings_tree.header().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeMode.Interactive)
+        self.settings_tree.header().setMinimumSectionSize(150)
+        self.settings_tree.setMinimumHeight(150)
+
+
+class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     """
     Here goes the abstract methods and shared properties/attributes of all algorithms used to
     calculate amplitude/phase shaping
@@ -50,4 +72,35 @@ class AlgoBase(ABC):
     ALGO_NAME = abstractproperty()
 
     def __init__(self):
-        pass
+        super().__init__()
+
+        self._target_field = Field()
+        self._object_field = GaussianIntensityField()
+        self._image_field = Field()
+
+        self._sse: float = 100
+
+    def set_object_field(self, field: Field):
+        self._object_field = field
+
+    def set_target_field(self, field: Field):
+        self._target_field = field
+
+    def set_target_intensity(self, intensity: np.ndarray):
+        self._target_field.amplitude = np.sqrt(intensity)
+
+    @property
+    def fitness(self) -> float:
+        return self._sse
+
+    @property
+    def sse(self) -> float:
+        return self._sse
+
+    def evolve(self):
+        """ Compute the image field given the input field and compute the fitness
+
+        To be subclassed in real implementation
+        """
+
+        raise NotImplementedError

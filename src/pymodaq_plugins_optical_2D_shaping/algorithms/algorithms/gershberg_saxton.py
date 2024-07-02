@@ -17,7 +17,7 @@ from pymodaq.utils.data import DataFromPlugins, DataToExport, DataRaw
 from pymodaq.utils import math_utils as mutils
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import InputIntensity, AlgoBase
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, GaussianIntensityField, Field
 
 logger = set_logger(get_module_name(__file__))
 
@@ -68,44 +68,12 @@ class GbSax(AlgoBase):
 
     ALGO_NAME = 'Gerchberg–Saxton'
 
-    def __init__(self, input_size=(11, 11)):
+    params = [
+
+    ]
+
+    def __init__(self):
         super().__init__()
-        self.object_shape = (768, 1024)
-        self.image_shape: Tuple[int, int] = None
-
-        self.target_intensity: np.ndarray = None
-
-        self._input_size = input_size  # in mm
-        self.input_intensity = InputIntensity(npixels=self.object_shape, size=self.input_size)
-
-        self.field_object: np.ndarray = None
-        self.field_image: np.ndarray = None
-        self.field_object_phase: np.ndarray = None
-        self._sse: float = 100
-
-    @property
-    def input_size(self):
-        return self._input_size
-
-    @input_size.setter
-    def input_size(self, input_size: Tuple[float, float]):
-        if len(input_size) == 2:
-            self._input_size = input_size
-            self.input_intensity = InputIntensity(npixels=self.object_shape, size=self._input_size)
-
-    def load_image(self, fname: Union[str, Path] = cheshire_cat_path):
-        fname = Path(fname)
-        if fname.is_file():
-            try:
-                img = imread(fname)
-                if len(img.shape) == 2:
-                    target_intensity = img
-                elif len(img.shape) == 3:
-                    target_intensity = rgb2gray(img[..., 0:3])
-
-                self.set_target(target_intensity)
-            except Exception as e:
-                logger.exception(str(e))
 
     def load_target_data(self, data: DataRaw):
         self.set_target(data[0])
@@ -170,8 +138,8 @@ class GbSax(AlgoBase):
         self.propagate_field()
         return self.field_image
 
-    def evolve(self, input: DataToExport) -> np.ndarray:
-        return self.evolve_field()
+    def evolve(self):
+        self.evolve_field()
 
     @property
     def sse(self):
@@ -183,65 +151,21 @@ class GbSax(AlgoBase):
 
 
 if __name__ == '__main__':
-    import sys
-    from qtpy import QtWidgets, QtCore, QtGui
-    from pymodaq.utils.config import Config
-    from pymodaq.utils.plotting.data_viewers.viewer2D import Viewer2D
-    from pymodaq.utils.gui_utils.widgets import PushButtonIcon, LabelWithFont
-    config = Config()
 
-    app = QtWidgets.QApplication(sys.argv)
-    if config('style', 'darkstyle'):
-        import qdarkstyle
-        app.setStyleSheet(qdarkstyle.load_stylesheet(qdarkstyle.DarkPalette))
+    from pymodaq.utils.gui_utils.utils import mkQApp
+    app = mkQApp('GbSax')
 
-    widget_main = QtWidgets.QWidget()
-    widget_main.setLayout(QtWidgets.QVBoxLayout())
-    widget_sett = QtWidgets.QWidget()
-    widget_sett.setLayout(QtWidgets.QHBoxLayout())
-    pb = QtWidgets.QPushButton('Evolve me 1 !')
-    run = QtWidgets.QPushButton('Evolve me 100!')
-    sse = LabelWithFont(f'SSE = {100}%', font_name="Tahoma", font_size=14, isbold=True, isitalic=True)
-    sse.setFont(QtGui.QFont())
-    widget_sett.layout().addWidget(pb)
-    widget_sett.layout().addWidget(run)
-    widget_sett.layout().addWidget(sse)
-    widget_main.layout().addWidget(widget_sett)
-    widget = QtWidgets.QWidget()
-    widget.setLayout(QtWidgets.QHBoxLayout())
+    target_intensity = imread(cheshire_cat_path)
+    if len(target_intensity.shape) == 3:
+        target_intensity = rgb2gray(target_intensity[..., 0:3])
 
-    widget_main.layout().addWidget(widget)
+    target = Field(amplitude=np.sqrt(target_intensity))
 
-    object_widget = QtWidgets.QWidget()
-    object_viewer = Viewer2D(object_widget)
+    algo = GbSax()
 
-    image_widget = QtWidgets.QWidget()
-    image_viewer = Viewer2D(image_widget)
+    algo.set_object_field(GaussianIntensityField())
+    algo.set_target_field()
 
-    widget.layout().addWidget(object_widget)
-    widget.layout().addWidget(image_widget)
 
-    widget_main.show()
-    gbsax = GbSax()
-    gbsax.load_image()
 
-    image_viewer.show_data(DataFromPlugins('GB', data=[gbsax.target_intensity, np.abs(gbsax.field_image)**2]))
-    object_viewer.show_data(DataFromPlugins('GB', data=[np.angle(gbsax.field_object)]))
-
-    def evolve_and_plot():
-        gbsax.propagate_field()
-        gbsax.evolve_field()
-        image_viewer.show_data(DataFromPlugins('GB', data=[gbsax.target_intensity, np.abs(gbsax.field_image)**2]))
-        object_viewer.show_data(DataFromPlugins('GB', data=[np.angle(gbsax.field_object), np.abs(gbsax.field_object)]))
-        sse.setText(f'SSE = {gbsax.sse}%')
-
-    def evolve_loop():
-        for _ in range(100):
-            evolve_and_plot()
-            QtWidgets.QApplication.processEvents()
-
-    pb.clicked.connect(evolve_and_plot)
-    run.clicked.connect(evolve_loop)
-
-    sys.exit(app.exec_())
 

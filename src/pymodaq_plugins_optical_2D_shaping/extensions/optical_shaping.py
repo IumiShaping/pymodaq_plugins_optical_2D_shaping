@@ -21,7 +21,7 @@ from pymodaq.utils.managers.modules_manager import ModulesManager
 from pymodaq.utils.config import Config
 
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
-from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
+from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
 
 from pymodaq_plugins_optical_2D_shaping.target_loaders.target_app import TargetApp, Field
 
@@ -38,10 +38,6 @@ class OpticalShaping(gutils.CustomApp):
     models = get_optimisation_models()
 
     params = [
-        {'title': 'Algorithm', 'name': 'algorithm', 'type': 'list',
-         'limits': algo_factory.algorithms, 'value': algo_factory.algorithms[0]},
-        {'title': 'Algo Settings', 'name': 'algo_settings', 'type': 'group', },
-
         {'title': 'Models', 'name': 'models', 'type': 'group', 'expanded': True, 'visible': True, 'children': [
             {'title': 'Models class:', 'name': 'model_class', 'type': 'list',
              'limits': [d['name'] for d in models]},
@@ -64,7 +60,7 @@ class OpticalShaping(gutils.CustomApp):
         self._target_loader = TargetApp(dockarea)
         self._target_field: Field = None
 
-        self._algorithm =
+        self._algorithm = AlgoApp(dockarea)
 
         self.setup_ui()
 
