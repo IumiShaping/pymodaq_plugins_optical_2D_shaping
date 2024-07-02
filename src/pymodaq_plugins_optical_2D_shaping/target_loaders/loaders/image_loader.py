@@ -9,9 +9,10 @@ from pymodaq.utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataFromPlugins, DataToExport, DataRaw
 from pymodaq.utils.parameter import Parameter
 from pymodaq.utils.gui_utils.file_io import select_file
+from pymodaq.utils.enums import enum_checker
 
 from pymodaq_plugins_optical_2D_shaping.target_loaders.utils import (TargetLoader, LoadTypeEnum,
-                                                                     enum_checker)
+                                                                     Field)
 from pymodaq_plugins_optical_2D_shaping.target_loaders.factory import TargetLoaderFactory
 
 resources_path = Path(__file__).parent.parent.joinpath('resources')
@@ -41,27 +42,22 @@ class ImageFileLoader(TargetLoader):
                 self.load_image_from_name(fname=Path(param.value()),
                                           load_type=LoadTypeEnum.AMPLITUDE)
                 logger.info(f'Amplitude Image loaded from {param.value()}')
-                self.update_viewers()
 
         elif param.name() == 'phase_target_file':
             if Path(param.value()).is_file():
                 self.load_image_from_name(fname=Path(param.value()),
                                           load_type=LoadTypeEnum.PHASE)
                 logger.info(f'Phase Image loaded from {param.value()}')
-                self.update_viewers()
-
-    def load(self, *args, load_type=LoadTypeEnum.AMPLITUDE, **kwargs):
-        self.load_image(load_type)
-
-        return self.field
 
     def load_image(self, load_type=LoadTypeEnum.AMPLITUDE):
         file_name = select_file(resources_path, save=False, filter="Images (*.png *.tiff *.jpg)")
         if file_name != '':
             self.load_image_from_name(file_name, load_type=load_type)
+            return self.field
 
     def load_image_from_name(self, fname: Union[str, Path] = cheshire_cat_path,
-                             load_type=LoadTypeEnum.AMPLITUDE):
+                             load_type=LoadTypeEnum.AMPLITUDE,
+                             notify=True):
 
         load_type = enum_checker(LoadTypeEnum, load_type)
 
@@ -78,9 +74,23 @@ class ImageFileLoader(TargetLoader):
                     self.field.amplitude = np.flipud(img_array)
                 else:
                     self.field.phase = np.flipud(img_array)
+                if notify:
+                    self.notify_listeners(self.field)
 
             except Exception as e:
                 logger.exception(str(e))
+
+    def load(self, *args, load_type: LoadTypeEnum = None, **kwargs) -> Field:
+        """ Mandatory reimplemented method. Used to load a target to populate the field attribute"""
+        if 'fname' in kwargs and load_type is not None:
+            self.load_image_from_name(kwargs['fname'], load_type=load_type)
+        else:
+            self.load_image_from_name(self.settings['amp_target_file'],
+                                      load_type=LoadTypeEnum.AMPLITUDE, notify=False)
+            self.load_image_from_name(self.settings['phase_target_file'],
+                                      load_type=LoadTypeEnum.PHASE)
+
+        return self.field
 
 
 if __name__ == '__main__':
