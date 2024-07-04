@@ -1,6 +1,6 @@
 import numpy as np
 from copy import copy
-
+from typing import Tuple, Iterable
 from numbers import Number
 
 from pymodaq.utils.logger import set_logger, get_module_name
@@ -9,6 +9,46 @@ from pymodaq.utils import math_utils as mutils
 
 
 logger = set_logger(get_module_name(__file__))
+
+
+try:
+    import pyfftw
+    pyfftw.interfaces.cache.enable()
+
+
+    def wrap_fft(*args, **kwargs):
+        fft2 = pyfftw.interfaces.numpy_fft.fft2(threads=8, *args, **kwargs)
+        return fft2
+
+
+    def wrap_ifft(*args, **kwargs):
+        ifft2 = pyfftw.interfaces.numpy_fft.ifft2(threads=8, *args, **kwargs)
+        return ifft2
+
+
+    def wrap_fftshift(*args, **kwargs):
+        fftshift = pyfftw.interfaces.numpy_fft.fftshift(*args, **kwargs)
+        return fftshift
+
+
+    def wrap_ifftshift(*args, **kwargs):
+        ifftshift = pyfftw.interfaces.numpy_fft.ifftshift(*args, **kwargs)
+        return ifftshift
+
+
+    fft2 = wrap_fft
+    ifft2 = wrap_ifft
+
+    fftshift = wrap_fftshift
+    ifftshift = wrap_ifftshift
+
+except ImportError:
+    fft2 = np.fft.fft2
+    ifft2 = np.fft.ifft2
+    fftshift = np.fft.fftshift
+    ifftshift = np.fft.ifftshift
+    print("Warning: using numpy FFT implementation.  "
+          "Consider using pyFFTW for faster Fourier transforms.")
 
 
 class Field:
@@ -30,6 +70,14 @@ class Field:
             field.amplitude = field.amplitude * other
             return field
 
+    @staticmethod
+    def init_from_field(field: 'Field') -> 'Field':
+        """ Create a field object with flat amplitude and zero phase but with the same shape as
+        the field parameter"""
+        field_new = Field()
+        field_new.amplitude = np.ones_like(field.amplitude)
+        return field_new
+
     @property
     def shape(self):
         if self.amplitude is not None:
@@ -39,6 +87,39 @@ class Field:
         else:
             raise AttributeError('No amplitude nor phase array has been defined')
 
+    def pad(self, pad_width: Tuple[Tuple[int, int], Tuple[int, int]], **kwargs) -> 'Field':
+        """ Get a Field object similar to self but padded
+
+        see numpy.pad method for the signature and possible named arguments
+        """
+        return Field(amplitude=np.pad(self.amplitude, pad_width, **kwargs),
+                     phase=np.pad(self.phase, pad_width, **kwargs))
+
+    def unpad(self, pad_width: Tuple[Tuple[int, int], Tuple[int, int]],
+              ini_shape: Tuple[int, int]) -> 'Field':
+        """ Get a Field object from a padded Field object
+
+        see numpy.pad method for the signature
+        """
+        return Field(self.amplitude[pad_width[0][0] + 1:pad_width[0][0] + 1 + ini_shape[0],
+                     pad_width[1][0] + 1:pad_width[1][0] + 1 + ini_shape[1]],
+                     self.phase[pad_width[0][0] + 1:pad_width[0][0] + 1 + ini_shape[0],
+                     pad_width[1][0] + 1:pad_width[1][0] + 1 + ini_shape[1]])
+
+    def fft2(self):
+        field_array = fftshift(fft2(fftshift(self.field))) / \
+                      np.sqrt(np.prod(self.shape))
+        field = Field()
+        field.field = field_array
+        return field
+
+    def ifft2(self):
+        field_array = fftshift(ifft2(fftshift(self.field))) / \
+                      np.sqrt(np.prod(self.shape))
+        field = Field()
+        field.field = field_array
+        return field
+
     @property
     def field(self) -> np.ndarray:
         """ Get set the field as a complex 2D array"""
@@ -47,7 +128,7 @@ class Field:
     @field.setter
     def field(self, field_array: np.ndarray):
         self._amplitude = np.abs(field_array)
-        self._phase = np.angle(self.field)
+        self._phase = np.angle(field_array)
 
     @property
     def amplitude(self) -> np.ndarray:
