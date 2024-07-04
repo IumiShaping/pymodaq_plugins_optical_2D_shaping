@@ -1,5 +1,6 @@
 
 from abc import ABCMeta, abstractproperty
+from typing import Tuple
 
 import numpy as np
 from qtpy import QtWidgets
@@ -7,6 +8,7 @@ from pymodaq.utils import math_utils as mutils
 from pymodaq.utils.managers.parameter_manager import ParameterManager, Parameter
 from pymodaq.utils.enums import BaseEnum
 from pymodaq.utils.logger import set_logger, get_module_name
+from pymodaq.utils.data import DataRaw
 
 from pymodaq_plugins_optical_2D_shaping.target_loaders.field import Field, GaussianIntensityField
 
@@ -75,32 +77,54 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         super().__init__()
 
         self._target_field = Field()
-        self._object_field = GaussianIntensityField()
+        self._input_field = GaussianIntensityField()
+        self._object_field = Field(amplitude=self._input_field.amplitude,
+                                   phase=np.random.random(self._input_field.shape))
         self._image_field = Field()
 
-        self._sse: float = 100
+    @property
+    def image_field(self) -> Field:
+        return self._image_field
+
+    @property
+    def object_field(self) -> Field:
+        return self._object_field
+
+    def set_input_field(self, field: Field):
+        self._input_field = field
 
     def set_object_field(self, field: Field):
         self._object_field = field
 
     def set_target_field(self, field: Field):
         self._target_field = field
+        self._image_field = Field.init_from_field(self._target_field)
 
     def set_target_intensity(self, intensity: np.ndarray):
         self._target_field.amplitude = np.sqrt(intensity)
 
     @property
     def fitness(self) -> float:
-        return self._sse
+        """ Compute fitness with respect to the image_field and target_field
 
-    @property
-    def sse(self) -> float:
-        return self._sse
+        To be subclassed"""
+        raise NotImplementedError
 
-    def evolve(self):
-        """ Compute the image field given the input field and compute the fitness
+    def fitness_as_dwa(self):
+        return DataRaw('fitness', data=[np.array([self.fitness])])
+
+    def compute_phase(self):
+        """ Compute the phase to apply to SLM given the target object
 
         To be subclassed in real implementation
         """
 
         raise NotImplementedError
+
+    def get_npad_between_image_object(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+        """ Get the padding necessary to match object shape and image shape"""
+        npad_before = (np.abs(np.array(self._object_field.shape) -
+                              np.array(self._image_field.shape)) // 2).astype(int)
+        npad_after = (npad_before + np.abs(np.array(self._object_field.shape)
+                                           - np.array(self._image_field.shape)) % 2).astype(int)
+        return (npad_before[0], npad_after[0]), (npad_before[1], npad_after[1])
