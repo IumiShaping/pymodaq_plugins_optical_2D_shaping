@@ -8,12 +8,12 @@ from pymodaq.utils.parameter import utils as putils
 from pymodaq.utils.parameter.utils import iter_children
 from pymodaq.utils.enums import BaseEnum, enum_checker
 from pymodaq.utils.logger import set_logger, get_module_name
-from pymodaq.utils.plotting.data_viewers.viewer2D import Viewer2D
-from pymodaq.utils.plotting.data_viewers.viewer0D import Viewer0D
-from pymodaq.utils.data import DataRaw
+from pymodaq.utils.plotting.data_viewers import ViewerDispatcher, Viewer0D, Viewer2D
+from pymodaq.utils.data import DataRaw, DataToExport
 from pymodaq.utils.gui_utils.custom_app import CustomApp
 from pymodaq.utils.gui_utils.dock import DockArea, Dock
-
+from pymodaq.utils.gui_utils import QLED
+from pymodaq.utils.daq_utils import ThreadCommand
 
 from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
 from pymodaq_plugins_optical_2D_shaping.target_loaders.field import Field
@@ -23,8 +23,10 @@ class AlgoApp(CustomApp):
     params = [
         {'title': 'Algorithm', 'name': 'algorithm', 'type': 'list',
          'limits': algo_factory.algorithms, 'value': algo_factory.algorithms[0]},
-
     ]
+
+    command_runner = QtCore.Signal(ThreadCommand)
+    object_field_signal = QtCore.Signal(Field)
 
     def __init__(self, dockarea):
         super().__init__(dockarea)
@@ -34,12 +36,12 @@ class AlgoApp(CustomApp):
 
         self.setup_ui()
 
-        self.set_algorithm(algo_factory.algorithms[0])
-
-    def set_field(self, field: Field):
+    def set_target_field(self, field: Field):
         self._target_field = field
 
-    def set_algorithm(self, algo_name: str):
+    def set_algorithm(self, algo_name: str = None):
+        if algo_name is None:
+            algo_name = self.settings['algorithm']
         try:
             self._algorithm: AlgoApp = \
                 algo_factory.get_algorithm(algo_name)()
@@ -52,6 +54,8 @@ class AlgoApp(CustomApp):
                 QtWidgets.QApplication.processEvents()
 
             self._algo_settings_widget.layout().addWidget(self._algorithm.settings_tree)
+
+            self._algorithm.set_target_field(self._target_field)
 
         except ValueError as e:
             pass
@@ -76,14 +80,10 @@ class AlgoApp(CustomApp):
         self.fitness_viewer = Viewer0D(fitness_widget)
         self.docks['fitness'].addWidget(fitness_widget)
 
-        amp_widget = QtWidgets.QWidget()
-        self.amp_viewer = Viewer2D(amp_widget)
+        object_area = DockArea()
+        self.object_viewers = ViewerDispatcher(object_area)
 
-        phase_widget = QtWidgets.QWidget()
-        self.phase_viewer = Viewer2D(phase_widget)
-
-        self.docks['object_field'].addWidget(amp_widget)
-        self.docks['object_field'].addWidget(phase_widget, row=0, col=1)
+        self.docks['object_field'].addWidget(object_area)
 
         self.settings_widget = QtWidgets.QWidget()
         self.settings_widget.setLayout(QtWidgets.QVBoxLayout())
@@ -103,16 +103,114 @@ class AlgoApp(CustomApp):
         self.docks['algo_settings'].addWidget(self.settings_widget)
 
     def setup_actions(self):
-        ...
+        self.add_action('ini_algo', 'Init Algo', 'ini', checkable=True)
+        self.add_widget('algo_led', QLED, toolbar=self.toolbar)
+        self.add_action('snap', 'Snap', 'snap', "Take a snapshot from the detector")
+        self.add_action('grab', 'Grab', 'run2', "Grab data from the detector", checkable=True)
+        self.add_action('stop', 'Stop', 'stop', "Stop grabing")
 
     def connect_things(self):
-        ...
+        self.connect_action('snap', self.compute_phase)
+        self.connect_action('grab', self.compute_phase_loop)
+        self.connect_action('ini_algo', self.ini_algo)
+        self.connect_action('stop', self.stop)
 
+    def stop(self):
+        self.command_runner.emit(ThreadCommand('stop'))
+        self.set_action_checked('grab', False)
+
+    def compute_phase_loop(self):
+        if self.is_action_checked('grab'):
+            self.command_runner.emit(ThreadCommand('grab'))
+        else:
+            self.command_runner.emit(ThreadCommand('stop'))
+
+    def compute_phase(self):
+        self.command_runner.emit(ThreadCommand('snap'))
+
+    def value_changed(self, param: Parameter):
+        if param.name() == 'algorithm':
+            self.set_algorithm()
+
+    def process_output(self, dte: DataToExport):
+        fitness = dte.remove(dte.get_data_from_name('fitness'))
+        self.object_viewers.show_data(dte)
+        self.fitness_viewer.show_data(fitness)
+
+    def ini_algo(self):
+        if self.is_action_checked('ini_algo'):
+            self.get_action('algo_led').set_as_true()
+            #self.set_action_enabled('ini_algo', False)
+            self.set_algorithm()
+
+            self.runner_thread = QtCore.QThread()
+            runner = AlgoRunner(self._algorithm)
+
+            self.runner_thread.runner = runner
+            runner.algo_output_signal.connect(self.process_output)
+            self.command_runner.connect(runner.queue_command)
+
+            runner.moveToThread(self.runner_thread)
+
+            self.runner_thread.start()
+
+        else:
+            if self.runner_thread is not None:
+                self.command_runner.disconnect()
+                if self.runner_thread.isRunning():
+                    self.runner_thread.terminate()
+                    while not self.runner_thread.isFinished():
+                        QtCore.QThread.msleep(100)
+                    self.runner_thread = None
+
+
+class AlgoRunner(QtCore.QObject):
+    algo_output_signal = QtCore.Signal(DataToExport)
+
+    def __init__(self, algo: AlgoBase):
+        super().__init__()
+
+        self.algo: AlgoBase = algo
+        self.running = False
+
+    def queue_command(self, command: ThreadCommand):
+        """
+        """
+        if command.command == "grab":
+            self.run_algo()
+
+        elif command.command == "snap":
+            self.snap_algo()
+
+        elif command.command == "stop":
+            self.running = False
+
+    def snap_algo(self):
+        self.algo.compute_phase()
+        self.algo_output_signal.emit(DataToExport('AlgoData', data=[
+            self.algo.image_field.amplitude_as_dwa(),
+            self.algo.image_field.phase_as_dwa(),
+            self.algo.fitness_as_dwa(),
+        ]))
+
+    def run_algo(self):
+        self.running = True
+        while self.running:
+            self.snap_algo()
+            QtWidgets.QApplication.processEvents()
 
 def main():
     from pathlib import Path
     from pymodaq.utils.daq_utils import get_set_preset_path
+
+    from skimage.io import imread
+    from skimage.color import rgb2gray
+    from skimage.transform import rescale, resize
+
     from pymodaq.utils.gui_utils.utils import mkQApp
+
+    cheshire_cat_path = Path(__file__).parent.parent.joinpath(
+        'resources/cheshirecat_rect.png')
 
     app = mkQApp('Optical Shaping')
 
@@ -123,7 +221,18 @@ def main():
     win.setWindowTitle('PyMoDAQ Dashboard')
     win.show()
 
+    target_intensity = imread(cheshire_cat_path)
+    if len(target_intensity.shape) == 3:
+        target_intensity = rgb2gray(target_intensity[..., 0:3])
+
+    ratio = np.max(np.array((768, 1024)) / np.array(target_intensity.shape))
+    target_intensity = rescale(target_intensity, 1.1 * ratio)
+
     optical_app = AlgoApp(area)
+    target = Field(amplitude=np.sqrt(np.flipud(target_intensity)))
+
+    optical_app.set_target_field(target)
+
 
     app.exec()
 
