@@ -80,6 +80,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self._input_field = GaussianIntensityField()
         self._object_field = Field(amplitude=self._input_field.amplitude,
                                    phase=np.random.random(self._input_field.shape))
+        self._object_field.calibrate_axes(self._input_field.pixels_sizes)
         self._image_field = Field()
 
     @property

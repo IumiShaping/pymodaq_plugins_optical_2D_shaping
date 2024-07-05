@@ -68,12 +68,14 @@ class AlgoApp(CustomApp):
         self.docks['algo'].addWidget(self.algo_area)
 
         self.docks['algo_settings'] = Dock('Algorithm Settings')
-        self.docks['object_field'] = Dock('Object')
+        self.docks['image_field'] = Dock('Image Plane')
+        self.docks['object_field'] = Dock('Object Plane')
         self.docks['fitness'] = Dock('Fitness')
 
         self.algo_area.addDock(self.docks['algo_settings'])
         self.algo_area.addDock(self.docks['fitness'], 'right', self.docks['algo_settings'])
-        self.algo_area.addDock(self.docks['object_field'], 'bottom', self.docks['fitness'])
+        self.algo_area.addDock(self.docks['image_field'], 'bottom', self.docks['fitness'])
+        self.algo_area.addDock(self.docks['object_field'], 'bottom', self.docks['image_field'])
 
 
         fitness_widget = QtWidgets.QWidget()
@@ -82,8 +84,11 @@ class AlgoApp(CustomApp):
 
         object_area = DockArea()
         self.object_viewers = ViewerDispatcher(object_area)
-
         self.docks['object_field'].addWidget(object_area)
+
+        image_area = DockArea()
+        self.image_viewers = ViewerDispatcher(image_area)
+        self.docks['image_field'].addWidget(image_area)
 
         self.settings_widget = QtWidgets.QWidget()
         self.settings_widget.setLayout(QtWidgets.QVBoxLayout())
@@ -134,7 +139,10 @@ class AlgoApp(CustomApp):
 
     def process_output(self, dte: DataToExport):
         fitness = dte.remove(dte.get_data_from_name('fitness'))
-        self.object_viewers.show_data(dte)
+        dte_image = dte.get_data_from_full_names(['image/amplitude', 'image/phase'])
+        dte_object = dte.get_data_from_full_names(['object/amplitude', 'object/phase'])
+        self.object_viewers.show_data(dte_object)
+        self.image_viewers.show_data(dte_image)
         self.fitness_viewer.show_data(fitness)
 
     def ini_algo(self):
@@ -188,9 +196,12 @@ class AlgoRunner(QtCore.QObject):
     def snap_algo(self):
         self.algo.compute_phase()
         self.algo_output_signal.emit(DataToExport('AlgoData', data=[
-            self.algo.image_field.amplitude_as_dwa(),
-            self.algo.image_field.phase_as_dwa(),
+            self.algo.image_field.amplitude_as_dwa('image'),
+            self.algo.image_field.phase_as_dwa('image'),
             self.algo.fitness_as_dwa(),
+            self.algo.object_field.amplitude_as_dwa('object'),
+            self.algo.object_field.phase_as_dwa('object'),
+
         ]))
 
     def run_algo(self):
