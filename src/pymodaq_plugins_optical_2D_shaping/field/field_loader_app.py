@@ -7,16 +7,16 @@ from pymodaq.utils.plotting.data_viewers.viewer2D import Viewer2D
 from pymodaq.utils.gui_utils.custom_app import CustomApp
 from pymodaq.utils.gui_utils.dock import DockArea, Dock
 
-from pymodaq_plugins_optical_2D_shaping.target_loaders import target_loader_factory, TargetLoader
-from pymodaq_plugins_optical_2D_shaping.target_loaders.field import Field
+from pymodaq_plugins_optical_2D_shaping.field import Field, field_loader_factory
+from pymodaq_plugins_optical_2D_shaping.field.factory import LoaderFactory, FieldLoader
 
 
-class TargetApp(CustomApp):
+class FieldLoaderApp(CustomApp):
 
     params = [
         {'title': 'Target Loader', 'name': 'loader', 'type': 'list',
-         'limits': target_loader_factory.target_loaders,
-         'value': target_loader_factory.target_loaders[0]},
+         'limits': field_loader_factory.field_loaders,
+         'value': field_loader_factory.field_loaders[0]},
 
         {'title': 'Target utils', 'name': 'utils', 'type': 'group', 'children': [
             {'title': 'Reload:', 'name': 'reload', 'type': 'bool_push', 'label': 'Reload!',
@@ -40,13 +40,13 @@ class TargetApp(CustomApp):
         self.amp_viewer: Viewer2D = None
         self.phase_viewer: Viewer2D = None
 
-        self._target_loader: TargetLoader = None
+        self._target_loader: FieldLoader = None
 
         self.field = Field()
 
         self.setup_ui()
 
-        self.set_loader(target_loader_factory.target_loaders[0])
+        self.set_loader(field_loader_factory.field_loaders[0])
 
     def value_changed(self, param: Parameter):
         if param.name() == 'loader':
@@ -62,7 +62,7 @@ class TargetApp(CustomApp):
             self._target_loader.load_target()
 
     def update_field(self, field: Field):
-        """ Method used for notification when its parent object is registered within a TargetLoader
+        """ Method used for notification when its parent object is registered within a FieldLoader
         """
         self.field = field
         self.update_viewers()
@@ -86,8 +86,8 @@ class TargetApp(CustomApp):
 
     def set_loader(self, loader_name: str):
         try:
-            self._target_loader: TargetLoader =\
-                target_loader_factory.get_target_loader(loader_name)()
+            self._target_loader: FieldLoader =\
+                field_loader_factory.get_loader(loader_name)()
 
             while True:
                 child = self._target_settings_widget.layout().takeAt(0)
@@ -161,7 +161,7 @@ def main():
     win.setWindowTitle('PyMoDAQ Dashboard')
     win.show()
 
-    optical_app = TargetApp(area)
+    optical_app = FieldLoaderApp(area)
 
     app.exec()
 

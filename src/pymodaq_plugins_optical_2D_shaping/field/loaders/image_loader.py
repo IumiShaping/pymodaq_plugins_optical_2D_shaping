@@ -11,9 +11,9 @@ from pymodaq.utils.parameter import Parameter
 from pymodaq.utils.gui_utils.file_io import select_file
 from pymodaq.utils.enums import enum_checker
 
-from pymodaq_plugins_optical_2D_shaping.target_loaders.utils import (TargetLoader, LoadTypeEnum,
-                                                                     Field)
-from pymodaq_plugins_optical_2D_shaping.target_loaders.factory import TargetLoaderFactory
+from pymodaq_plugins_optical_2D_shaping.field.utils import (FieldLoader, LoadTypeEnum,
+                                                            Field)
+from pymodaq_plugins_optical_2D_shaping.field.factory import LoaderFactory
 
 resources_path = Path(__file__).parent.parent.joinpath('resources')
 cheshire_cat_path = resources_path.joinpath('cheshirecat_rect.png')
@@ -22,12 +22,12 @@ cheshire_cat_path = resources_path.joinpath('cheshirecat_rect.png')
 logger = set_logger(get_module_name(__file__))
 
 
-@TargetLoaderFactory.register_target_loader()
-class ImageFileLoader(TargetLoader):
+@LoaderFactory.register_loader()
+class ImageFileLoader(FieldLoader):
 
     LOADER_NAME = 'ImageFileLoader'
 
-    params = TargetLoader.params + \
+    params = FieldLoader.params + \
         [{'title': 'Amplitude File path:', 'name': 'amp_target_file',
           'type': 'browsepath', 'value': '', 'filetype': True},
          {'title': 'Phase File path:', 'name': 'phase_target_file', 'type': 'browsepath',
@@ -92,14 +92,4 @@ class ImageFileLoader(TargetLoader):
 
         return self.field
 
-
-if __name__ == '__main__':
-    from pymodaq.utils.gui_utils.utils import mkQApp
-
-    app = mkQApp('ImageLoader')
-    loader = ImageFileLoader()
-    loader.settings_tree.show()
-    loader.target_widget.show()
-
-    app.exec()
 

@@ -7,7 +7,7 @@ from pymodaq.utils.managers.parameter_manager import ParameterManager, Parameter
 from pymodaq.utils.enums import BaseEnum
 from pymodaq.utils.logger import set_logger, get_module_name
 from pymodaq.utils.plotting.data_viewers.viewer2D import Viewer2D
-from pymodaq_plugins_optical_2D_shaping.target_loaders.field import Field
+from pymodaq_plugins_optical_2D_shaping.field import Field
 
 logger = set_logger(get_module_name(__file__))
 
@@ -18,8 +18,8 @@ class LoadTypeEnum(BaseEnum):
     PHASE = 'phase'
 
 
-class TargetParameterManager(ParameterManager):
-    settings_name = 'target_settings'
+class FieldLoaderParameterManager(ParameterManager):
+    settings_name = 'loader_settings'
 
     def __init__(self):
         super().__init__()
@@ -30,7 +30,7 @@ class TargetParameterManager(ParameterManager):
         self.settings_tree.setMinimumHeight(150)
 
 
-class TargetLoader(TargetParameterManager, metaclass=ABCMeta):
+class FieldLoader(FieldLoaderParameterManager, metaclass=ABCMeta):
     LOADER_NAME = abstractproperty()
 
     params = [

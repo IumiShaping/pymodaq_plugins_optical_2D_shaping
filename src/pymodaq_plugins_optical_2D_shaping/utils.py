@@ -106,7 +106,7 @@ class OptimisationModelGeneric(ABC):
         self.modules_manager.selected_detectors_name = self.detectors_name
 
         self._algorithm = algo_factory.get_algorithm(self.settings['algorithm'])()
-        self._target_loader = target_loader_factory.get_target_loader(self.settings['loader'])()
+        self._target_loader = target_loader_factory.get_loader(self.settings['loader'])()
 
     def convert_input(self, measurements: DataToExport) -> DataToExport:
         """

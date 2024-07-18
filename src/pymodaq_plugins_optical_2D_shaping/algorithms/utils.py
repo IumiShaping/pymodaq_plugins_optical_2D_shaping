@@ -10,7 +10,7 @@ from pymodaq.utils.enums import BaseEnum
 from pymodaq.utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataRaw
 
-from pymodaq_plugins_optical_2D_shaping.target_loaders.field import Field, GaussianIntensityField
+from pymodaq_plugins_optical_2D_shaping.field import Field, GaussianIntensityField
 
 
 logger = set_logger(get_module_name(__file__))
