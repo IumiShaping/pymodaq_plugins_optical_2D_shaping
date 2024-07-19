@@ -33,14 +33,14 @@ class FieldLoaderApp(CustomApp):
     def __init__(self, dockarea):
         super().__init__(dockarea)
         self._main_widget: QtWidgets.QWidget = None
-        self.target_widget: QtWidgets.QWidget = None
+        self.field_widget: QtWidgets.QWidget = None
         self.settings_widget: QtWidgets.QWidget = None
-        self._target_settings_widget: QtWidgets.QWidget = None
+        self._loader_settings_widget: QtWidgets.QWidget = None
 
         self.amp_viewer: Viewer2D = None
         self.phase_viewer: Viewer2D = None
 
-        self._target_loader: FieldLoader = None
+        self._field_loader: FieldLoader = None
 
         self.field = Field()
 
@@ -56,10 +56,10 @@ class FieldLoaderApp(CustomApp):
             self.transform_image(param.name())
 
         elif param.name() == 'show_target':
-            self.target_widget.setVisible(param.value())
+            self.field_widget.setVisible(param.value())
 
         elif param.name() == 'reload':
-            self._target_loader.load_target()
+            self._field_loader.load_target()
 
     def update_field(self, field: Field):
         """ Method used for notification when its parent object is registered within a FieldLoader
@@ -86,18 +86,18 @@ class FieldLoaderApp(CustomApp):
 
     def set_loader(self, loader_name: str):
         try:
-            self._target_loader: FieldLoader =\
+            self._field_loader: FieldLoader =\
                 field_loader_factory.get_loader(loader_name)()
 
             while True:
-                child = self._target_settings_widget.layout().takeAt(0)
+                child = self._loader_settings_widget.layout().takeAt(0)
                 if not child:
                     break
                 child.widget().deleteLater()
                 QtWidgets.QApplication.processEvents()
 
-            self._target_settings_widget.layout().addWidget(self._target_loader.settings_tree)
-            self._target_loader.register_listener(self)
+            self._loader_settings_widget.layout().addWidget(self._field_loader.settings_tree)
+            self._field_loader.register_listener(self)
 
         except ValueError as e:
             pass
@@ -107,8 +107,10 @@ class FieldLoaderApp(CustomApp):
         self._main_widget = QtWidgets.QWidget()
         self._main_widget.setLayout(QtWidgets.QHBoxLayout())
 
-        self.target_widget = QtWidgets.QWidget()
-        self.target_widget.setLayout(QtWidgets.QHBoxLayout())
+        self.field_widget = QtWidgets.QWidget()
+        self.field_widget.setLayout(QtWidgets.QHBoxLayout())
+        field_widget_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        self.field_widget.layout().addWidget(field_widget_splitter)
 
         amp_widget = QtWidgets.QWidget()
         self.amp_viewer = Viewer2D(amp_widget)
@@ -116,27 +118,27 @@ class FieldLoaderApp(CustomApp):
         phase_widget = QtWidgets.QWidget()
         self.phase_viewer = Viewer2D(phase_widget)
 
-        self.target_widget.layout().addWidget(amp_widget)
-        self.target_widget.layout().addWidget(phase_widget)
+        field_widget_splitter.addWidget(amp_widget)
+        field_widget_splitter.addWidget(phase_widget)
 
         self.dockarea.addDock(self.docks['target'])
 
         self.settings_widget = QtWidgets.QWidget()
         self.settings_widget.setLayout(QtWidgets.QVBoxLayout())
         self.settings_widget.layout().setContentsMargins(0, 0, 0, 0)
-        splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
         self.settings_widget.layout().addWidget(splitter)
         splitter.addWidget(self.settings_tree)
 
-        self._target_settings_widget = QtWidgets.QWidget()
-        self._target_settings_widget.setLayout(QtWidgets.QVBoxLayout())
-        self._target_settings_widget.layout().setContentsMargins(0, 0, 0, 0)
-        splitter.addWidget(self._target_settings_widget)
+        self._loader_settings_widget = QtWidgets.QWidget()
+        self._loader_settings_widget.setLayout(QtWidgets.QVBoxLayout())
+        self._loader_settings_widget.layout().setContentsMargins(0, 0, 0, 0)
+        splitter.addWidget(self._loader_settings_widget)
 
         self._main_widget.layout().addWidget(self.settings_widget)
         self.settings_tree.setMinimumWidth(300)
         self.settings_tree.setMinimumHeight(150)
-        self._main_widget.layout().addWidget(self.target_widget)
+        self._main_widget.layout().addWidget(self.field_widget)
         self.docks['target'].addWidget(self._main_widget)
 
     def setup_actions(self):

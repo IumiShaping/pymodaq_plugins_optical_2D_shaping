@@ -1,9 +1,11 @@
 import numpy as np
 from typing import Tuple, Iterable, Union
 from numbers import Number
+from collections.abc import Iterable
 
 from pymodaq.utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataRaw, Axis
+from pymodaq import Q_
 
 logger = set_logger(get_module_name(__file__))
 
@@ -50,9 +52,9 @@ except ImportError:
 
 class Field(DataRaw):
     def __init__(self, name='', amplitude: np.ndarray = None, phase: np.ndarray = None,
-                 pixel_sizes=(1., 1.)):
+                 pixel_sizes=Q_((10., 10.), 'micron')):
 
-        self._pixels_sizes: Tuple[float, float] = None
+        self._pixels_sizes: Tuple[Q_, Q_] = None
 
         super().__init__(name=name, data=[np.array([[1, 1], [1, 1]])],)
 
@@ -64,15 +66,15 @@ class Field(DataRaw):
         self.calibrate_axes(pixel_sizes)
         self.axes = self.get_axes()
 
-    def calibrate_axes(self, pixel_sizes: Union[float, Iterable[float]]):
+    def calibrate_axes(self, pixel_sizes: Union[Q_, Iterable[Q_]]):
         """ Specify the size of the underlying 2D array pixels on which the field object is defined
 
         Parameters
         ----------
-        pixel_sizes: Tuple[float, float) or float
+        pixel_sizes: Tuple[Quantities, Quantities)
             The pixel sizes corresponding to the array shape in meter
         """
-        if isinstance(pixel_sizes, Number):
+        if not isinstance(pixel_sizes, Iterable):
             pixel_sizes = (pixel_sizes, pixel_sizes)
         self._pixels_sizes = pixel_sizes
 
@@ -81,8 +83,10 @@ class Field(DataRaw):
         return self._pixels_sizes
 
     def get_axes(self):
-        return [Axis('Hor Axis', 'm', scaling=self._pixels_sizes[0], offset=0, index=1),
-                Axis('Ver Axis', 'm', scaling=self._pixels_sizes[0], offset=0, index=0),]
+        return [Axis('Hor Axis', 'm', scaling=self._pixels_sizes[0].m_as('m'), offset=0, index=1,
+                     size=self.shape[1]),
+                Axis('Ver Axis', 'm', scaling=self._pixels_sizes[0].m_as('m'), offset=0, index=0,
+                     size=self.shape[0]),]
 
     @staticmethod
     def init_from_field(field: 'Field') -> 'Field':
