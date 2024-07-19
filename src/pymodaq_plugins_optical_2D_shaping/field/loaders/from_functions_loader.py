@@ -6,39 +6,7 @@ import numpy as np
 from pymodaq_plugins_optical_2D_shaping.field import Field, LoaderFactory, FieldLoader
 from pyqtgraph.parametertree import Parameter
 from pymodaq.utils import math_utils as mutils
-
-
-class GaussianIntensityField(Field):
-
-    def __init__(self,
-                 name='',
-                 npixels: Tuple[int, int] = (768, 1024),
-                 size_pixel: Union[float, Tuple[float, float]] = 0.036,
-                 size_beam: Union[float, Tuple[float, float]] = (11., 11.)):
-        """
-
-        Parameters
-        ----------
-        npixels: Tuple[int, int]
-            Number of pixels defining the field object
-        size_pixel: Size of the underlying pixels in mm
-        size_beam: Size of the underlying laser beam in mm
-        """
-
-        size_hor = size_beam[1]  # x-axis intensity beam size in mm (FWHM)
-        size_ver = size_beam[0]  # y-axis intensity beam size in mm (FWHM)
-
-        if isinstance(size_pixel, Number):
-            size_pixel = (size_pixel, size_pixel)
-
-        self.calibrate_axes(np.array(size_pixel) * 1e-3)  # calibration of the axes in meter
-
-        x = np.arange(0, npixels[1], 1)
-        y = np.arange(0, npixels[0], 1)
-
-        amplitude = np.sqrt(mutils.gauss2D(x, npixels[1] / 2, size_hor / size_pixel[1],
-                                           y, npixels[0] / 2, size_ver / size_pixel[0]))
-        super().__init__(name, amplitude=amplitude)
+from pymodaq import Q_
 
 
 @LoaderFactory.register_loader()
@@ -61,12 +29,23 @@ class GaussianIntensity(FieldLoader):
         self.notify_listeners(field)
 
     def compute_field(self):
-        return GaussianIntensityField(
-            'GaussianField',
-            (self.settings['ny_pixels'], self.settings['nx_pixels']),
-            (self.settings['pixel_size_y'], self.settings['pixel_size_x']),
-            (self.settings['beam_size_y'], self.settings['beam_size_x']),
-        )
+
+        x = Q_(np.arange(0, self.settings['nx_pixels'], 1) * self.settings['pixel_size_x'],
+               'micron')
+        y = Q_(np.arange(0, self.settings['ny_pixels'], 1) * self.settings['pixel_size_y'],
+               'micron')
+
+        amplitude = np.sqrt(mutils.gauss2D(
+            x.m_as('mm'), np.mean(x.m_as('mm')),
+            Q_(self.settings['beam_size_x'], 'mm').m_as('mm'),
+            y.m_as('mm'), np.mean(y.m_as('mm')),
+            Q_(self.settings['beam_size_y'], 'mm').m_as('mm')))
+
+        field = Field('GaussianIntensity', amplitude=amplitude,
+                      pixel_sizes=Q_(np.array((self.settings['pixel_size_y'],
+                                               self.settings['pixel_size_x'])),
+                                     'um'))
+        return field
 
     def load(self, *args, **kwargs) -> Field:
         """ Mandatory reimplemented method. Used to load a target to populate the field attribute"""
