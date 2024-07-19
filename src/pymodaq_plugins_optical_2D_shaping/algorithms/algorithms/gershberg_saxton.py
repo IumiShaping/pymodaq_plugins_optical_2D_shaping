@@ -14,7 +14,7 @@ from pymodaq.utils.data import DataFromPlugins, DataToExport, DataRaw
 from pymodaq.utils import math_utils as mutils
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, GaussianIntensityField, Field
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field
 
 logger = set_logger(get_module_name(__file__))
 

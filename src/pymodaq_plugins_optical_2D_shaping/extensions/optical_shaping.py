@@ -23,7 +23,7 @@ from pymodaq.utils.config import Config
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
 
-from pymodaq_plugins_optical_2D_shaping.target_loaders.target_app import TargetApp, Field
+from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, Field
 
 logger = set_logger(get_module_name(__file__))
 
@@ -38,16 +38,6 @@ class OpticalShaping(gutils.CustomApp):
     models = get_optimisation_models()
 
     params = [
-        {'title': 'Models', 'name': 'models', 'type': 'group', 'expanded': True, 'visible': True, 'children': [
-            {'title': 'Models class:', 'name': 'model_class', 'type': 'list',
-             'limits': [d['name'] for d in models]},
-            {'title': 'Model params:', 'name': 'model_params', 'type': 'group', 'children': []},
-        ]},
-        {'title': 'Move settings:', 'name': 'move_settings', 'expanded': True, 'type': 'group', 'visible': False,
-         'children': [
-             {'title': 'Units:', 'name': 'units', 'type': 'str', 'value': ''}]},
-        # here only to be compatible with DAQ_Scan, the model could update it
-
     ]
 
     def __init__(self, dockarea, dashboard):
@@ -57,15 +47,23 @@ class OpticalShaping(gutils.CustomApp):
         self.viewer_observable: ViewerDispatcher = None
         self.model_class: OptimisationModelGeneric = None
 
-        self._target_loader = TargetApp(dockarea)
+        self._target_loader: FieldLoaderApp = None
         self._target_field: Field = None
 
-        self._algorithm = AlgoApp(dockarea)
+        self._input_field_loader: FieldLoaderApp = None
+        self._input_field: Field = None
+
+        self._algorithm: AlgoApp = None
 
         self.setup_ui()
 
     def update_target(self, field: Field):
         self._target_field = field
+        self._algorithm.set_target_field(self._target_field)
+
+    def update_input(self, field: Field):
+        self._input_field = field
+        self._algorithm.set_input_field(self._input_field)
 
     def setup_docks(self):
         """
@@ -81,27 +79,23 @@ class OpticalShaping(gutils.CustomApp):
         ########
         pyqtgraph.dockarea.Dock
         """
-        self.docks['settings'] = gutils.Dock('Settings')
-        self.dockarea.addDock(self.docks['settings'])
-        self.docks['settings'].addWidget(self.settings_tree)
-        widget_observable = QtWidgets.QWidget()
-        widget_observable.setLayout(QtWidgets.QHBoxLayout())
-        observable_dockarea = gutils.DockArea()
-        widget_observable.layout().addWidget(observable_dockarea)
-        self.viewer_observable = ViewerDispatcher(observable_dockarea)
-        self.docks['observable'] = gutils.Dock('Observable')
-        self.dockarea.addDock(self.docks['observable'], 'right', self.docks['settings'])
-        self.docks['observable'].addWidget(widget_observable)
 
-        if len(self.models) != 0:
-            self.get_set_model_params(self.models[0]['name'])
+        self._target_dockarea = gutils.DockArea()
+        self._target_loader = FieldLoaderApp(self._target_dockarea)
+        self._target_field = Field()
 
-    def get_set_model_params(self, model_name):
-        self.settings.child('models', 'model_params').clearChildren()
-        if len(self.models) > 0:
-            model_class = utils.find_dict_in_list_from_key_val(self.models, 'name', model_name)['class']
-            params = getattr(model_class, 'params')
-            self.settings.child('models', 'model_params').addChildren(params)
+        self._input_field_dockarea = gutils.DockArea()
+        self._input_field_loader = FieldLoaderApp(self._input_field_dockarea)
+        self._input_field: Field = Field()
+
+        self.docks['algo'] = gutils.Dock('Algo')
+        self.dockarea.addDock(self.docks['algo'] )
+        algo_main_window = QtWidgets.QMainWindow()
+        self._algo_dockarea = gutils.DockArea()
+        algo_main_window.setCentralWidget(self._algo_dockarea)
+        self.docks['algo'].addWidget(algo_main_window)
+
+        self._algorithm = AlgoApp(self._algo_dockarea)
 
     def setup_menu(self):
         """
@@ -132,21 +126,19 @@ class OpticalShaping(gutils.CustomApp):
         ----------
         param: (Parameter) the parameter whose value just changed
         """
-        if param.name() == 'model_class':
-            self.get_set_model_params(param.value())
-        elif param.name() in putils.iter_children(self.settings.child('models', 'model_params'), []):
-            if self.model_class is not None:
-                self.model_class.update_settings(param)
-        elif param.name() == 'loader':
-            self.get_set_loader_params(param.name())
+        ...
 
     def setup_actions(self):
         logger.debug('setting actions')
         self.add_action('quit', 'Quit', 'close2', "Quit program")
-        self.add_action('ini_model', 'Init Model', 'ini')
-        self.add_widget('model_led', QLED, toolbar=self.toolbar)
-        self.add_action('ini_runner', 'Init the Optimisation Algorithm', 'ini', checkable=True)
-        self.add_widget('runner_led', QLED, toolbar=self.toolbar)
+
+        self.add_action('target', 'Target', 'target', 'Open the Target FieldLoader window',
+                        checkable=True)
+        self.add_action('input', 'Input', 'input', 'Open the InputBeam FieldLoader window',
+                        checkable=True)
+        self.add_action('algo', 'Algo.', 'algo', 'Open the Algorithm window', checkable=True)
+        self.set_action_checked('algo', True)
+
         self.add_action('run', 'Run Optimisation', 'run2', checkable=True)
         self.add_action('pause', 'Pause Optimisation', 'pause', checkable=True)
         logger.debug('actions set')
@@ -154,184 +146,27 @@ class OpticalShaping(gutils.CustomApp):
     def connect_things(self):
         logger.debug('connecting things')
         self.connect_action('quit', self.quit, )
-        self.connect_action('ini_model', self.ini_model)
-        self.connect_action('ini_runner', self.ini_optimisation_runner)
-        self.connect_action('run', self.run_optimisation)
-        self.connect_action('pause', self.pause_runner)
+
+        self.connect_action('target', self.show_target)
+        self.connect_action('input', self.show_input)
+        self.connect_action('algo', self.show_algo)
 
         self._target_loader.field_signal.connect(self.update_target)
+        self._input_field_loader.field_signal.connect(self.update_input)
 
-    def pause_runner(self):
-        self.command_runner.emit(utils.ThreadCommand('pause_PID', self.is_action_checked('pause')))
+    def show_target(self, show=True):
+        self._target_dockarea.setVisible(show)
+
+    def show_input(self, show=True):
+        self._input_field_dockarea.setVisible(show)
+
+    def show_algo(self, show=True):
+        self.docks['algo'].setVisible(show)
 
     def quit(self):
+        self._input_field_dockarea.parent().close()
+        self._target_dockarea.parent().close()
         self.dockarea.parent().close()
-
-    def set_model(self):
-        model_name = self.settings.child('models', 'model_class').value()
-        self.model_class = utils.find_dict_in_list_from_key_val(self.models, 'name', model_name)['class'](self)
-        self.model_class.ini_model()
-
-    def ini_model(self):
-        try:
-            if self.model_class is None:
-                self.set_model()
-
-            self.modules_manager.selected_actuators_name = self.model_class.actuators_name
-            self.modules_manager.selected_detectors_name = self.model_class.detectors_name
-
-            self.enable_controls_opti(True)
-            self.get_action('model_led').set_as_true()
-            self.set_action_enabled('ini_model', False)
-
-            self.viewer_observable.update_viewers(['Viewer0D'] + self.model_class.observables_dim,
-                                                  ['Fitness', 'Observable', 'Individual'])
-
-        except Exception as e:
-            logger.exception(str(e))
-
-    def ini_optimisation_runner(self):
-        if self.is_action_checked('ini_runner'):
-            self.runner_thread = QtCore.QThread()
-            runner = OptimisationRunner(self.model_class, self.modules_manager)
-            self.runner_thread.runner = runner
-            runner.algo_output_signal.connect(self.process_output)
-            self.command_runner.connect(runner.queue_command)
-
-            runner.moveToThread(self.runner_thread)
-
-            self.runner_thread.start()
-            self.get_action('runner_led').set_as_true()
-
-    def process_output(self, data: DataToExport):
-        # fitness
-        # self.viewer_fitness.show_data(data.get_data_from_name('fitness'))
-        # data.remove()
-        self.viewer_observable.show_data(data)
-
-    def enable_controls_opti(self, enable: bool):
-        pass
-
-    def run_optimisation(self):
-        if self.is_action_checked('run'):
-            self.get_action('run').set_icon('stop')
-            self.command_runner.emit(utils.ThreadCommand('start', {}))
-            QtWidgets.QApplication.processEvents()
-            QtWidgets.QApplication.processEvents()
-            self.command_runner.emit(utils.ThreadCommand('run', {}))
-        else:
-            self.get_action('run').set_icon('run2')
-            self.command_runner.emit(utils.ThreadCommand('stop', {}))
-
-            QtWidgets.QApplication.processEvents()
-
-
-class OptimisationRunner(QtCore.QObject):
-    algo_output_signal = QtCore.Signal(DataToExport)
-
-    def __init__(self, model_class: OptimisationModelGeneric, modules_manager: ModulesManager):
-        super().__init__()
-
-        self.det_done_datas: DataToExport = None
-        self.inputs_from_dets: DataToExport = None
-        self.outputs: List[np.ndarray] = []
-        self.dte_actuators: DataToExport = None
-
-        self.model_class: OptimisationModelGeneric = model_class
-        self.modules_manager: ModulesManager = modules_manager
-
-        self.running = True
-        self.paused = False
-
-        self.optimisation_algorithm = self.model_class.optimisation_algorithm
-
-    @QtCore.Slot(utils.ThreadCommand)
-    def queue_command(self, command: utils.ThreadCommand):
-        """
-        """
-        if command.command == "run":
-            self.run_opti(**command.attribute)
-
-        elif command.command == "pause":
-            self.pause_opti(command.attribute)
-
-        elif command.command == "stop":
-            self.running = False
-
-    def pause_opti(self, pause_state: bool):
-        # for ind, pid in enumerate(self.pids):
-        #     if pause_state:
-        #         pid.set_auto_mode(False)
-        #         logger.info('Stabilization paused')
-        #     else:
-        #         pid.set_auto_mode(True, self.outputs[ind])
-        #         logger.info('Stabilization restarted from pause')
-        self.paused = pause_state
-
-    def run_opti(self, sync_detectors=True, sync_acts=False):
-        """Start the optimisation loop
-
-        Parameters
-        ----------
-        sync_detectors: (bool) if True will make sure all selected detectors (if any) all got their data before calling
-            the model
-        sync_acts: (bool) if True will make sure all selected actuators (if any) all reached their target position
-         before calling the model
-        """
-        self.running = True
-        try:
-            if sync_detectors:
-                self.modules_manager.connect_detectors()
-            if sync_acts:
-                self.modules_manager.connect_actuators()
-
-            self.current_time = time.perf_counter()
-            logger.info('Optimisation loop starting')
-            while self.running:
-                # print('input: {}'.format(self.input))
-                # # GRAB DATA FIRST AND WAIT ALL DETECTORS RETURNED
-
-                self.det_done_datas = self.modules_manager.grab_datas()
-
-                self.inputs_from_dets = self.model_class.convert_input(self.det_done_datas)
-
-                # # EXECUTE THE optimisation
-                self.outputs: List[np.ndarray] = []
-                self.outputs = [self.optimisation_algorithm.evolve(self.inputs_from_dets)]
-
-                dte = DataToExport(
-                    'algo',
-                    data=[DataCalculated(
-                        'fitness',
-                        data=[np.array([self.optimisation_algorithm.fitness])]),
-                                         ])
-
-                # # # APPLY THE population OUTPUT TO THE ACTUATOR
-                # if self.outputs is None:
-                #     self.outputs = [pid.setpoint for pid in self.pids]
-
-                dt = time.perf_counter() - self.current_time
-                self.output_to_actuators: DataToActuatorOpti = self.model_class.convert_output(self.outputs)
-
-                dte.append(self.inputs_from_dets)
-                dte.append(self.output_to_actuators)
-                self.algo_output_signal.emit(dte)
-
-                if not self.paused:
-                    self.modules_manager.move_actuators(self.output_to_actuators,
-                                                        self.output_to_actuators.mode,
-                                                        polling=False)
-
-                self.current_time = time.perf_counter()
-                QtWidgets.QApplication.processEvents()
-                #QtCore.QThread.msleep(int(self.sample_time * 1000))
-
-            logger.info('Optimisation loop exiting')
-            self.modules_manager.connect_actuators(False)
-            self.modules_manager.connect_detectors(False)
-
-        except Exception as e:
-            logger.exception(str(e))
 
 
 def main_only_app():

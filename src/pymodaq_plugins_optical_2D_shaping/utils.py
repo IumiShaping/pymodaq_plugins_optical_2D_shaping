@@ -22,7 +22,7 @@ from pymodaq.utils.plotting.data_viewers.viewer import ViewersEnum
 from pymodaq.utils.parameter import Parameter
 
 from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
-from pymodaq_plugins_optical_2D_shaping.target_loaders import target_loader_factory, TargetLoader
+from pymodaq_plugins_optical_2D_shaping.field import field_loader_factory, FieldLoader
 
 logger = set_logger(get_module_name(__file__))
 
@@ -76,7 +76,7 @@ class OptimisationModelGeneric(ABC):
         self.check_modules(self.modules_manager)
 
         self._algorithm: Optional[AlgoBase] = None
-        self._target_loader: Optional[TargetLoader] = None
+        self._target_loader: Optional[FieldLoader] = None
 
     def check_modules(self, modules_manager):
         for act in self.actuators_name:
@@ -106,7 +106,7 @@ class OptimisationModelGeneric(ABC):
         self.modules_manager.selected_detectors_name = self.detectors_name
 
         self._algorithm = algo_factory.get_algorithm(self.settings['algorithm'])()
-        self._target_loader = target_loader_factory.get_loader(self.settings['loader'])()
+        self._target_loader = field_loader_factory.get_loader(self.settings['loader'])()
 
     def convert_input(self, measurements: DataToExport) -> DataToExport:
         """

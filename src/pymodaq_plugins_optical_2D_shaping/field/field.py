@@ -135,9 +135,8 @@ class Field(DataRaw):
                       np.sqrt(np.prod(self.shape))
         field = Field()
         field.field = field_array
-        frequency_pixel_size = [
-            1 / (2 * self.shape[ind] * self.pixels_sizes[ind]) for ind in range(2)]
-        field.calibrate_axes(np.array(frequency_pixel_size) * scaling)
+        frequency_pixel_size = 1 / (2 * np.array(self.shape) * self.pixels_sizes)
+        field.calibrate_axes(frequency_pixel_size * scaling)
         return field
 
     def ifft2(self, scaling: float = 1.):
@@ -157,9 +156,8 @@ class Field(DataRaw):
                       np.sqrt(np.prod(self.shape))
         field = Field()
         field.field = field_array
-        pixel_size = [
-            1 / (2 * self.shape[ind] * self.pixels_sizes[ind]) for ind in range(2)]
-        field.calibrate_axes(np.array(pixel_size) * scaling)
+        pixel_size = 1 / (2 * np.array(self.shape) * self.pixels_sizes)
+        field.calibrate_axes(pixel_size * scaling)
         return field
 
     @property
@@ -187,10 +185,6 @@ class Field(DataRaw):
 
         self.field = amp_array * np.exp(1j * phase_array)
 
-    def amplitude_as_dwa(self, origin_name: str = ''):
-        return DataRaw('amplitude', data=[self.amplitude], axes=self.get_axes(),
-                       origin=origin_name)
-
     @property
     def intensity(self) -> np.ndarray:
         return np.abs(self.field) ** 2
@@ -209,6 +203,10 @@ class Field(DataRaw):
             amp_array = np.ones_like(phase_array)
 
         self.field = amp_array * np.exp(1j * phase_array)
+
+    def amplitude_as_dwa(self, origin_name: str = ''):
+        return DataRaw('amplitude', data=[self.amplitude], axes=self.get_axes(),
+                       origin=origin_name)
 
     def phase_as_dwa(self, origin_name: str = ''):
         return DataRaw('phase', data=[self.phase], axes=self.get_axes(),

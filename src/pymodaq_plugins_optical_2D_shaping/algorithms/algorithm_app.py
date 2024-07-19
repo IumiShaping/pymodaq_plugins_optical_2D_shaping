@@ -16,7 +16,7 @@ from pymodaq.utils.gui_utils import QLED
 from pymodaq.utils.daq_utils import ThreadCommand
 
 from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
-from pymodaq_plugins_optical_2D_shaping.target_loaders.field import Field
+from pymodaq_plugins_optical_2D_shaping.field import Field
 
 
 class AlgoApp(CustomApp):
@@ -38,6 +38,13 @@ class AlgoApp(CustomApp):
 
     def set_target_field(self, field: Field):
         self._target_field = field
+        if self._algorithm is not None:
+            self._algorithm.set_target_field(self._target_field)
+
+    def set_input_field(self, field: Field):
+        self._input_field = field
+        if self._algorithm is not None:
+            self._algorithm.set_input_field(field)
 
     def set_algorithm(self, algo_name: str = None):
         if algo_name is None:
@@ -56,26 +63,24 @@ class AlgoApp(CustomApp):
             self._algo_settings_widget.layout().addWidget(self._algorithm.settings_tree)
 
             self._algorithm.set_target_field(self._target_field)
+            self._algorithm.set_input_field(self._input_field)
 
         except ValueError as e:
             pass
 
     def setup_docks(self):
-        self.docks['algo'] = Dock('Algorithm')
-        self.dockarea.addDock(self.docks['algo'])
 
-        self.algo_area = DockArea()
-        self.docks['algo'].addWidget(self.algo_area)
+        self.algo_area = self.dockarea
 
         self.docks['algo_settings'] = Dock('Algorithm Settings')
         self.docks['image_field'] = Dock('Image Plane')
         self.docks['object_field'] = Dock('Object Plane')
         self.docks['fitness'] = Dock('Fitness')
 
-        self.algo_area.addDock(self.docks['algo_settings'])
-        self.algo_area.addDock(self.docks['fitness'], 'right', self.docks['algo_settings'])
-        self.algo_area.addDock(self.docks['image_field'], 'bottom', self.docks['fitness'])
-        self.algo_area.addDock(self.docks['object_field'], 'bottom', self.docks['image_field'])
+        self.dockarea.addDock(self.docks['algo_settings'])
+        self.dockarea.addDock(self.docks['fitness'], 'right', self.docks['algo_settings'])
+        self.dockarea.addDock(self.docks['image_field'], 'bottom', self.docks['fitness'])
+        self.dockarea.addDock(self.docks['object_field'], 'bottom', self.docks['image_field'])
 
 
         fitness_widget = QtWidgets.QWidget()
@@ -239,10 +244,12 @@ def main():
     ratio = np.max(np.array((768, 1024)) / np.array(target_intensity.shape))
     target_intensity = rescale(target_intensity, 1.1 * ratio)
 
-    optical_app = AlgoApp(area)
+    algo_app = AlgoApp(area)
     target = Field(amplitude=np.sqrt(np.flipud(target_intensity)))
+    input = Field(amplitude=np.ones((768, 1024)))
 
-    optical_app.set_target_field(target)
+    algo_app.set_target_field(target)
+    algo_app.set_input_field(input)
 
 
     app.exec()
