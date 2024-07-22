@@ -41,7 +41,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
         self._target_field = Field()
         self._input_field = Field()
-        self._object_field = Field(amplitude=self._input_field.amplitude,
+        self._object_field = Field(amplitude=self._input_field.amplitude.copy(),
                                    phase=np.random.random(self._input_field.shape))
         self._object_field.calibrate_axes(self._input_field.pixels_sizes)
         self._image_field = Field()
@@ -86,9 +86,13 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         raise NotImplementedError
 
     def get_npad_between_image_object(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
-        """ Get the padding necessary to match object shape and image shape"""
-        npad_before = (np.abs(np.array(self._object_field.shape) -
-                              np.array(self._image_field.shape)) // 2).astype(int)
-        npad_after = (npad_before + np.abs(np.array(self._object_field.shape)
-                                           - np.array(self._image_field.shape)) % 2).astype(int)
+        """ Get the padding necessary to match object shape and image shape
+
+        If positive, the image shape is bigger than the object
+        If negative, the object shape is bigger than the image
+        """
+        npad_before = ((np.array(self._image_field.shape) -
+                        np.array(self._object_field.shape)) // 2).astype(int)
+        npad_after = (np.array(self._image_field.shape) -
+                        np.array(self._object_field.shape)) - npad_before
         return (npad_before[0], npad_after[0]), (npad_before[1], npad_after[1])

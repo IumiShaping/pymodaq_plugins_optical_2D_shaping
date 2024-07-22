@@ -4,7 +4,7 @@ from typing import Union
 
 from skimage.io import imread
 from skimage.color import rgb2gray
-from skimage.transform import rescale, resize
+
 from pymodaq.utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataFromPlugins, DataToExport, DataRaw
 from pymodaq.utils.parameter import Parameter
@@ -15,7 +15,7 @@ from pymodaq_plugins_optical_2D_shaping.field.utils import (FieldLoader, LoadTyp
                                                             Field)
 from pymodaq_plugins_optical_2D_shaping.field.factory import LoaderFactory
 
-resources_path = Path(__file__).parent.parent.joinpath('resources')
+resources_path = Path(__file__).parent.parent.parent.joinpath('resources')
 cheshire_cat_path = resources_path.joinpath('cheshirecat_rect.png')
 
 
@@ -29,7 +29,7 @@ class ImageFileLoader(FieldLoader):
 
     params = FieldLoader.params + \
         [{'title': 'Amplitude File path:', 'name': 'amp_target_file',
-          'type': 'browsepath', 'value': '', 'filetype': True},
+          'type': 'browsepath', 'value': str(cheshire_cat_path), 'filetype': True},
          {'title': 'Phase File path:', 'name': 'phase_target_file', 'type': 'browsepath',
           'value': '', 'filetype': True},
          ]

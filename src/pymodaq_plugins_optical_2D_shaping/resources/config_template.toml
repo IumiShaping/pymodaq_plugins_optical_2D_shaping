@@ -1,3 +1,13 @@
 #this is the configuration file of the Optimisation plugin
 
-title = "PyMoDAQ's Optimisation package configuration file"
+title = "PyMoDAQ's optical 2D shaping package configuration file"
+
+[SLM]
+width = 1920
+height = 1080
+
+[target]
+default_loader = 'ImageFileLoader'
+
+[input]
+default_loader = 'GaussianIntensityLoader'

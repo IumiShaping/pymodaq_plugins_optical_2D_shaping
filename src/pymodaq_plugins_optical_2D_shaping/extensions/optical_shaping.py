@@ -29,6 +29,7 @@ logger = set_logger(get_module_name(__file__))
 
 config = Config()
 
+
 EXTENSION_NAME = 'Optical Shaping'
 CLASS_NAME = 'OpticalShaping'
 
@@ -82,14 +83,16 @@ class OpticalShaping(gutils.CustomApp):
 
         self._target_dockarea = gutils.DockArea()
         self._target_loader = FieldLoaderApp(self._target_dockarea)
+        self._target_loader.set_loader_in_settings(plugin_config('target', 'default_loader'))
         self._target_field = Field()
 
         self._input_field_dockarea = gutils.DockArea()
         self._input_field_loader = FieldLoaderApp(self._input_field_dockarea)
+        self._input_field_loader.set_loader_in_settings(plugin_config('input', 'default_loader'))
         self._input_field: Field = Field()
 
         self.docks['algo'] = gutils.Dock('Algo')
-        self.dockarea.addDock(self.docks['algo'] )
+        self.dockarea.addDock(self.docks['algo'])
         algo_main_window = QtWidgets.QMainWindow()
         self._algo_dockarea = gutils.DockArea()
         algo_main_window.setCentralWidget(self._algo_dockarea)
@@ -154,11 +157,16 @@ class OpticalShaping(gutils.CustomApp):
         self._target_loader.field_signal.connect(self.update_target)
         self._input_field_loader.field_signal.connect(self.update_input)
 
+        self._target_loader.load_field()
+        self._input_field_loader.load_field()
+
     def show_target(self, show=True):
         self._target_dockarea.setVisible(show)
+        self._target_dockarea.closeEvent = lambda event: self.set_action_checked('target', False)
 
     def show_input(self, show=True):
         self._input_field_dockarea.setVisible(show)
+        self._input_field_dockarea.closeEvent = lambda event: self.set_action_checked('input', False)
 
     def show_algo(self, show=True):
         self.docks['algo'].setVisible(show)

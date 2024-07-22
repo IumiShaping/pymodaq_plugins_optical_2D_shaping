@@ -31,7 +31,7 @@ class AlgoApp(CustomApp):
     def __init__(self, dockarea):
         super().__init__(dockarea)
 
-        self._algorithm: AlgoApp = None
+        self._algorithm: AlgoBase = None
         self._target_field: Field = None
 
         self.setup_ui()
@@ -45,12 +45,15 @@ class AlgoApp(CustomApp):
         self._input_field = field
         if self._algorithm is not None:
             self._algorithm.set_input_field(field)
+            object_field = field.deepcopy()
+            object_field.phase = np.random.random(field.shape) * 2 * np.pi
+            self._algorithm.set_object_field(object_field)
 
     def set_algorithm(self, algo_name: str = None):
         if algo_name is None:
             algo_name = self.settings['algorithm']
         try:
-            self._algorithm: AlgoApp = \
+            self._algorithm: AlgoBase = \
                 algo_factory.get_algorithm(algo_name)()
 
             while True:
@@ -62,8 +65,8 @@ class AlgoApp(CustomApp):
 
             self._algo_settings_widget.layout().addWidget(self._algorithm.settings_tree)
 
-            self._algorithm.set_target_field(self._target_field)
-            self._algorithm.set_input_field(self._input_field)
+            self.set_target_field(self._target_field)
+            self.set_input_field(self._input_field)
 
         except ValueError as e:
             pass
@@ -145,7 +148,9 @@ class AlgoApp(CustomApp):
     def process_output(self, dte: DataToExport):
         fitness = dte.remove(dte.get_data_from_name('fitness'))
         dte_image = dte.get_data_from_full_names(['image/amplitude', 'image/phase'])
+        dte_image.append(self._target_field.amplitude_as_dwa(name='target'))
         dte_object = dte.get_data_from_full_names(['object/amplitude', 'object/phase'])
+        dte_object.append(self._input_field.amplitude_as_dwa(name='input'))
         self.object_viewers.show_data(dte_object)
         self.image_viewers.show_data(dte_image)
         self.fitness_viewer.show_data(fitness)

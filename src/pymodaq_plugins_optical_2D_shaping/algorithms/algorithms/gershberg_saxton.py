@@ -32,13 +32,11 @@ class GbSax(AlgoBase):
         super().__init__()
 
     def set_phase_in_object_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
-        self._object_field.phase = phase
         if phase.shape == self._object_field.shape:
-            self._object_field.phase = phase
+            self._object_field.phase = phase.copy()
             self._object_field.amplitude = (
-                    self._input_field.amplitude *
+                    self._input_field.amplitude.copy() *
                     (induced_amplitude if induced_amplitude is not None else 1))
-            self.propagate_field()
         else:
             raise ValueError('The phase shape is incoherent with the parameters')
 

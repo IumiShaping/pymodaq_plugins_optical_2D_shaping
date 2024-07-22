@@ -1,6 +1,7 @@
-
+from typing import Tuple, Union
 import numpy as np
 from qtpy import QtWidgets, QtCore
+from skimage.transform import rescale, resize
 
 from pymodaq.utils.managers.parameter_manager import Parameter
 from pymodaq.utils.plotting.data_viewers.viewer2D import Viewer2D
@@ -9,23 +10,41 @@ from pymodaq.utils.gui_utils.dock import DockArea, Dock
 
 from pymodaq_plugins_optical_2D_shaping.field import Field, field_loader_factory
 from pymodaq_plugins_optical_2D_shaping.field.factory import LoaderFactory, FieldLoader
+from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 
 
 class FieldLoaderApp(CustomApp):
 
     params = [
-        {'title': 'Target Loader', 'name': 'loader', 'type': 'list',
+        {'title': 'Loader', 'name': 'loader', 'type': 'list',
          'limits': field_loader_factory.field_loaders,
          'value': field_loader_factory.field_loaders[0]},
+        {'title': 'Reload:', 'name': 'reload', 'type': 'bool_push', 'label': 'Reload!',
+         'value': False},
+        {'title': 'Initial size', 'name': 'ini_size', 'type': 'group', 'children': [
+            {'title': 'Height', 'name': 'height', 'type': 'int', 'value': 0, 'readonly': True},
+            {'title': 'Width', 'name': 'width', 'type': 'int', 'value': 0, 'readonly': True},
+        ]},
+        {'title': 'Needed size', 'name': 'needed_size', 'type': 'group', 'children': [
+            {'title': 'Height', 'name': 'height', 'type': 'int',
+             'value': plugin_config('SLM', 'height'), 'readonly': True},
+            {'title': 'Width', 'name': 'width', 'type': 'int',
+             'value': plugin_config('SLM', 'width'), 'readonly': True},
+        ]},
+        {'title': 'utils', 'name': 'utils', 'type': 'group', 'children': [
+            {'title': 'Show field', 'name': 'show_field', 'type': 'bool_push', 'value': True},
 
-        {'title': 'Target utils', 'name': 'utils', 'type': 'group', 'children': [
-            {'title': 'Reload:', 'name': 'reload', 'type': 'bool_push', 'label': 'Reload!',
-             'value': False},
-            {'title': 'Show target', 'name': 'show_target', 'type': 'bool_push', 'value': True},
             {'title': 'Flip ud', 'name': 'flipud', 'type': 'bool', 'value': False},
             {'title': 'Flip lr', 'name': 'fliplr', 'type': 'bool', 'value': False},
-        ],
-         },
+            {'title': 'Sizing', 'name': 'sizing', 'type': 'group', 'children': [
+                {'title': 'Scaling', 'name': 'scaling', 'type': 'float', 'value': 1., 'max': 1.},
+                {'title': 'Do Scaling', 'name': 'do_scaling', 'type': 'bool', 'value': False},
+                {'title': 'Keep aspect ratio', 'name': 'aspect_ratio', 'type': 'bool',
+                 'value': True},
+                {'title': 'Height', 'name': 'height', 'type': 'int', 'value': 0, 'readonly': True},
+                {'title': 'Width', 'name': 'width', 'type': 'int', 'value': 0, 'readonly': True},
+            ]},
+        ]},
     ]
 
     field_signal = QtCore.Signal(Field)
@@ -42,49 +61,102 @@ class FieldLoaderApp(CustomApp):
 
         self._field_loader: FieldLoader = None
 
+        self._ini_field = Field()
         self.field = Field()
 
         self.setup_ui()
 
-        self.set_loader(field_loader_factory.field_loaders[0])
+        self.loader = field_loader_factory.field_loaders[0]
 
     def value_changed(self, param: Parameter):
         if param.name() == 'loader':
-            self.set_loader(param.value())
+            self.loader = param.value()
 
-        elif param.name() in ('flipud', 'fliplr'):
-            self.transform_image(param.name())
+        elif param.name() in ('flipud', 'fliplr', 'do_scaling', 'scaling', 'aspect_ratio'):
+            self.field = self._ini_field.deepcopy()
+            self.update_final_size()
+            self.update_viewers()
 
-        elif param.name() == 'show_target':
+        elif param.name() == 'show_field':
             self.field_widget.setVisible(param.value())
 
         elif param.name() == 'reload':
-            self._field_loader.load_target()
+            self.load_field()
 
     def update_field(self, field: Field):
         """ Method used for notification when its parent object is registered within a FieldLoader
         """
-        self.field = field
+        self._ini_field = field
+        self.field = self._ini_field.deepcopy()
+        self.update_ini_size()
+        self.update_final_size()
         self.update_viewers()
         self.field_signal.emit(self.field)
-
-    def transform_image(self, param_name: str):
-        if self.field is not None:
-            if param_name == 'flipud':
-                self.field.amplitude = np.flipud(self.field.amplitude)
-                self.field.phase = np.flipud(self.field.phase)
-            elif param_name == 'fliplr':
-                self.field.amplitude = np.fliplr(self.field.amplitude)
-                self.field.phase = np.fliplr(self.field.phase)
-
-            self.update_viewers()
 
     def update_viewers(self):
         if self.field is not None:
             self.amp_viewer.show_data(self.field.amplitude_as_dwa())
             self.phase_viewer.show_data(self.field.phase_as_dwa())
 
-    def set_loader(self, loader_name: str):
+    def set_loader_in_settings(self, loader_name: str):
+        if loader_name in self.settings.child('loader').opts['limits']:
+            self.settings.child('loader').setValue(loader_name)
+
+    def load_field(self, *args, **kwargs):
+        self._ini_field = self._field_loader.load_field(*args, **kwargs)
+        self.field = self._ini_field.deepcopy()
+        self.update_ini_size()
+        self.update_final_size()
+        self.update_viewers()
+
+    def update_ini_size(self):
+        self.settings.child('ini_size', 'height').setValue(self._ini_field.shape[0])
+        self.settings.child('ini_size', 'width').setValue(self._ini_field.shape[1])
+
+    def update_final_size(self):
+        needed_shape = (self.settings['needed_size', 'height'],
+                         self.settings['needed_size', 'width'])
+        if self.settings['utils', 'flipud']:
+            self.field.field = np.flipud(self.field.field)
+        if self.settings['utils', 'fliplr']:
+            self.field.field = np.fliplr(self.field.field)
+        if self.settings['utils', 'sizing', 'do_scaling']:
+            if self.settings['utils', 'sizing', 'aspect_ratio']:
+                ratio = np.min(np.array(needed_shape) / np.array(self.field.shape))
+            else:
+                ratio = np.array(needed_shape) / np.array(self.field.shape)
+            _field_temp = self.field.deepcopy()
+            self.field.amplitude = rescale(_field_temp.amplitude,
+                                           ratio * self.settings['utils', 'sizing', 'scaling'])
+            self.field.phase = rescale(_field_temp.phase,
+                                       ratio * self.settings['utils', 'sizing', 'scaling'])
+
+        self.settings.child('utils', 'sizing', 'height').setValue(self.field.shape[0])
+        self.settings.child('utils', 'sizing', 'width').setValue(self.field.shape[1])
+
+        npad = self.get_npad_between(needed_shape, self.field.shape)
+
+        self.field.amplitude = np.pad(self.field.amplitude, npad)
+        self.field.phase = np.pad(self.field.phase, npad)
+
+    def get_npad_between(self, first_shape, second_shape):
+        """ Get the padding necessary to match object shape and image shape
+
+        If positive, the image shape is bigger than the object
+        If negative, the object shape is bigger than the image
+        """
+        npad_before = ((np.array(first_shape) -
+                        np.array(second_shape)) // 2).astype(int)
+        npad_after = (np.array(first_shape) -
+                        np.array(second_shape)) - npad_before
+        return (npad_before[0], npad_after[0]), (npad_before[1], npad_after[1])
+
+    @property
+    def loader(self):
+        return self._field_loader
+
+    @loader.setter
+    def loader(self, loader_name: str):
         try:
             self._field_loader: FieldLoader =\
                 field_loader_factory.get_loader(loader_name)()

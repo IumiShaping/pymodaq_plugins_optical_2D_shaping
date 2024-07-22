@@ -58,12 +58,13 @@ class Field(DataRaw):
 
         super().__init__(name=name, data=[np.array([[1, 1], [1, 1]])],)
 
+        self.calibrate_axes(pixel_sizes)
+
         if amplitude is not None:
             self.amplitude = amplitude
         if phase is not None:
             self.phase = phase
 
-        self.calibrate_axes(pixel_sizes)
         self.axes = self.get_axes()
 
     def calibrate_axes(self, pixel_sizes: Union[Q_, Iterable[Q_]]):
@@ -79,14 +80,15 @@ class Field(DataRaw):
         self._pixels_sizes = pixel_sizes
 
     @property
-    def pixels_sizes(self):
+    def pixels_sizes(self) -> Q_:
         return self._pixels_sizes
 
     def get_axes(self):
-        return [Axis('Hor Axis', 'm', scaling=self._pixels_sizes[0].m_as('m'), offset=0, index=1,
-                     size=self.shape[1]),
-                Axis('Ver Axis', 'm', scaling=self._pixels_sizes[0].m_as('m'), offset=0, index=0,
-                     size=self.shape[0]),]
+        units = str(self.pixels_sizes.to_base_units().units)
+        return [Axis('Hor Axis', units, scaling=self._pixels_sizes[0].m_as(units), offset=0,
+                     index=1, size=self.shape[1]),
+                Axis('Ver Axis', units, scaling=self._pixels_sizes[0].m_as(units), offset=0,
+                     index=0, size=self.shape[0]),]
 
     @staticmethod
     def init_from_field(field: 'Field') -> 'Field':
@@ -168,6 +170,7 @@ class Field(DataRaw):
     @field.setter
     def field(self, field_array: np.ndarray):
         self.data = [field_array]
+        self.set_axes_manager(self.shape, self.get_axes(), ())
 
     @property
     def amplitude(self) -> np.ndarray:
@@ -181,7 +184,7 @@ class Field(DataRaw):
                            'Setting the phase to flat zeros')
             phase_array = np.zeros_like(amp_array)
         else:
-            phase_array = np.zeros_like(amp_array)
+            phase_array = self.phase
 
         self.field = amp_array * np.exp(1j * phase_array)
 
@@ -200,16 +203,20 @@ class Field(DataRaw):
                            'Setting the amplitude to flat ones')
             amp_array = np.ones_like(phase_array)
         else:
-            amp_array = np.ones_like(phase_array)
+            amp_array = self.amplitude
 
         self.field = amp_array * np.exp(1j * phase_array)
 
-    def amplitude_as_dwa(self, origin_name: str = ''):
-        return DataRaw('amplitude', data=[self.amplitude], axes=self.get_axes(),
-                       origin=origin_name)
+    def amplitude_as_dwa(self, origin_name: str = '', name: str = None):
+        if not (name is None or isinstance(name, str)):
+            name = 'amplitude'
+        return DataRaw('amplitude' if name is None else name, data=[self.amplitude],
+                       axes=self.get_axes(), origin=origin_name)
 
-    def phase_as_dwa(self, origin_name: str = ''):
-        return DataRaw('phase', data=[self.phase], axes=self.get_axes(),
+    def phase_as_dwa(self, origin_name: str = '', name: str = None):
+        if not (name is None or isinstance(name, str)):
+            name = 'phase'
+        return DataRaw('phase' if name is None else name, data=[self.phase], axes=self.get_axes(),
                        origin=origin_name)
 
     def intensity_as_dwa(self, origin_name: str = ''):
