@@ -8,9 +8,9 @@ from pymodaq.utils.plotting.data_viewers.viewer2D import Viewer2D
 from pymodaq.utils.gui_utils.custom_app import CustomApp
 from pymodaq.utils.gui_utils.dock import DockArea, Dock
 
+from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 from pymodaq_plugins_optical_2D_shaping.field import Field, field_loader_factory
 from pymodaq_plugins_optical_2D_shaping.field.factory import LoaderFactory, FieldLoader
-from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 
 
 class FieldLoaderApp(CustomApp):
@@ -30,6 +30,8 @@ class FieldLoaderApp(CustomApp):
              'value': plugin_config('SLM', 'height'), 'readonly': True},
             {'title': 'Width', 'name': 'width', 'type': 'int',
              'value': plugin_config('SLM', 'width'), 'readonly': True},
+            {'title': 'Show on Viewer', 'name': 'show_needed_area', 'type': 'bool_push',
+             'value': True,},
         ]},
         {'title': 'utils', 'name': 'utils', 'type': 'group', 'children': [
             {'title': 'Show field', 'name': 'show_field', 'type': 'bool_push', 'value': True},
@@ -38,7 +40,7 @@ class FieldLoaderApp(CustomApp):
             {'title': 'Flip lr', 'name': 'fliplr', 'type': 'bool', 'value': False},
             {'title': 'Sizing', 'name': 'sizing', 'type': 'group', 'children': [
                 {'title': 'Scaling', 'name': 'scaling', 'type': 'float', 'value': 1., 'max': 1.},
-                {'title': 'Do Scaling', 'name': 'do_scaling', 'type': 'bool', 'value': False},
+                {'title': 'Do Scaling', 'name': 'do_scaling', 'type': 'bool', 'value': True},
                 {'title': 'Keep aspect ratio', 'name': 'aspect_ratio', 'type': 'bool',
                  'value': True},
                 {'title': 'Height', 'name': 'height', 'type': 'int', 'value': 0, 'readonly': True},
@@ -83,6 +85,13 @@ class FieldLoaderApp(CustomApp):
         elif param.name() == 'reload':
             self.load_field()
 
+        elif param.name() == 'show_needed_area':
+            self.show_roi_target(param.value())
+
+    def show_roi_target(self, show=True):
+        self.amp_viewer.roi_target.setVisible(show)
+        self.phase_viewer.roi_target.setVisible(show)
+
     def update_field(self, field: Field):
         """ Method used for notification when its parent object is registered within a FieldLoader
         """
@@ -94,16 +103,32 @@ class FieldLoaderApp(CustomApp):
         self.field_signal.emit(self.field)
 
     def update_viewers(self):
+        needed_shape = (self.settings['needed_size', 'width'],
+                        self.settings['needed_size', 'height'],
+                        )
         if self.field is not None:
             self.amp_viewer.show_data(self.field.amplitude_as_dwa())
             self.phase_viewer.show_data(self.field.phase_as_dwa())
+            self.amp_viewer.move_roi_target(
+                (0, 0),
+                np.array(needed_shape) * self.field.pixels_sizes.to_base_units().magnitude)
+            self.phase_viewer.move_roi_target(
+                (0, 0),
+                np.array(needed_shape) * self.field.pixels_sizes.to_base_units().magnitude)
 
     def set_loader_in_settings(self, loader_name: str):
         if loader_name in self.settings.child('loader').opts['limits']:
             self.settings.child('loader').setValue(loader_name)
 
+    def threshold_phase(self, field: Field, threshold=1e-9):
+        """ Apply a threshold around 0 and pi to avoid numerical errors"""
+
+        field.phase[np.pi - np.abs(field.phase) < threshold] = np.pi
+        field.phase[np.abs(field.phase) < threshold] = 0
+
     def load_field(self, *args, **kwargs):
         self._ini_field = self._field_loader.load_field(*args, **kwargs)
+        self.threshold_phase(self._ini_field)
         self.field = self._ini_field.deepcopy()
         self.update_ini_size()
         self.update_final_size()
@@ -135,9 +160,10 @@ class FieldLoaderApp(CustomApp):
         self.settings.child('utils', 'sizing', 'width').setValue(self.field.shape[1])
 
         npad = self.get_npad_between(needed_shape, self.field.shape)
-
-        self.field.amplitude = np.pad(self.field.amplitude, npad)
-        self.field.phase = np.pad(self.field.phase, npad)
+        if np.any(np.array(npad)):
+            _field_temp = self.field.deepcopy()
+            self.field.amplitude = np.pad(_field_temp.amplitude, npad)
+            self.field.phase = np.pad(_field_temp.phase, npad)
 
     def get_npad_between(self, first_shape, second_shape):
         """ Get the padding necessary to match object shape and image shape
@@ -189,6 +215,8 @@ class FieldLoaderApp(CustomApp):
 
         phase_widget = QtWidgets.QWidget()
         self.phase_viewer = Viewer2D(phase_widget)
+
+        self.show_roi_target(self.settings['needed_size', 'show_needed_area'])
 
         field_widget_splitter.addWidget(amp_widget)
         field_widget_splitter.addWidget(phase_widget)

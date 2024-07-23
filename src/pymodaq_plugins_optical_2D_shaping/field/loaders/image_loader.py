@@ -10,6 +10,7 @@ from pymodaq.utils.data import DataFromPlugins, DataToExport, DataRaw
 from pymodaq.utils.parameter import Parameter
 from pymodaq.utils.gui_utils.file_io import select_file
 from pymodaq.utils.enums import enum_checker
+from pymodaq.utils import math_utils as mutils
 
 from pymodaq_plugins_optical_2D_shaping.field.utils import (FieldLoader, LoadTypeEnum,
                                                             Field)
@@ -71,9 +72,9 @@ class ImageFileLoader(FieldLoader):
                     img_array = rgb2gray(img_array[..., 0:3])
 
                 if load_type == LoadTypeEnum.AMPLITUDE:
-                    self.field.amplitude = np.flipud(img_array)
+                    self.field.amplitude = mutils.normalize_to(np.flipud(img_array), 1)
                 else:
-                    self.field.phase = np.flipud(img_array)
+                    self.field.phase = mutils.normalize_to(np.flipud(img_array), 2 * np.pi)
                 if notify:
                     self.notify_listeners(self.field)
 

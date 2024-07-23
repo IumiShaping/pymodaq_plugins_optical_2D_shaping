@@ -13,9 +13,7 @@ from pymodaq.utils.parameter import utils as putils
 from pymodaq.utils.data import DataToExport, DataActuator, DataCalculated
 from pymodaq.utils.plotting.data_viewers.viewer0D import Viewer0D
 from pymodaq.utils.plotting.data_viewers.viewer import ViewerDispatcher
-from pymodaq_plugins_optical_2D_shaping.utils import (get_optimisation_models,
-                                                      OptimisationModelGeneric,
-                                                      DataToActuatorOpti)
+
 from pymodaq.utils.gui_utils import QLED
 from pymodaq.utils.managers.modules_manager import ModulesManager
 from pymodaq.utils.config import Config
@@ -36,7 +34,7 @@ CLASS_NAME = 'OpticalShaping'
 
 class OpticalShaping(gutils.CustomApp):
     command_runner = QtCore.Signal(utils.ThreadCommand)
-    models = get_optimisation_models()
+
 
     params = [
     ]
@@ -46,7 +44,6 @@ class OpticalShaping(gutils.CustomApp):
 
         self.viewer_fitness: Viewer0D = None
         self.viewer_observable: ViewerDispatcher = None
-        self.model_class: OptimisationModelGeneric = None
 
         self._target_loader: FieldLoaderApp = None
         self._target_field: Field = None
@@ -154,11 +151,11 @@ class OpticalShaping(gutils.CustomApp):
         self.connect_action('input', self.show_input)
         self.connect_action('algo', self.show_algo)
 
-        self._target_loader.field_signal.connect(self.update_target)
         self._input_field_loader.field_signal.connect(self.update_input)
+        self._target_loader.field_signal.connect(self.update_target)
 
-        self._target_loader.load_field()
         self._input_field_loader.load_field()
+        self._target_loader.load_field()
 
     def show_target(self, show=True):
         self._target_dockarea.setVisible(show)

@@ -121,7 +121,7 @@ class Field(DataRaw):
                      pad_width[1][0] + 1:pad_width[1][0] + 1 + ini_shape[1]],
                      pixel_sizes=self.pixels_sizes)
 
-    def fft2(self, scaling: float = 1.):
+    def fft2(self, scaling=Q_(1., '')):
         """ Compute the field being the Fourier Transform of self
 
         The corresponding "frequency" pixel size is computed  from the total size of the input
@@ -130,7 +130,7 @@ class Field(DataRaw):
 
         Parameters
         ----------
-        scaling: float
+        scaling: pint.Quantity
             Apply this axis scaling to the transformed field (on pixel_sizes)
         """
         field_array = fftshift(fft2(fftshift(self.field))) / \
@@ -141,7 +141,7 @@ class Field(DataRaw):
         field.calibrate_axes(frequency_pixel_size * scaling)
         return field
 
-    def ifft2(self, scaling: float = 1.):
+    def ifft2(self, scaling=Q_(1., '')):
         """ Compute the field being the Inverse Fourier Transform of self
 
         In this place, self.pixel_sizes are in fact a spatial frequency. The corresponding
@@ -151,7 +151,7 @@ class Field(DataRaw):
 
         Parameters
         ----------
-        scaling: float
+        scaling: pint.Quantity
             Apply this axis scaling to the transformed field (on pixel_sizes)
         """
         field_array = fftshift(ifft2(fftshift(self.field))) / \
@@ -219,8 +219,11 @@ class Field(DataRaw):
         return DataRaw('phase' if name is None else name, data=[self.phase], axes=self.get_axes(),
                        origin=origin_name)
 
-    def intensity_as_dwa(self, origin_name: str = ''):
-        return DataRaw('intensity', data=[self.intensity], axes=self.get_axes(),
+    def intensity_as_dwa(self, origin_name: str = '', name: str = None):
+        if not (name is None or isinstance(name, str)):
+            name = 'intensity'
+        return DataRaw('intensity' if name is None else name, data=[self.intensity],
+                       axes=self.get_axes(),
                        origin=origin_name)
 
     def normalise_to_intensity(self, field: 'Field'):

@@ -35,6 +35,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     """
 
     ALGO_NAME = abstractproperty()
+    ITERATIVE = False
 
     def __init__(self):
         super().__init__()
@@ -84,6 +85,14 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         """
 
         raise NotImplementedError
+
+    def scale_target_with_geometry(self, field: Field):
+        """ Apply an axis scaling to have the target and its axes in correct units with respect to
+        a given algorithm implementation and experimental setup
+
+        to be reimplemented if needed
+        """
+        return field
 
     def get_npad_between_image_object(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
         """ Get the padding necessary to match object shape and image shape

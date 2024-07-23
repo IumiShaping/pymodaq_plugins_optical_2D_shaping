@@ -3,6 +3,10 @@ from importlib import import_module
 from typing import Callable
 from pymodaq_plugins_optical_2D_shaping.field.utils import FieldLoader
 
+from pymodaq.utils.logger import set_logger, get_module_name
+
+logger = set_logger(get_module_name(__file__))
+
 
 def register_loaders(parent_module_name: str = 'pymodaq_plugins_optical_2D_shaping'):
     """ Browse modules containing algorithms for optical shaping and register them in the factory"""
@@ -17,7 +21,7 @@ def register_loaders(parent_module_name: str = 'pymodaq_plugins_optical_2D_shapi
                 try:
                     loaders.append(import_module(f'.{file.stem}', loader_module.__name__))
                 except Exception as e:
-                    pass
+                    logger.exception(str(e))
     except ModuleNotFoundError:
         pass
     finally:

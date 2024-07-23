@@ -31,23 +31,36 @@ class AlgoApp(CustomApp):
     def __init__(self, dockarea):
         super().__init__(dockarea)
 
+        self.runner_thread: QtCore.QThread = None
+
         self._algorithm: AlgoBase = None
         self._target_field: Field = None
+        self._input_field: Field = None
 
         self.setup_ui()
 
+        self.set_algorithm(self.settings['algorithm'])
+
     def set_target_field(self, field: Field):
-        self._target_field = field
         if self._algorithm is not None:
-            self._algorithm.set_target_field(self._target_field)
+            field = self._algorithm.scale_target_with_geometry(field)
+            self._algorithm.set_target_field(field)
+            self.target_viewers.show_data(DataToExport('Target', data=[
+                field.intensity_as_dwa(),
+                field.amplitude_as_dwa(),
+                field.phase_as_dwa(),
+            ]))
+        self._target_field = field
 
     def set_input_field(self, field: Field):
-        self._input_field = field
+
+        object_field = field.deepcopy()
+        object_field.phase = np.random.random(field.shape) * 2 * np.pi
+
         if self._algorithm is not None:
-            self._algorithm.set_input_field(field)
-            object_field = field.deepcopy()
-            object_field.phase = np.random.random(field.shape) * 2 * np.pi
             self._algorithm.set_object_field(object_field)
+            self._algorithm.set_input_field(field)
+        self._input_field = field
 
     def set_algorithm(self, algo_name: str = None):
         if algo_name is None:
@@ -65,8 +78,11 @@ class AlgoApp(CustomApp):
 
             self._algo_settings_widget.layout().addWidget(self._algorithm.settings_tree)
 
-            self.set_target_field(self._target_field)
-            self.set_input_field(self._input_field)
+            if self._input_field is not None:
+                self.set_input_field(self._input_field)  # defines it first as the target axes depends
+                # on the input beam size and resolution
+                self.set_target_field(self._target_field)
+            self.set_action_visible('grab', self._algorithm.ITERATIVE)
 
         except ValueError as e:
             pass
@@ -82,13 +98,19 @@ class AlgoApp(CustomApp):
 
         self.dockarea.addDock(self.docks['algo_settings'])
         self.dockarea.addDock(self.docks['fitness'], 'right', self.docks['algo_settings'])
-        self.dockarea.addDock(self.docks['image_field'], 'bottom', self.docks['fitness'])
-        self.dockarea.addDock(self.docks['object_field'], 'bottom', self.docks['image_field'])
-
+        self.dockarea.addDock(self.docks['object_field'], 'bottom', self.docks['fitness'])
+        self.dockarea.addDock(self.docks['image_field'], 'bottom', self.docks['object_field'])
 
         fitness_widget = QtWidgets.QWidget()
         self.fitness_viewer = Viewer0D(fitness_widget)
         self.docks['fitness'].addWidget(fitness_widget)
+
+        self.target_widget = QtWidgets.QWidget()
+        self.target_widget.setLayout(QtWidgets.QHBoxLayout())
+        target_area = DockArea()
+        self.target_viewers = ViewerDispatcher(target_area)
+        self.target_widget.layout().addWidget(target_area)
+        self.target_widget.setVisible(False)
 
         object_area = DockArea()
         self.object_viewers = ViewerDispatcher(object_area)
@@ -121,12 +143,15 @@ class AlgoApp(CustomApp):
         self.add_action('snap', 'Snap', 'snap', "Take a snapshot from the detector")
         self.add_action('grab', 'Grab', 'run2', "Grab data from the detector", checkable=True)
         self.add_action('stop', 'Stop', 'stop', "Stop grabing")
+        self.add_action('show_target', 'Show Target', 'target',
+                        "Show Target in real units", checkable=True)
 
     def connect_things(self):
         self.connect_action('snap', self.compute_phase)
         self.connect_action('grab', self.compute_phase_loop)
         self.connect_action('ini_algo', self.ini_algo)
         self.connect_action('stop', self.stop)
+        self.connect_action('show_target', lambda show: self.target_widget.setVisible(show))
 
     def stop(self):
         self.command_runner.emit(ThreadCommand('stop'))
@@ -148,9 +173,7 @@ class AlgoApp(CustomApp):
     def process_output(self, dte: DataToExport):
         fitness = dte.remove(dte.get_data_from_name('fitness'))
         dte_image = dte.get_data_from_full_names(['image/amplitude', 'image/phase'])
-        dte_image.append(self._target_field.amplitude_as_dwa(name='target'))
         dte_object = dte.get_data_from_full_names(['object/amplitude', 'object/phase'])
-        dte_object.append(self._input_field.amplitude_as_dwa(name='input'))
         self.object_viewers.show_data(dte_object)
         self.image_viewers.show_data(dte_image)
         self.fitness_viewer.show_data(fitness)
@@ -174,6 +197,7 @@ class AlgoApp(CustomApp):
 
         else:
             if self.runner_thread is not None:
+                self.get_action('algo_led').set_as_false()
                 self.command_runner.disconnect()
                 if self.runner_thread.isRunning():
                     self.runner_thread.terminate()
