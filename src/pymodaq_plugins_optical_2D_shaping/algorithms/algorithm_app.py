@@ -276,7 +276,7 @@ def main():
 
     algo_app = AlgoApp(area)
     target = Field(amplitude=np.sqrt(np.flipud(target_intensity)))
-    input = Field(amplitude=np.ones((768, 1024)))
+    input = Field(amplitude=np.ones(target.shape))
 
     algo_app.set_target_field(target)
     algo_app.set_input_field(input)
