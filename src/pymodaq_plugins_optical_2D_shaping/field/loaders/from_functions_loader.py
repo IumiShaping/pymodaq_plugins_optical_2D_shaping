@@ -31,6 +31,16 @@ class GaussianIntensity(FieldLoader):
          {'title': 'Beam size y (mm):', 'name': 'beam_size_y', 'type': 'float', 'value': 5., },
          ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        if 'width' in kwargs:
+            self.settings.child('nx_pixels').setValue(kwargs['width'])
+        if 'height' in kwargs:
+            self.settings.child('ny_pixels').setValue(kwargs['height'])
+        if 'pixel_size' in kwargs:
+            self.settings.child('pixel_size_x').setValue(kwargs['pixel_size'])
+            self.settings.child('pixel_size_x').setValue(kwargs['pixel_size'])
+
     def value_changed(self, param: Parameter):
         field = self.compute_field()
         self.notify_listeners(field)

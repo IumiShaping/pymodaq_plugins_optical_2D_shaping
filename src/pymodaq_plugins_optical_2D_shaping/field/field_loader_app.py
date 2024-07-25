@@ -27,9 +27,11 @@ class FieldLoaderApp(CustomApp):
         ]},
         {'title': 'Needed size', 'name': 'needed_size', 'type': 'group', 'children': [
             {'title': 'Height', 'name': 'height', 'type': 'int',
-             'value': plugin_config('SLM', 'height'), 'readonly': True},
+             'value': plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'height'),
+             'readonly': True},
             {'title': 'Width', 'name': 'width', 'type': 'int',
-             'value': plugin_config('SLM', 'width'), 'readonly': True},
+             'value': plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'width'),
+             'readonly': True},
             {'title': 'Show on Viewer', 'name': 'show_needed_area', 'type': 'bool_push',
              'value': True,},
         ]},
@@ -87,6 +89,12 @@ class FieldLoaderApp(CustomApp):
 
         elif param.name() == 'show_needed_area':
             self.show_roi_target(param.value())
+
+    def update_slm(self, slm_default_name: str):
+        self.settings.child('needed_size', 'height').setValue(
+            plugin_config('SLM', slm_default_name, 'height'))
+        self.settings.child('needed_size', 'width').setValue(
+            plugin_config('SLM', slm_default_name, 'width'))
 
     def show_roi_target(self, show=True):
         self.amp_viewer.roi_target.setVisible(show)
@@ -185,7 +193,10 @@ class FieldLoaderApp(CustomApp):
     def loader(self, loader_name: str):
         try:
             self._field_loader: FieldLoader =\
-                field_loader_factory.get_loader(loader_name)()
+                field_loader_factory.get_loader(loader_name)(
+                    width=self.settings['needed_size', 'width'],
+                    height=self.settings['needed_size', 'height'],
+                )
 
             while True:
                 child = self._loader_settings_widget.layout().takeAt(0)

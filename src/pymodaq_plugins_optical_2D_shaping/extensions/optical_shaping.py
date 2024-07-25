@@ -17,8 +17,9 @@ from pymodaq.utils.plotting.data_viewers.viewer import ViewerDispatcher
 from pymodaq.utils.gui_utils import QLED
 from pymodaq.utils.managers.modules_manager import ModulesManager
 from pymodaq.utils.config import Config
+from pymodaq.utils.gui_utils.widgets.tree_toml import TreeFromToml
 
-from pymodaq_plugins_optical_2D_shaping import config as plugin_config
+from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
 
 from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, Field
@@ -41,6 +42,8 @@ class OpticalShaping(gutils.CustomApp):
 
     def __init__(self, dockarea, dashboard):
         super().__init__(dockarea, dashboard)
+
+        self._plugin_config = PluginConfig()
 
         self.viewer_fitness: Viewer0D = None
         self.viewer_observable: ViewerDispatcher = None
@@ -80,12 +83,12 @@ class OpticalShaping(gutils.CustomApp):
 
         self._target_dockarea = gutils.DockArea()
         self._target_loader = FieldLoaderApp(self._target_dockarea)
-        self._target_loader.set_loader_in_settings(plugin_config('target', 'default_loader'))
+        self._target_loader.set_loader_in_settings(self._plugin_config('target', 'default_loader'))
         self._target_field = Field()
 
         self._input_field_dockarea = gutils.DockArea()
         self._input_field_loader = FieldLoaderApp(self._input_field_dockarea)
-        self._input_field_loader.set_loader_in_settings(plugin_config('input', 'default_loader'))
+        self._input_field_loader.set_loader_in_settings(self._plugin_config('input', 'default_loader'))
         self._input_field: Field = Field()
 
         self.docks['algo'] = gutils.Dock('Algo')
@@ -132,11 +135,15 @@ class OpticalShaping(gutils.CustomApp):
         logger.debug('setting actions')
         self.add_action('quit', 'Quit', 'close2', "Quit program")
 
-        self.add_action('target', 'Target', 'target', 'Open the Target FieldLoader window',
+        self.add_action('settings', 'Plugin Settings', 'Settings',
+                        'Open the plugin configuration file',
                         checkable=True)
-        self.add_action('input', 'Input', 'input', 'Open the InputBeam FieldLoader window',
-                        checkable=True)
-        self.add_action('algo', 'Algo.', 'algo', 'Open the Algorithm window', checkable=True)
+
+        self.add_action('target', 'Target Selection', 'target',
+                        'Open the Target FieldLoader window', checkable=True)
+        self.add_action('input', 'Input Beam Selection', 'input',
+                        'Open the InputBeam FieldLoader window', checkable=True)
+        self.add_action('algo', 'Algo. Selection', 'algo', 'Open the Algorithm window', checkable=True)
         self.set_action_checked('algo', True)
 
         self.add_action('run', 'Run Optimisation', 'run2', checkable=True)
@@ -147,6 +154,7 @@ class OpticalShaping(gutils.CustomApp):
         logger.debug('connecting things')
         self.connect_action('quit', self.quit, )
 
+        self.connect_action('settings', self.show_config)
         self.connect_action('target', self.show_target)
         self.connect_action('input', self.show_input)
         self.connect_action('algo', self.show_algo)
@@ -156,6 +164,18 @@ class OpticalShaping(gutils.CustomApp):
 
         self._input_field_loader.load_field()
         self._target_loader.load_field()
+
+    def show_config(self, show=True) -> Config:
+        if show:
+            config_tree = TreeFromToml(self._plugin_config, capitalize=False)
+            res = config_tree.show_dialog()
+            if res:
+                self._plugin_config = PluginConfig()
+            self.set_action_checked('settings', False)
+            self._target_loader.update_slm(
+                self._plugin_config('SLM', 'default_slm'))
+            self._input_field_loader.update_slm(
+                self._plugin_config('SLM', 'default_slm'))
 
     def show_target(self, show=True):
         self._target_dockarea.setVisible(show)

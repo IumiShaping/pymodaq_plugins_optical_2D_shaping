@@ -17,12 +17,13 @@ from pymodaq.utils.daq_utils import ThreadCommand
 
 from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
 from pymodaq_plugins_optical_2D_shaping.field import Field
+from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 
 
 class AlgoApp(CustomApp):
     params = [
         {'title': 'Algorithm', 'name': 'algorithm', 'type': 'list',
-         'limits': algo_factory.algorithms, 'value': algo_factory.algorithms[0]},
+         'limits': algo_factory.algorithms, 'value': plugin_config('algo', 'default_algo')},
     ]
 
     command_runner = QtCore.Signal(ThreadCommand)

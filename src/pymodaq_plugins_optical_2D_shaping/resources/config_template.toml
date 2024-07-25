@@ -3,9 +3,7 @@
 title = "PyMoDAQ's optical 2D shaping package configuration file"
 
 [SLM]
-
-default_slm = 'PLUTO'
-
+default_slm = "PLUTO"
 [SLM.PLUTO]
 width = 1920
 height = 1080
@@ -13,13 +11,16 @@ pixel_size = 8  # in micrometer
 
 
 [SLM.LC2012]
-width = 1920
-height = 1080
+width = 1024
+height = 768
 pixel_size = 36   # in micrometer
 
 
 [target]
-default_loader = 'ImageFileLoader'
+default_loader = "ImageFileLoader"
 
 [input]
-default_loader = 'GaussianIntensityLoader'
+default_loader = "GaussianIntensityLoader"
+
+[algo]
+default_algo = "Gerchberg-Saxton"
