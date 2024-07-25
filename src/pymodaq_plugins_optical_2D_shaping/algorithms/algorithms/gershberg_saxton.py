@@ -91,9 +91,6 @@ class GbSax(AlgoBase):
         self.propagate_field()
         self.evolve_field()
 
-    @property
-    def intensity_image(self):
-        return self._image_field.intensity
 
 
 

@@ -36,7 +36,6 @@ CLASS_NAME = 'OpticalShaping'
 class OpticalShaping(gutils.CustomApp):
     command_runner = QtCore.Signal(utils.ThreadCommand)
 
-
     params = [
     ]
 
@@ -83,12 +82,14 @@ class OpticalShaping(gutils.CustomApp):
 
         self._target_dockarea = gutils.DockArea()
         self._target_loader = FieldLoaderApp(self._target_dockarea)
-        self._target_loader.set_loader_in_settings(self._plugin_config('target', 'default_loader'))
+        self._target_loader.set_loader_in_settings(
+            self._plugin_config('target', 'default_loader'))
         self._target_field = Field()
 
         self._input_field_dockarea = gutils.DockArea()
         self._input_field_loader = FieldLoaderApp(self._input_field_dockarea)
-        self._input_field_loader.set_loader_in_settings(self._plugin_config('input', 'default_loader'))
+        self._input_field_loader.set_loader_in_settings(
+            self._plugin_config('input', 'default_loader'))
         self._input_field: Field = Field()
 
         self.docks['algo'] = gutils.Dock('Algo')
@@ -165,7 +166,7 @@ class OpticalShaping(gutils.CustomApp):
         self._input_field_loader.load_field()
         self._target_loader.load_field()
 
-    def show_config(self, show=True) -> Config:
+    def show_config(self, show=True):
         if show:
             config_tree = TreeFromToml(self._plugin_config, capitalize=False)
             res = config_tree.show_dialog()

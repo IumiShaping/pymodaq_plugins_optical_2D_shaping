@@ -69,6 +69,10 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self._target_field.amplitude = np.sqrt(intensity)
 
     @property
+    def intensity_image(self):
+        return self._image_field.intensity
+
+    @property
     def fitness(self) -> float:
         """ Compute fitness with respect to the image_field and target_field
 

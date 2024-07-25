@@ -57,20 +57,14 @@ class Davis(AlgoBase):
         wedge_phase *= 100 * np.pi / self._target_field.shape[1]
 
         calculated_field = self._target_field.ifft2()
-        self.set_phase_in_object_plane(mutils.normalize(self._target_field.amplitude) *
-                                       self.wrap_phase(self._target_field.phase + wedge_phase),
+        self.set_phase_in_object_plane(mutils.normalize(calculated_field.amplitude) *
+                                       self.wrap_phase(calculated_field.phase + wedge_phase),
                                        )
         self._image_field = self.object_field.fft2()
 
     def compute_Tn(self, field, order_n=1):
         Tn = (np.sinc(np.pi * (order_n - field.amplitude)))
         return Tn
-
-    @property
-    def intensity_image(self):
-        return self._image_field.intensity
-
-
 
 
 
