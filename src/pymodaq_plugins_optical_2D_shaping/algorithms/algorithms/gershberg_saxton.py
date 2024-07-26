@@ -5,7 +5,7 @@ Created the 20/07/2023
 @author: Sebastien Weber
 """
 from pathlib import Path
-from typing import Union, Tuple, List
+from typing import Union, Tuple, List, TYPE_CHECKING
 
 import numpy as np
 
@@ -16,6 +16,8 @@ from pymodaq import Q_
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field
+if TYPE_CHECKING:
+    from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
 
 logger = set_logger(get_module_name(__file__))
 
@@ -37,8 +39,8 @@ class GbSax(AlgoBase):
         {'title': 'Focal length (mm)', 'name': 'focal_length', 'type': 'float', 'value': 300.,},
     ]
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent: 'AlgoApp' = None):
+        super().__init__(parent)
 
     def set_phase_in_object_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
         if phase.shape == self._object_field.shape:

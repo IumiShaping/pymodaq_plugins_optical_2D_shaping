@@ -1,6 +1,6 @@
 
 from abc import ABCMeta, abstractproperty
-from typing import Tuple
+from typing import Tuple, TYPE_CHECKING
 
 import numpy as np
 from qtpy import QtWidgets
@@ -12,6 +12,8 @@ from pymodaq.utils.data import DataRaw
 
 from pymodaq_plugins_optical_2D_shaping.field import Field, FieldLoader
 
+if TYPE_CHECKING:
+    from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
 
 logger = set_logger(get_module_name(__file__))
 
@@ -37,15 +39,20 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     ALGO_NAME = abstractproperty()
     ITERATIVE = False
 
-    def __init__(self):
+    def __init__(self, parent: 'AlgoApp' = None):
         super().__init__()
 
+        self.parent_app = parent
         self._target_field = Field()
         self._input_field = Field()
         self._object_field = Field(amplitude=self._input_field.amplitude.copy(),
                                    phase=np.random.random(self._input_field.shape))
         self._object_field.calibrate_axes(self._input_field.pixels_sizes)
         self._image_field = Field()
+
+    def quit(self):
+        """ to reimplement if neccessary"""
+        pass
 
     @property
     def image_field(self) -> Field:
@@ -57,6 +64,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
     def set_input_field(self, field: Field):
         self._input_field = field
+        self.do_things_after_set_input()
 
     def set_object_field(self, field: Field):
         self._object_field = field
@@ -89,6 +97,10 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         """
 
         raise NotImplementedError
+
+    def do_things_after_set_input(self):
+        """ to reimplement if needed"""
+        pass
 
     def scale_target_with_geometry(self, field: Field):
         """ Apply an axis scaling to have the target and its axes in correct units with respect to

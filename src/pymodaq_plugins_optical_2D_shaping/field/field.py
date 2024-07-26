@@ -121,7 +121,7 @@ class Field(DataRaw):
                      pad_width[1][0] + 1:pad_width[1][0] + 1 + ini_shape[1]],
                      pixel_sizes=self.pixels_sizes)
 
-    def fft2(self, scaling=Q_(1., '')):
+    def fft2(self, scaling=Q_(1., '')) -> 'Field':
         """ Compute the field being the Fourier Transform of self
 
         The corresponding "frequency" pixel size is computed  from the total size of the input

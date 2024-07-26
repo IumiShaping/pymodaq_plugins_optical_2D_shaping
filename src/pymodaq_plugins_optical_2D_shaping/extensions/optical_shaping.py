@@ -190,8 +190,8 @@ class OpticalShaping(gutils.CustomApp):
         self.docks['algo'].setVisible(show)
 
     def quit(self):
-        self._input_field_dockarea.parent().close()
-        self._target_dockarea.parent().close()
+        self._input_field_dockarea.close()
+        self._target_dockarea.close()
         self.dockarea.parent().close()
 
 

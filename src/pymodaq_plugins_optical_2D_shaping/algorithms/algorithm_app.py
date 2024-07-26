@@ -61,14 +61,19 @@ class AlgoApp(CustomApp):
         if self._algorithm is not None:
             self._algorithm.set_object_field(object_field)
             self._algorithm.set_input_field(field)
+
         self._input_field = field
 
     def set_algorithm(self, algo_name: str = None):
         if algo_name is None:
             algo_name = self.settings['algorithm']
         try:
+            if self._algorithm is not None:
+                self._algorithm.quit()
+                QtWidgets.QApplication.processEvents()
+
             self._algorithm: AlgoBase = \
-                algo_factory.get_algorithm(algo_name)()
+                algo_factory.get_algorithm(algo_name)(self)
 
             while True:
                 child = self._algo_settings_widget.layout().takeAt(0)
@@ -168,8 +173,9 @@ class AlgoApp(CustomApp):
         self.command_runner.emit(ThreadCommand('snap'))
 
     def value_changed(self, param: Parameter):
-        if param.name() == 'algorithm':
-            self.set_algorithm()
+        pass
+        # if param.name() == 'algorithm':
+        #     self.set_algorithm()
 
     def process_output(self, dte: DataToExport):
         fitness = dte.remove(dte.get_data_from_name('fitness'))
@@ -271,8 +277,8 @@ def main():
     if len(target_intensity.shape) == 3:
         target_intensity = rgb2gray(target_intensity[..., 0:3])
 
-    ratio = np.max(np.array((768, 1024)) / np.array(target_intensity.shape))
-    target_intensity = rescale(target_intensity, 1.1 * ratio)
+    ratio = np.max(np.array((1080, 1920)) / np.array(target_intensity.shape))
+    target_intensity = rescale(target_intensity, 1 * ratio)
 
     algo_app = AlgoApp(area)
     target = Field(amplitude=np.sqrt(np.flipud(target_intensity)))
