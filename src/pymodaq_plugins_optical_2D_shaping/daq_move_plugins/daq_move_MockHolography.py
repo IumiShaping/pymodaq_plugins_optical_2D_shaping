@@ -8,7 +8,7 @@ from pymodaq.utils.parameter import Parameter
 from pymodaq.utils.config import Config
 config = Config()
 
-from pymodaq_plugins_optimisation.hardware.gershberg_saxton import GBSAX
+from pymodaq_plugins_optical_2D_shaping.algorithms.algorithms.gershberg_saxton import GbSax
 
 
 class DAQ_Move_MockHolography(DAQ_Move_base):
@@ -27,7 +27,7 @@ class DAQ_Move_MockHolography(DAQ_Move_base):
     is_multiaxes = False
     axes_names = ['Axis1']
     _epsilon = 0.1
-    data_actuator_type = DataActuatorType['DataActuator']
+    data_actuator_type = DataActuatorType.DataActuator
     data_shape = (768, 1024)
     params = [
                 ] + comon_parameters_fun(is_multiaxes, axes_names, epsilon=_epsilon)
@@ -35,7 +35,7 @@ class DAQ_Move_MockHolography(DAQ_Move_base):
     # the target value. It is the developer responsibility to put here a meaningful value
 
     def ini_attributes(self):
-        self.controller: GBSAX = None
+        self.controller: GbSax = None
 
     def get_actuator_value(self) -> DataActuator:
         """Get the current value from the hardware with scaling conversion.
@@ -77,10 +77,10 @@ class DAQ_Move_MockHolography(DAQ_Move_base):
             False if initialization failed otherwise True
         """
 
-        self.controller: GBSAX = self.ini_stage_init(old_controller=controller,
-                                              new_controller=GBSAX())
-        if self.settings['multiaxes', 'multi_status'] == 'Master':
-            self.controller.load_image()
+        self.controller: GbSax = self.ini_stage_init(old_controller=controller,
+                                              new_controller=None)
+        if self.is_master:
+            self.controller = GbSax()
 
         info = "Whatever info you want to log"
         initialized = True

@@ -7,21 +7,17 @@ from pymodaq.utils.data import DataFromPlugins, Axis, DataToExport
 from pymodaq.control_modules.viewer_utility_classes import DAQ_Viewer_base, comon_parameters, main
 from pymodaq.utils.parameter import Parameter
 
-from pymodaq_plugins_optimisation.hardware.gershberg_saxton import GBSAX
+from pymodaq_plugins_optical_2D_shaping.algorithms.algorithms.gershberg_saxton import GbSax
 
 
 class DAQ_2DViewer_MockHolography(DAQ_Viewer_base):
     """
     """
     params = comon_parameters + [
-        {'title': 'Browse Image', 'name': 'browse_image', 'type': 'browsepath', 'filetype': True},
-        {'title': 'Load Target Image', 'name': 'load_image', 'type': 'bool_push', 'label': 'Load Image'},
-        {'title': 'Evolve me!', 'name': 'evolve', 'type': 'bool_push', 'label': 'Evolve me!'}
-
     ]
 
     def ini_attributes(self):
-        self.controller: GBSAX = None
+        self.controller: GbSax = None
 
     def commit_settings(self, param: Parameter):
         """Apply the consequences of a change of value in the detector settings
@@ -32,15 +28,7 @@ class DAQ_2DViewer_MockHolography(DAQ_Viewer_base):
             A given parameter (within detector_settings) whose value has been changed by the user
         """
         # TODO for your custom plugin
-        if param.name() == "load_image":
-            fname = Path(self.settings['browser_image'])
-            if fname.is_file():
-                self.controller.load_image(fname)
-            else:
-                self.controller.load_image()
-        elif param.name() == 'evolve':
-            self.controller.propagate_field()
-            self.controller.evolve_field()
+        pass
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -58,16 +46,9 @@ class DAQ_2DViewer_MockHolography(DAQ_Viewer_base):
             False if initialization failed otherwise True
         """
         self.ini_detector_init(old_controller=controller,
-                               new_controller=GBSAX())
-
-        if self.controller.target_intensity is None:
-            self.controller.load_image()
-
-        self.dte_signal_temp.emit(DataToExport('GBSAX',
-                                               data=[DataFromPlugins(name='GBSAX Intensity',
-                                                                     data=[np.abs(self.controller.field_image)**2],
-                                                                     dim='Data2D', labels=['Field Object intensity']),
-                                                     ]))
+                               new_controller=None)
+        if self.is_master:
+            self.controller = GbSax()
 
         info = "GBSAX initialized"
         initialized = True
@@ -88,12 +69,13 @@ class DAQ_2DViewer_MockHolography(DAQ_Viewer_base):
         kwargs: dict
             others optionals arguments
         """
-
-        self.dte_signal.emit(DataToExport('GBSAX',
-                                          data=[DataFromPlugins(name='GBSAX Intensity',
-                                                                data=[np.abs(self.controller.field_image)**2],
-                                                                dim='Data2D', labels=['Field Object intensity']),
-                                                ]))
+        self.controller.propagate_field()
+        self.dte_signal.emit(DataToExport(
+            'GBSAX',
+            data=[DataFromPlugins(name='GBSAX Intensity',
+                                  data=[self.controller.intensity_image],
+                                  dim='Data2D', labels=['Field Object intensity']),
+                  ]))
 
     def stop(self):
         """Stop the current grab hardware wise if necessary"""
