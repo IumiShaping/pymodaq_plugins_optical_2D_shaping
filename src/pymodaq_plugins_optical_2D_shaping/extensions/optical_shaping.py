@@ -65,6 +65,13 @@ class OpticalShaping(gutils.CustomApp):
         self._input_field = field
         self._algorithm.set_input_field(self._input_field)
 
+    def update_object(self, field: Field):
+        """ field contains here the object field"""
+        if self.is_action_checked('send_to_shaper'):
+            if 'Shaper' in self.modules_manager.actuators_name:
+                actuator = self.modules_manager.get_mod_from_name('Shaper', 'act')
+                actuator.move_abs(field.phase_as_dwa())
+
     def setup_docks(self):
         """
         to be subclassed to setup the docks layout
@@ -149,6 +156,10 @@ class OpticalShaping(gutils.CustomApp):
 
         self.add_action('run', 'Run Optimisation', 'run2', checkable=True)
         self.add_action('pause', 'Pause Optimisation', 'pause', checkable=True)
+
+        self.add_action('send_to_shaper', 'Send phase to shaper', 'random',
+                        'Send calculated phase to the control module called *Shaper*',
+                        checkable=True)
         logger.debug('actions set')
 
     def connect_things(self):
@@ -159,6 +170,7 @@ class OpticalShaping(gutils.CustomApp):
         self.connect_action('target', self.show_target)
         self.connect_action('input', self.show_input)
         self.connect_action('algo', self.show_algo)
+        self._algorithm.object_field_signal.connect(self.update_object)
 
         self._input_field_loader.field_signal.connect(self.update_input)
         self._target_loader.field_signal.connect(self.update_target)
@@ -216,15 +228,12 @@ def main_only_app():
 
 
 def main():
-    import sys
-    from pathlib import Path
-    from pymodaq.utils.daq_utils import get_set_preset_path
     from pymodaq.utils.gui_utils.utils import mkQApp
     from pymodaq.utils.gui_utils.loader_utils import load_dashboard_with_preset
 
     app = mkQApp('Optical Shaping')
 
-    preset_file_name = str(Path(get_set_preset_path()).joinpath(f"{'holography'}.xml"))
+    preset_file_name = 'holography'
     dashboard, extension, win = load_dashboard_with_preset(preset_file_name, 'Optical Shaping')
     app.exec()
 
@@ -232,7 +241,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main_only_app()
+    main()
 
 
 

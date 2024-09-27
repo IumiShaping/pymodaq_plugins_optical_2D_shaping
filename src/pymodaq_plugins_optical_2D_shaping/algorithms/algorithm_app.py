@@ -185,6 +185,12 @@ class AlgoApp(CustomApp):
         self.image_viewers.show_data(dte_image)
         self.fitness_viewer.show_data(fitness)
 
+        self.object_field_signal.emit(
+            Field('object',
+                  amplitude=dte.get_data_from_full_name('object/amplitude')[0],
+                  phase=dte.get_data_from_full_name('object/phase')[0],
+                  pixel_sizes=self._input_field.pixels_sizes))
+
     def ini_algo(self):
         if self.is_action_checked('ini_algo'):
             self.get_action('algo_led').set_as_true()
