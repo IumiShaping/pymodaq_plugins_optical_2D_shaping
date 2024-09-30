@@ -77,8 +77,7 @@ class DAQ_Move_MockHolography(DAQ_Move_base):
             False if initialization failed otherwise True
         """
 
-        self.controller: GbSax = self.ini_stage_init(old_controller=controller,
-                                              new_controller=None)
+        self.controller: GbSax = self.ini_stage_init(slave_controller=controller)
         if self.is_master:
             self.controller = GbSax()
 
@@ -94,7 +93,7 @@ class DAQ_Move_MockHolography(DAQ_Move_base):
         value: (float) value of the absolute target positioning
         """
         if value.length == 1 and value.size == 1:
-            value = DataActuator(data=value.value() * np.random.rand(*self.controller.object_shape))
+            value = DataActuator(data=value.value())
         value = self.check_bound(value)  #if user checked bounds, the defined bounds are applied here
         self.target_value = value
         value = self.set_position_with_scaling(value)  # apply scaling if the user specified one
