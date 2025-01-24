@@ -12,6 +12,8 @@ from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 from pymodaq_plugins_optical_2D_shaping.field import Field, field_loader_factory
 from pymodaq_plugins_optical_2D_shaping.field.factory import LoaderFactory, FieldLoader
 
+from pymodaq_gui.managers.roi_manager import ROI2D_TYPES, ROI
+
 
 class FieldLoaderApp(CustomApp):
 
@@ -48,6 +50,14 @@ class FieldLoaderApp(CustomApp):
                 {'title': 'Height', 'name': 'height', 'type': 'int', 'value': 0, 'readonly': True},
                 {'title': 'Width', 'name': 'width', 'type': 'int', 'value': 0, 'readonly': True},
             ]},
+            {'title': 'Masking', 'name': 'masking', 'type': 'group', 'children': [
+                {'title': 'Mask type', 'name': 'mask_type', 'type': 'list',
+                 'limits': ROI2D_TYPES, 'value': ROI2D_TYPES[0]},
+                {'title': 'Show On', 'name': 'show_on', 'type': 'list',
+                 'value': 'Amplitude', 'limits': ['Amplitude', 'Phase']},
+                {'title': 'Show Mask', 'name': 'show_mask', 'type': 'bool', 'value': False},
+                {'title': 'Apply Mask', 'name': 'apply_mask', 'type': 'bool', 'value': False},
+            ]}
         ]},
     ]
 
@@ -63,6 +73,8 @@ class FieldLoaderApp(CustomApp):
         self.amp_viewer: Viewer2D = None
         self.phase_viewer: Viewer2D = None
 
+        self.mask: ROI = None
+
         self._field_loader: FieldLoader = None
 
         self._ini_field = Field()
@@ -76,7 +88,7 @@ class FieldLoaderApp(CustomApp):
         if param.name() == 'loader':
             self.loader = param.value()
 
-        elif param.name() in ('flipud', 'fliplr', 'do_scaling', 'scaling', 'aspect_ratio'):
+        elif param.name() in ('flipud', 'fliplr', 'do_scaling', 'scaling', 'aspect_ratio', 'apply_mask'):
             self.field = self._ini_field.deepcopy()
             self.update_final_size()
             self.update_viewers()
@@ -89,6 +101,23 @@ class FieldLoaderApp(CustomApp):
 
         elif param.name() == 'show_needed_area':
             self.show_roi_target(param.value())
+
+        elif param.name() == 'show_mask':
+            if self.settings['utils', 'masking', 'show_on'] == 'Amplitude':
+                viewer = self.amp_viewer
+            else:
+                viewer = self.phase_viewer
+            if param.value():
+                viewer.roi_manager.add_roi_programmatically(
+                    self.settings['utils', 'masking', 'mask_type'])
+                self.mask = viewer.roi_manager.get_roi_from_index(0)
+                self.mask.sigRegionChangeFinished.connect(
+                    lambda : self.value_changed(self.settings.child('utils', 'masking', 'apply_mask')))
+            else:
+                viewer.roi_manager.remove_roi_programmatically(0)
+                self.mask.sigRegionChangeFinished.disconnect()
+                self.mask = None
+
 
     def update_slm(self, slm_default_name: str):
         self.settings.child('needed_size', 'height').setValue(
@@ -172,6 +201,32 @@ class FieldLoaderApp(CustomApp):
             _field_temp = self.field.deepcopy()
             self.field.amplitude = np.pad(_field_temp.amplitude, npad)
             self.field.phase = np.pad(_field_temp.phase, npad)
+
+        if self.settings['utils', 'masking', 'apply_mask'] and self.mask is not None:
+            QtWidgets.QApplication.processEvents()
+            if self.settings['utils', 'masking', 'show_on'] == 'Amplitude':
+                viewer = self.amp_viewer
+            else:
+                viewer = self.phase_viewer
+            slices, tr = self.mask.getArraySlice(self.field.amplitude,
+                                                 viewer.view.get_image_item(),
+                                                 returnSlice=True)
+
+            mask_amp = self.mask.getArrayRegion(self.field.amplitude,
+                                                viewer.view.get_image_item())
+            amplitude = np.zeros(self.field.amplitude.shape)
+            slices_sure = []
+            for ind, sl in enumerate(slices):
+                slices_sure.append(slice(sl.start, sl.start + mask_amp.shape[ind]))
+
+            amplitude[*slices_sure] = mask_amp
+            self.field.amplitude = amplitude
+
+            mask_phase = self.mask.getArrayRegion(self.field.phase,
+                                                  viewer.view.get_image_item())
+            phase = np.zeros(self.field.amplitude.shape)
+            phase[*slices_sure] = mask_phase
+            self.field.phase = phase
 
     def get_npad_between(self, first_shape, second_shape):
         """ Get the padding necessary to match object shape and image shape
@@ -261,8 +316,7 @@ class FieldLoaderApp(CustomApp):
 
 def main():
     from pathlib import Path
-    from pymodaq.utils.daq_utils import get_set_preset_path
-    from pymodaq.utils.gui_utils.utils import mkQApp
+    from pymodaq_gui.utils.utils import mkQApp
 
 
     app = mkQApp('Optical Shaping')
