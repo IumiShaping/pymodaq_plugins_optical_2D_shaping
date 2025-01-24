@@ -89,7 +89,8 @@ class OpticalShaping(CustomExt):
         """
 
         self._target_dockarea = gutils.DockArea()
-        self._target_loader = FieldLoaderApp(self._target_dockarea)
+        self._target_loader = FieldLoaderApp(self._target_dockarea,
+                                             modules_manager=self.modules_manager)
         self._target_loader.set_loader_in_settings(
             self._plugin_config('target', 'default_loader'))
         self._target_field = Field()
