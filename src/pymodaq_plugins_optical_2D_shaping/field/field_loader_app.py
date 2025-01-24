@@ -63,7 +63,7 @@ class FieldLoaderApp(CustomApp):
 
     field_signal = QtCore.Signal(Field)
 
-    def __init__(self, dockarea):
+    def __init__(self, dockarea, **kwargs):
         super().__init__(dockarea)
         self._main_widget: QtWidgets.QWidget = None
         self.field_widget: QtWidgets.QWidget = None
@@ -81,6 +81,8 @@ class FieldLoaderApp(CustomApp):
         self.field = Field()
 
         self.setup_ui()
+
+        self.loader_kwargs = kwargs
 
         self.loader = field_loader_factory.field_loaders[0]
 
@@ -251,6 +253,7 @@ class FieldLoaderApp(CustomApp):
                 field_loader_factory.get_loader(loader_name)(
                     width=self.settings['needed_size', 'width'],
                     height=self.settings['needed_size', 'height'],
+                    **self.loader_kwargs
                 )
 
             while True:
