@@ -3,9 +3,9 @@ from typing import Tuple, Iterable, Union
 from numbers import Number
 from collections.abc import Iterable
 
-from pymodaq.utils.logger import set_logger, get_module_name
-from pymodaq.utils.data import DataRaw, Axis
-from pymodaq import Q_
+from pymodaq_utils.logger import set_logger, get_module_name
+from pymodaq_data.data import DataRaw, Axis
+from pymodaq_data import Q_
 
 logger = set_logger(get_module_name(__file__))
 

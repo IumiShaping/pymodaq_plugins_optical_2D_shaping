@@ -6,8 +6,8 @@ Created the 31/08/2023
 """
 
 from pathlib import Path
-from pymodaq.utils.config import BaseConfig
-from pymodaq.utils.logger import set_logger, get_module_name
+from pymodaq_utils.config import BaseConfig
+from pymodaq_utils.logger import set_logger, get_module_name
 
 logger = set_logger(get_module_name(__file__))
 

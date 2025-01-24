@@ -1,4 +1,4 @@
-from pymodaq.utils.managers.parameter_manager import ParameterManager
+from pymodaq_gui.managers.parameter_manager import ParameterManager
 
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 

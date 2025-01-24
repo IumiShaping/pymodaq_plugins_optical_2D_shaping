@@ -3,10 +3,10 @@ from abc import ABCMeta, abstractproperty
 import numpy as np
 from qtpy import QtWidgets
 
-from pymodaq.utils.managers.parameter_manager import ParameterManager, Parameter
-from pymodaq.utils.enums import BaseEnum
-from pymodaq.utils.logger import set_logger, get_module_name
-from pymodaq.utils.plotting.data_viewers.viewer2D import Viewer2D
+from pymodaq_gui.managers.parameter_manager import ParameterManager, Parameter
+from pymodaq_utils.enums import BaseEnum
+from pymodaq_utils.logger import set_logger, get_module_name
+from pymodaq_gui.plotting.data_viewers.viewer2D import Viewer2D
 from pymodaq_plugins_optical_2D_shaping.field import Field
 
 logger = set_logger(get_module_name(__file__))

@@ -6,18 +6,17 @@ import numpy as np
 from qtpy import QtWidgets, QtCore
 
 
-from pymodaq.utils import gui_utils as gutils
-from pymodaq.utils import daq_utils as utils
-from pymodaq.utils.logger import set_logger, get_module_name
+from pymodaq_gui import utils as gutils
+from pymodaq_utils import utils as utils
+from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq.utils.parameter import utils as putils
 from pymodaq.utils.data import DataToExport, DataActuator, DataCalculated
-from pymodaq.utils.plotting.data_viewers.viewer0D import Viewer0D
-from pymodaq.utils.plotting.data_viewers.viewer import ViewerDispatcher
+from pymodaq_gui.plotting.data_viewers.viewer0D import Viewer0D
+from pymodaq_gui.plotting.data_viewers.viewer import ViewerDispatcher
 
-from pymodaq.utils.gui_utils import QLED
-from pymodaq.utils.managers.modules_manager import ModulesManager
-from pymodaq.utils.config import Config
-from pymodaq.utils.gui_utils.widgets.tree_toml import TreeFromToml
+
+from pymodaq_utils.config import Config
+from pymodaq_gui.utils.widgets.tree_toml import TreeFromToml
 
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp

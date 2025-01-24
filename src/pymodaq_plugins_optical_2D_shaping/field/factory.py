@@ -3,7 +3,7 @@ from importlib import import_module
 from typing import Callable
 from pymodaq_plugins_optical_2D_shaping.field.utils import FieldLoader
 
-from pymodaq.utils.logger import set_logger, get_module_name
+from pymodaq_utils.logger import set_logger, get_module_name
 
 logger = set_logger(get_module_name(__file__))
 

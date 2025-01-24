@@ -4,11 +4,11 @@ from pathlib import Path
 import numpy as np
 from qtpy import QtWidgets, QtCore
 
-from pymodaq.utils.plotting.utils.plot_utils import RoiInfo
-from pymodaq.utils.logger import set_logger, get_module_name
+from pymodaq_gui.plotting.utils.plot_utils import RoiInfo
+from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataToExport, DataActuator, DataWithAxes, DataRaw
-from pymodaq.utils.plotting.data_viewers import Viewer2D, ViewersEnum
-from pymodaq.utils import gui_utils as gutils
+from pymodaq_gui.plotting.data_viewers import Viewer2D, ViewersEnum
+from pymodaq_gui import utils as gutils
 
 from skimage.io import imread
 from skimage.color import rgb2gray

@@ -2,10 +2,10 @@ import numpy as np
 from numbers import Number
 from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, comon_parameters_fun, main, DataActuatorType,\
     DataActuator
-from pymodaq.utils.daq_utils import ThreadCommand  # object used to send info back to the main thread
-from pymodaq.utils.parameter import Parameter
+from pymodaq_utils.utils import ThreadCommand  # object used to send info back to the main thread
+from pymodaq_gui.parameter import Parameter
 
-from pymodaq.utils.config import Config
+from pymodaq_utils.config import Config
 config = Config()
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithms.gershberg_saxton import GbSax

@@ -3,10 +3,10 @@ import numpy as np
 from qtpy import QtWidgets, QtCore
 from skimage.transform import rescale, resize
 
-from pymodaq.utils.managers.parameter_manager import Parameter
-from pymodaq.utils.plotting.data_viewers.viewer2D import Viewer2D
-from pymodaq.utils.gui_utils.custom_app import CustomApp
-from pymodaq.utils.gui_utils.dock import DockArea, Dock
+from pymodaq_gui.managers.parameter_manager import Parameter
+from pymodaq_gui.plotting.data_viewers.viewer2D import Viewer2D
+from pymodaq_gui.utils.custom_app import CustomApp
+from pymodaq_gui.utils.dock import DockArea, Dock
 
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 from pymodaq_plugins_optical_2D_shaping.field import Field, field_loader_factory

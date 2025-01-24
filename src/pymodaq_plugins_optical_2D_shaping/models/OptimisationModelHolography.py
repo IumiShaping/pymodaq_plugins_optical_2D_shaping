@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 
 
-from pymodaq.utils.logger import set_logger, get_module_name
+from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataToExport, DataActuator, DataRaw
 
 from pymodaq_plugins_optical_2D_shaping.models.OptimisationModelHolographyMock import \
