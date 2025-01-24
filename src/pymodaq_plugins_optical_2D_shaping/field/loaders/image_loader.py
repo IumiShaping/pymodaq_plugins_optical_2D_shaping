@@ -5,12 +5,12 @@ from typing import Union
 from skimage.io import imread
 from skimage.color import rgb2gray
 
-from pymodaq.utils.logger import set_logger, get_module_name
+from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataFromPlugins, DataToExport, DataRaw
-from pymodaq.utils.parameter import Parameter
-from pymodaq.utils.gui_utils.file_io import select_file
-from pymodaq.utils.enums import enum_checker
-from pymodaq.utils import math_utils as mutils
+from pymodaq_gui.parameter import Parameter
+from pymodaq_gui.utils.file_io import select_file
+from pymodaq_utils.enums import enum_checker
+from pymodaq_utils import math_utils as mutils
 
 from pymodaq_plugins_optical_2D_shaping.field.utils import (FieldLoader, LoadTypeEnum,
                                                             Field)

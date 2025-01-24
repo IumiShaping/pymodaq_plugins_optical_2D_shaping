@@ -3,17 +3,17 @@ from abc import ABCMeta, abstractproperty
 import numpy as np
 from qtpy import QtWidgets, QtCore
 
-from pymodaq.utils.managers.parameter_manager import ParameterManager, Parameter
-from pymodaq.utils.parameter import utils as putils
-from pymodaq.utils.parameter.utils import iter_children
-from pymodaq.utils.enums import BaseEnum, enum_checker
-from pymodaq.utils.logger import set_logger, get_module_name
-from pymodaq.utils.plotting.data_viewers import ViewerDispatcher, Viewer0D, Viewer2D
-from pymodaq.utils.data import DataRaw, DataToExport
-from pymodaq.utils.gui_utils.custom_app import CustomApp
-from pymodaq.utils.gui_utils.dock import DockArea, Dock
-from pymodaq.utils.gui_utils import QLED
-from pymodaq.utils.daq_utils import ThreadCommand
+from pymodaq_gui.managers.parameter_manager import ParameterManager, Parameter
+from pymodaq_gui.parameter import utils as putils
+from pymodaq_gui.parameter.utils import iter_children
+from pymodaq_utils.enums import BaseEnum, enum_checker
+from pymodaq_utils.logger import set_logger, get_module_name
+from pymodaq_gui.plotting.data_viewers import ViewerDispatcher, Viewer0D, Viewer2D
+from pymodaq_data.data import DataRaw, DataToExport
+from pymodaq_gui.utils.custom_app import CustomApp
+from pymodaq_gui.utils.dock import DockArea, Dock
+from pymodaq_gui.utils import QLED
+from pymodaq_utils.utils import ThreadCommand
 
 from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
 from pymodaq_plugins_optical_2D_shaping.field import Field

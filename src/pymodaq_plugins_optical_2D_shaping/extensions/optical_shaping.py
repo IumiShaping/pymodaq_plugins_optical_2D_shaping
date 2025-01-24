@@ -23,6 +23,8 @@ from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
 
 from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, Field
 
+from pymodaq.extensions.utils import CustomExt
+
 logger = set_logger(get_module_name(__file__))
 
 config = Config()
@@ -32,7 +34,7 @@ EXTENSION_NAME = 'Optical Shaping'
 CLASS_NAME = 'OpticalShaping'
 
 
-class OpticalShaping(gutils.CustomApp):
+class OpticalShaping(CustomExt):
     command_runner = QtCore.Signal(utils.ThreadCommand)
 
     params = [
@@ -227,16 +229,28 @@ def main_only_app():
 
 
 def main():
-    from pymodaq.utils.gui_utils.utils import mkQApp
+    from pathlib import Path
+    from pymodaq.utils.config import get_set_preset_path
+    from pymodaq_gui.utils.utils import mkQApp
     from pymodaq.utils.gui_utils.loader_utils import load_dashboard_with_preset
+    from pymodaq_gui.utils.dock import DockArea
 
     app = mkQApp('Optical Shaping')
 
     preset_file_name = 'holography'
-    dashboard, extension, win = load_dashboard_with_preset(preset_file_name, 'Optical Shaping')
+    file = Path(get_set_preset_path()).joinpath(f"{preset_file_name}.xml")
+    if file.exists():
+        dashboard, extension, win = load_dashboard_with_preset(preset_file_name, 'Optical Shaping')
+    else:
+        win = QtWidgets.QMainWindow()
+        dockarea = DockArea()
+        win.setCentralWidget(dockarea)
+        extension = OpticalShaping(dockarea, None)
+        win.show()
+
     app.exec()
 
-    return dashboard, extension, win
+
 
 
 if __name__ == '__main__':

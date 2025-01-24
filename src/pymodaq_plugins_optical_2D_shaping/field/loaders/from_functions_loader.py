@@ -4,9 +4,9 @@ from typing import Tuple, Union
 import numpy as np
 
 from pymodaq_plugins_optical_2D_shaping.field import Field, LoaderFactory, FieldLoader
-from pyqtgraph.parametertree import Parameter
-from pymodaq.utils import math_utils as mutils
-from pymodaq import Q_, Unit
+from pymodaq_gui.parameter import Parameter
+from pymodaq_utils import math_utils as mutils
+from pymodaq_data import Q_, Unit
 
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 
