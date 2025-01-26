@@ -31,7 +31,7 @@ class GbSax(AlgoBase):
     of the used lens
     """
 
-    ALGO_NAME = 'Gerchberg–Saxton'
+    ALGO_NAME = 'Gerchberg-Saxton'
     ITERATIVE = True
 
     params = [

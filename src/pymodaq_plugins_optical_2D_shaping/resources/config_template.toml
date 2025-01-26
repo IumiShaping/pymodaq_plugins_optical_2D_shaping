@@ -23,4 +23,4 @@ default_loader = "ImageFileLoader"
 default_loader = "GaussianIntensityLoader"
 
 [algo]
-default_algo = "Gerchberg-Saxton"
+default_algo = 'Gerchberg-Saxton'

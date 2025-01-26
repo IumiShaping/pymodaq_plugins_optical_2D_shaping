@@ -265,7 +265,7 @@ def main():
     from skimage.color import rgb2gray
     from skimage.transform import rescale, resize
 
-    from pymodaq.utils.gui_utils.utils import mkQApp
+    from pymodaq_gui.utils.utils import mkQApp
 
     cheshire_cat_path = Path(__file__).parent.parent.joinpath(
         'resources/cheshirecat_rect.png')
