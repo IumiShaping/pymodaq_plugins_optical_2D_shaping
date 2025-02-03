@@ -164,11 +164,11 @@ class SinusRectangle(BaseFieldLoader):
 @LoaderFactory.register_loader()
 class Two_Circles_onLine(BaseFieldLoader):
 
-    LOADER_NAME = '2circles_on_line'
+    LOADER_NAME = 'Two Circles on a Line'
 
     params = BaseFieldLoader.params + \
              [
-                 {'title': 'Radius (um):', 'name': 'Radius_circle', 'type': 'float',
+                 {'title': 'Radius (um):', 'name': 'radius_circle', 'type': 'float',
                   'value': 300., },
                  {'title': 'Position x from center (um):', 'name': 'x_from_center', 'type': 'float',
                   'value': 500., },
@@ -182,15 +182,8 @@ class Two_Circles_onLine(BaseFieldLoader):
 
     def __init__(self, *args, **kwargs):
         super().__init__()
-        if 'width' in kwargs:
-            self.settings.child('nx_pixels').setValue(kwargs['width'])
-        if 'height' in kwargs:
-            self.settings.child('ny_pixels').setValue(kwargs['height'])
-        if 'pixel_size' in kwargs:
-            self.settings.child('pixel_size_x').setValue(kwargs['pixel_size'])
-            self.settings.child('pixel_size_x').setValue(kwargs['pixel_size'])
 
-    def circle(self, x_tab, y_tab, x_center, y_center):
+    def circle(self, x_tab: np.ndarray, y_tab: np.ndarray, x_center: float, y_center: float):
 
         xx, yy = np.meshgrid(x_tab, y_tab)
         beam_center_rotated = [Q_(x_center, 'um'), Q_(y_center, 'um')]
@@ -199,7 +192,7 @@ class Two_Circles_onLine(BaseFieldLoader):
 
         # Calculate the radial distance from the beam center
         radial_distance = Q_(np.sqrt(X_shifted**2 + Y_shifted**2), 'um')
-        amplitude = np.where(radial_distance < Q_(self.settings['Radius_circle'], 'um'), 255, 0) 
+        amplitude = np.where(radial_distance < Q_(self.settings['radius_circle'], 'um'), 255, 0) 
         
         return amplitude
 
@@ -240,14 +233,19 @@ class Two_Circles_onLine(BaseFieldLoader):
         #Convert the linewidth (which is in um) in number of pixel
         l = int(self.settings['linewidth']/self.settings['pixel_size_y'])
 
-        for t in np.linspace(0, 1, num_points):
-            x_line = int((x1_idx * (1 - t) + x2_idx * t)/self.settings['pixel_size_x'])
-            y_line = int((y1_idx * (1 - t) + y2_idx * t)/self.settings['pixel_size_x'])
-            for dx in range(-l // 2, l // 2 + 1):
-                for dy in range(-l // 2, l // 2):
-                    if 0 <= y_line + dy < len(y) and 0 <= x_line + dx < len(x):
-                        amplitude[y_line + dy, x_line + dx] = 255
+        t_values = np.linspace(0, 1, num_points)
+        x_line = ((x1_idx * (1 - t_values) + x2_idx * t_values) / self.settings['pixel_size_x']).astype(int)
+        y_line = ((y1_idx * (1 - t_values) + y2_idx * t_values) / self.settings['pixel_size_x']).astype(int)
+        dx_range = np.arange(-l // 2, l // 2 + 1)
+        dy_range = np.arange(-l // 2, l // 2 )
 
+        for x, y in zip(x_line, y_line):
+            x_offsets, y_offsets = np.meshgrid(dx_range, dy_range, indexing='ij')
+            x_offsets = (x + x_offsets).ravel()  # Flatten for valid indexing
+            y_offsets = (y + y_offsets).ravel()
+            
+            mask = (0 <= y_offsets) & (y_offsets < self.settings['ny_pixels']) & (0 <= x_offsets) & (x_offsets < self.settings['nx_pixels'])
+            amplitude[y_offsets[mask], x_offsets[mask]] = 255
 
         field = Field('2circles_on_line', amplitude=amplitude,
                       pixel_sizes=Q_(np.array((self.settings['pixel_size_y'],
