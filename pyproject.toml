@@ -13,6 +13,7 @@ name = "pymodaq_plugins_optical_2D_shaping"
 description = "PyMoDAQ's extension plugin to run optical shaping from various shapers (focusing on amplitude and phase shaping) and the image propagation"
 dependencies = [
     "pymodaq>=5.0.0",
+    'pyfftw',
     'scikit-image',
     'pymodaq_gui>5.0.11',
 ]
