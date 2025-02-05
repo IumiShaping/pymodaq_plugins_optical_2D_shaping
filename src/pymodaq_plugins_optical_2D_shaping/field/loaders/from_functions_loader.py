@@ -181,7 +181,7 @@ class TwoCirclesOnLine(BaseFieldLoader):
         ]
 
     def __init__(self, *args, **kwargs):
-        super().__init__()
+        super().__init__(*args, **kwargs)
 
     def circle(self, x_tab: np.ndarray, y_tab: np.ndarray, x_center: float, y_center: float):
 
