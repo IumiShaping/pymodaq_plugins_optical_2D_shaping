@@ -162,7 +162,7 @@ class SinusRectangle(BaseFieldLoader):
 
 
 @LoaderFactory.register_loader()
-class Two_Circles_onLine(BaseFieldLoader):
+class TwoCirclesOnLine(BaseFieldLoader):
 
     LOADER_NAME = 'Two Circles on a Line'
 
