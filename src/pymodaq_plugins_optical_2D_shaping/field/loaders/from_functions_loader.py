@@ -159,3 +159,98 @@ class SinusRectangle(BaseFieldLoader):
                                      'um'))
         return field
 
+
+
+@LoaderFactory.register_loader()
+class TwoCirclesOnLine(BaseFieldLoader):
+
+    LOADER_NAME = 'Two Circles on a Line'
+
+    params = BaseFieldLoader.params + \
+             [
+                 {'title': 'Radius (um):', 'name': 'radius_circle', 'type': 'float',
+                  'value': 300., },
+                 {'title': 'Position x from center (um):', 'name': 'x_from_center', 'type': 'float',
+                  'value': 500., },
+                  {'title': 'Add asymetry (um) :', 'name': 'asymetry', 'type': 'float',
+                  'value': 0.,},
+                 {'title': 'Rotation around center (degree):', 'name': 'rotation_around_center', 'type': 'float',
+                  'value': 0., },
+                {'title': 'linewidth (um):', 'name': 'linewidth', 'type': 'float',
+                  'value': 100., },
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def circle(self, x_tab: np.ndarray, y_tab: np.ndarray, x_center: float, y_center: float):
+
+        xx, yy = np.meshgrid(x_tab, y_tab)
+        beam_center_rotated = [Q_(x_center, 'um'), Q_(y_center, 'um')]
+        X_shifted = xx - beam_center_rotated[0]
+        Y_shifted = yy - beam_center_rotated[1]
+
+        # Calculate the radial distance from the beam center
+        radial_distance = Q_(np.sqrt(X_shifted**2 + Y_shifted**2), 'um')
+        amplitude = np.where(radial_distance < Q_(self.settings['radius_circle'], 'um'), 255, 0) 
+        
+        return amplitude
+
+    def compute_field(self):
+
+        x = Q_(np.arange(-self.settings['nx_pixels']/2, self.settings['nx_pixels']/2, 1) * self.settings['pixel_size_x'],
+               'micron')
+        y = Q_(np.arange(-self.settings['ny_pixels']/2, self.settings['ny_pixels']/2, 1) * self.settings['pixel_size_y'],
+               'micron')
+
+        theta = np.radians(Q_(self.settings['rotation_around_center'], 'degree'))
+        R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+
+        #Circle 1
+        beam_center_unrotated = [Q_(self.settings['x_from_center'], 'um'), Q_(0, 'um')]
+        beam_center_unrotated_magn = [beam_center_unrotated[0].magnitude, beam_center_unrotated[1].magnitude]
+        
+        x1_rot, y1_rot = R@beam_center_unrotated_magn
+        amplitude = self.circle(x, y, x1_rot, y1_rot)
+
+        #Circle 2
+        beam_center_unrotated_magn = [beam_center_unrotated[0].magnitude + Q_(self.settings['asymetry'], 'um').magnitude, beam_center_unrotated[1].magnitude]   
+        x2_rot, y2_rot = -R@beam_center_unrotated_magn
+        amplitude += self.circle(x, y, x2_rot, y2_rot)
+
+        #add line of thickness l between circles
+        x1_idx, y1_idx = int(x[len(x)-1].magnitude + x1_rot), int(y[len(y)-1].magnitude + y1_rot)
+        x2_idx, y2_idx = int(x[len(x)-1].magnitude + x2_rot), int(y[len(y)-1].magnitude + y2_rot)
+        num_points = int(max(abs(x2_idx - x1_idx)/self.settings['pixel_size_x'], abs(y2_idx - y1_idx)/self.settings['pixel_size_y']))
+        
+
+        if Q_(self.settings['linewidth'], 'um') < Q_(self.settings['pixel_size_y'], 'um'):
+            #Check if the linewidth is smaller than the pixel size
+            # If so, the linewidth is set to be 0
+            self.settings['linewidth'] = 0
+
+        
+        #Convert the linewidth (which is in um) in number of pixel
+        l = int(self.settings['linewidth']/self.settings['pixel_size_y'])
+
+        t_values = np.linspace(0, 1, num_points)
+        x_line = ((x1_idx * (1 - t_values) + x2_idx * t_values) / self.settings['pixel_size_x']).astype(int)
+        y_line = ((y1_idx * (1 - t_values) + y2_idx * t_values) / self.settings['pixel_size_x']).astype(int)
+        dx_range = np.arange(-l // 2, l // 2 + 1)
+        dy_range = np.arange(-l // 2, l // 2 )
+
+        for x, y in zip(x_line, y_line):
+            x_offsets, y_offsets = np.meshgrid(dx_range, dy_range, indexing='ij')
+            x_offsets = (x + x_offsets).ravel()  # Flatten for valid indexing
+            y_offsets = (y + y_offsets).ravel()
+            
+            mask = (0 <= y_offsets) & (y_offsets < self.settings['ny_pixels']) & (0 <= x_offsets) & (x_offsets < self.settings['nx_pixels'])
+            amplitude[y_offsets[mask], x_offsets[mask]] = 255
+
+        field = Field('2circles_on_line', amplitude=amplitude,
+                      pixel_sizes=Q_(np.array((self.settings['pixel_size_y'],
+                                               self.settings['pixel_size_x'])),
+                                     'um'))
+        return field
+
+
