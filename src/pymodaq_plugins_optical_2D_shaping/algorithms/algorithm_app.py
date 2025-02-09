@@ -28,6 +28,7 @@ class AlgoApp(CustomApp):
 
     command_runner = QtCore.Signal(ThreadCommand)
     object_field_signal = QtCore.Signal(Field)
+    algo_changed = QtCore.Signal(AlgoBase)
 
     def __init__(self, dockarea):
         super().__init__(dockarea)
@@ -41,6 +42,10 @@ class AlgoApp(CustomApp):
         self.setup_ui()
 
         self.set_algorithm(self.settings['algorithm'])
+
+    @property
+    def algorithm(self):
+        return self._algorithm
 
     def set_target_field(self, field: Field):
         if self._algorithm is not None:
@@ -173,9 +178,8 @@ class AlgoApp(CustomApp):
         self.command_runner.emit(ThreadCommand('snap'))
 
     def value_changed(self, param: Parameter):
-        pass
-        # if param.name() == 'algorithm':
-        #     self.set_algorithm()
+        if param.name() == 'algorithm':
+            self.algo_changed(self._algorithm)
 
     def process_output(self, dte: DataToExport):
         fitness = dte.remove(dte.get_data_from_name('fitness'))

@@ -10,7 +10,7 @@ from pymodaq_utils.enums import BaseEnum
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataRaw
 
-from pymodaq_plugins_optical_2D_shaping.field import Field, FieldLoader
+from pymodaq_plugins_optical_2D_shaping.field import Field, FieldLoader, Q_
 
 if TYPE_CHECKING:
     from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
@@ -105,10 +105,14 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     def scale_target_with_geometry(self, field: Field):
         """ Apply an axis scaling to have the target and its axes in correct units with respect to
         a given algorithm implementation and experimental setup
-
-        to be reimplemented if needed
         """
+        field.calibrate_axes(self.get_target_pixels_size())
         return field
+
+    def get_target_pixels_size(self) -> list[Q_]:
+        """ Get the expected physical size of the pixels in the target plane given
+        the chosen algorithm and physical parameters: focal length, wavelength..."""
+        return self._input_field.pixels_sizes
 
     def get_npad_between_image_object(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
         """ Get the padding necessary to match object shape and image shape
