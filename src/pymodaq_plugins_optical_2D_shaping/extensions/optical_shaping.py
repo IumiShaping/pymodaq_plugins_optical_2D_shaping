@@ -19,9 +19,9 @@ from pymodaq_utils.config import Config
 from pymodaq_gui.utils.widgets.tree_toml import TreeFromToml
 
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
-from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
+from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp, AlgoBase
 
-from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, Field
+from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, Field, Q_
 
 from pymodaq.extensions.utils import CustomExt
 
@@ -176,9 +176,18 @@ class OpticalShaping(CustomExt):
 
         self._input_field_loader.field_signal.connect(self.update_input)
         self._target_loader.field_signal.connect(self.update_target)
+        self._algorithm.algo_changed.connect(self.update_target_loader_from_algo)
 
         self._input_field_loader.load_field()
+        self.update_target_loader_from_algo(self._algorithm.algorithm)
         self._target_loader.load_field()
+
+    def update_target_loader_from_algo(self, algo: AlgoBase):
+        pixel_size = self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size')
+        height = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'height'), 'um')
+        width = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'width'), 'um')
+        slm_size = (pixel_size * height, pixel_size * width)
+        self._target_loader.update_pixels(algo.get_target_pixels_size(slm_size))
 
     def show_config(self, show=True):
         if show:
