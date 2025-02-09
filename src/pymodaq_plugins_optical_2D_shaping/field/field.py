@@ -137,8 +137,8 @@ class Field(DataRaw):
                       np.sqrt(np.prod(self.shape))
         field = Field()
         field.field = field_array
-        frequency_pixel_size = 1 / (2 * np.array(self.shape) * self.pixels_sizes)
-        field.calibrate_axes(frequency_pixel_size * scaling)
+        frequency_pixel_size = [1 / (2 * self.shape[ind] * self.pixels_sizes[ind]) * scaling for ind in range(2)]
+        field.calibrate_axes(frequency_pixel_size)
         return field
 
     def ifft2(self, scaling=Q_(1., ''), **kwargs):
@@ -158,8 +158,8 @@ class Field(DataRaw):
                       np.sqrt(np.prod(self.shape))
         field = Field()
         field.field = field_array
-        pixel_size = 1 / (2 * np.array(self.shape) * self.pixels_sizes)
-        field.calibrate_axes(pixel_size * scaling)
+        pixel_size = [1 / (2 * self.shape[ind] * self.pixels_sizes[ind]) * scaling for ind in range(2)]
+        field.calibrate_axes(pixel_size)
         return field
 
     @property

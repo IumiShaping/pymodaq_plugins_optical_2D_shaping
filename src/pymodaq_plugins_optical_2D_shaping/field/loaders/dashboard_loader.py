@@ -43,6 +43,7 @@ class DashboardLoader(FieldLoader):
         """ Mandatory reimplemented method. Used to load a target to populate the field attribute"""
 
         detector = self.modules_manager.get_mod_from_name(self.settings['detectors'])
-        dwa = detector.current_data[0]
-        self.field.amplitude = dwa[0]
+        if detector.current_data is not None:
+            dwa = detector.current_data[0]
+            self.field.amplitude = dwa[0]
         return self.field

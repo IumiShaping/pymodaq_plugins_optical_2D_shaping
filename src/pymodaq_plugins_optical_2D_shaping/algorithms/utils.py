@@ -111,8 +111,11 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
     def get_target_pixels_size(self) -> list[Q_]:
         """ Get the expected physical size of the pixels in the target plane given
-        the chosen algorithm and physical parameters: focal length, wavelength..."""
-        return self._input_field.pixels_sizes
+        the chosen algorithm and physical parameters: focal length, wavelength...
+
+        To be reimplemented by real Algorithm
+        """
+        raise NotImplementedError
 
     def get_npad_between_image_object(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
         """ Get the padding necessary to match object shape and image shape
