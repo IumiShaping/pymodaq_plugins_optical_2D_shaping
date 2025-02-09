@@ -38,6 +38,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
     ALGO_NAME = abstractproperty()
     ITERATIVE = False
+    params = []
 
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__()
@@ -128,3 +129,6 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         npad_after = (np.array(self._image_field.shape) -
                         np.array(self._object_field.shape)) - npad_before
         return (npad_before[0], npad_after[0]), (npad_before[1], npad_after[1])
+
+    def value_changed(self, param: Parameter):
+        self.parent_app.algo_settings_changed()
