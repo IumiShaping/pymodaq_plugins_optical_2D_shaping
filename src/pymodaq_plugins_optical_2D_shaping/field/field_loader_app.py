@@ -252,7 +252,7 @@ class FieldLoaderApp(CustomApp):
             phase[*slices_sure] = mask_phase
             self.field.phase = phase
 
-        print(self.field.shape)
+        #print(self.field.shape)
 
     def get_npad_between(self, first_shape, second_shape):
         """ Get the padding necessary to match object shape and image shape

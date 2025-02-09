@@ -16,10 +16,14 @@ from pymodaq_data import Q_
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field
+from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
+
+
 if TYPE_CHECKING:
     from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
 
 logger = set_logger(get_module_name(__file__))
+plugin_config = PluginConfig()
 
 
 @AlgorithmFactory.register_algorithm()
@@ -35,8 +39,10 @@ class GbSax(AlgoBase):
     ITERATIVE = True
 
     params = [
-        {'title': 'Wavelength (nm)', 'name': 'wavelength', 'type': 'float', 'value': 515.,},
-        {'title': 'Focal length (mm)', 'name': 'focal_length', 'type': 'float', 'value': 300.,},
+        {'title': 'Wavelength (nm)', 'name': 'wavelength', 'type': 'float',
+         'value': plugin_config('algo', 'gbsax', 'wavelength_nm',)},
+        {'title': 'Focal length (mm)', 'name': 'focal_length', 'type': 'float',
+         'value': plugin_config('algo', 'gbsax', 'focal_length_mm')},
     ]
 
     def __init__(self, parent: 'AlgoApp' = None):

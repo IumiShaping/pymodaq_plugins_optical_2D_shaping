@@ -95,6 +95,8 @@ class AlgoApp(CustomApp):
                 self.set_target_field(self._target_field)
             self.set_action_visible('grab', self._algorithm.ITERATIVE)
 
+            self.algo_changed.emit(self._algorithm)
+
         except ValueError as e:
             pass
 
@@ -179,7 +181,10 @@ class AlgoApp(CustomApp):
 
     def value_changed(self, param: Parameter):
         if param.name() == 'algorithm':
-            self.algo_changed(self._algorithm)
+            self.set_algorithm()
+
+    def algo_settings_changed(self):
+        self.algo_changed.emit(self.algorithm)
 
     def process_output(self, dte: DataToExport):
         fitness = dte.remove(dte.get_data_from_name('fitness'))

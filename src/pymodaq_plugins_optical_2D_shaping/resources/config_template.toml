@@ -24,3 +24,7 @@ default_loader = "GaussianIntensityLoader"
 
 [algo]
 default_algo = 'Gerchberg-Saxton'
+
+[algo.gbsax]
+focal_length_mm = 100
+wavelength_nm = 515
