@@ -58,13 +58,14 @@ class FieldLoader(FieldLoaderParameterManager, metaclass=ABCMeta):
     def value_changed(self, param: Parameter):
         ...
 
-    def load_field(self, *args, **kwargs) -> Field:
+    def load_field(self, *args, notify=True, **kwargs) -> Field:
         """Load a field to populate the field attribute
 
         This method should be used from external object
         """
         field = self.load(*args, **kwargs)
-        self.notify_listeners(field)
+        if notify:
+            self.notify_listeners(field)
         return field
 
     def load(self, *args, **kwargs) -> Field:
