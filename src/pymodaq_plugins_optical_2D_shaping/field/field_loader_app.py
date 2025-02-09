@@ -9,7 +9,7 @@ from pymodaq_gui.utils.custom_app import CustomApp
 from pymodaq_gui.utils.dock import DockArea, Dock
 
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
-from pymodaq_plugins_optical_2D_shaping.field import Field, field_loader_factory
+from pymodaq_plugins_optical_2D_shaping.field import Field, field_loader_factory, Q_
 from pymodaq_plugins_optical_2D_shaping.field.factory import LoaderFactory, FieldLoader
 
 from pymodaq_gui.managers.roi_manager import ROI2D_TYPES, ROI
@@ -28,6 +28,12 @@ class FieldLoaderApp(CustomApp):
             {'title': 'Width', 'name': 'width', 'type': 'int', 'value': 0, 'readonly': True},
         ]},
         {'title': 'Needed size', 'name': 'needed_size', 'type': 'group', 'children': [
+            {'title': 'Pixel Height (µm)', 'name': 'pixel_height', 'type': 'int',
+             'value': plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'pixel_size'),
+             'readonly': False},
+            {'title': 'Pixel Width (µm)', 'name': 'pixel_width', 'type': 'int',
+             'value': plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'pixel_size'),
+             'readonly': False},
             {'title': 'Height', 'name': 'height', 'type': 'int',
              'value': plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'height'),
              'readonly': True},
@@ -86,6 +92,11 @@ class FieldLoaderApp(CustomApp):
 
         self.loader = field_loader_factory.field_loaders[0]
 
+    def update_pixels(self, pixel_sizes: Tuple[Q_, Q_]):
+        self.settings.child('needed_size', 'pixel_height').setValue(pixel_sizes[0].m_as('um'))
+        self.settings.child('needed_size', 'pixel_width').setValue(pixel_sizes[1].m_as('um'))
+        self.load_field()
+
     def value_changed(self, param: Parameter):
         if param.name() == 'loader':
             self.loader = param.value()
@@ -99,7 +110,7 @@ class FieldLoaderApp(CustomApp):
             self.field_widget.setVisible(param.value())
 
         elif param.name() == 'reload':
-            self.load_field()
+                self.load_field()
 
         elif param.name() == 'show_needed_area':
             self.show_roi_target(param.value())
@@ -142,18 +153,20 @@ class FieldLoaderApp(CustomApp):
         self.field_signal.emit(self.field)
 
     def update_viewers(self):
-        needed_shape = (self.settings['needed_size', 'width'],
-                        self.settings['needed_size', 'height'],
+        needed_shape = (self.settings['needed_size', 'height'],
+                        self.settings['needed_size', 'width'],
                         )
         if self.field is not None:
             self.amp_viewer.show_data(self.field.amplitude_as_dwa())
             self.phase_viewer.show_data(self.field.phase_as_dwa())
+
+            pixels_magnitude = np.array([pixel.to_base_units().magnitude for pixel in self.field.pixels_sizes])
             self.amp_viewer.move_roi_target(
                 (0, 0),
-                np.array(needed_shape) * self.field.pixels_sizes.to_base_units().magnitude)
+                (np.array(needed_shape) * pixels_magnitude)[::-1])
             self.phase_viewer.move_roi_target(
                 (0, 0),
-                np.array(needed_shape) * self.field.pixels_sizes.to_base_units().magnitude)
+                (np.array(needed_shape) * pixels_magnitude)[::-1])
 
     def set_loader_in_settings(self, loader_name: str):
         if loader_name in self.settings.child('loader').opts['limits']:
@@ -166,7 +179,8 @@ class FieldLoaderApp(CustomApp):
         field.phase[np.abs(field.phase) < threshold] = 0
 
     def load_field(self, *args, **kwargs):
-        self._ini_field = self._field_loader.load_field(*args, **kwargs)
+        notify = kwargs.pop('notify', False)
+        self._ini_field = self._field_loader.load_field(*args, notify=notify, **kwargs)
         self.threshold_phase(self._ini_field)
         self.field = self._ini_field.deepcopy()
         self.update_ini_size()
@@ -178,12 +192,20 @@ class FieldLoaderApp(CustomApp):
         self.settings.child('ini_size', 'width').setValue(self._ini_field.shape[1])
 
     def update_final_size(self):
+        pixel_ratio = self.settings['needed_size', 'pixel_width'] / self.settings['needed_size', 'pixel_height']
         needed_shape = (self.settings['needed_size', 'height'],
                          self.settings['needed_size', 'width'])
         if self.settings['utils', 'flipud']:
             self.field.field = np.flipud(self.field.field)
         if self.settings['utils', 'fliplr']:
             self.field.field = np.fliplr(self.field.field)
+
+        _field_temp = self.field.deepcopy()
+        self.field.amplitude = rescale(_field_temp.amplitude, (pixel_ratio, 1))
+        self.field.phase = rescale(_field_temp.phase, (pixel_ratio, 1))
+        self.field.calibrate_axes((Q_(self.settings['needed_size', 'pixel_height'], 'um'),
+                                   Q_(self.settings['needed_size', 'pixel_width'], 'um')))
+
         if self.settings['utils', 'sizing', 'do_scaling']:
             if self.settings['utils', 'sizing', 'aspect_ratio']:
                 ratio = np.min(np.array(needed_shape) / np.array(self.field.shape))
@@ -229,6 +251,8 @@ class FieldLoaderApp(CustomApp):
             phase = np.zeros(self.field.amplitude.shape)
             phase[*slices_sure] = mask_phase
             self.field.phase = phase
+
+        print(self.field.shape)
 
     def get_npad_between(self, first_shape, second_shape):
         """ Get the padding necessary to match object shape and image shape

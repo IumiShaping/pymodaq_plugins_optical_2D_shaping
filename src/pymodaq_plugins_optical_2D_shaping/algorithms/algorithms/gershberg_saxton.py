@@ -5,7 +5,7 @@ Created the 20/07/2023
 @author: Sebastien Weber
 """
 from pathlib import Path
-from typing import Union, Tuple, List, TYPE_CHECKING
+from typing import Union, Tuple, List, TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -51,24 +51,17 @@ class GbSax(AlgoBase):
         else:
             raise ValueError('The phase shape is incoherent with the parameters')
 
-    def scale_target_with_geometry(self, field: Field):
-        """ Apply an axis scaling to have the target and its axes in correct units with respect to
-        a given algorithm implementation and experimental setup
 
-        to be reimplemented if needed
-        """
+    def get_target_pixels_size(self, slm_size: Tuple[Q_, Q_] = None) -> list[Q_]:
+        """ Get the expected physical size of the pixels in the target plane given
+        the chosen algorithm and physical parameters: focal length, wavelength..."""
+        if slm_size is None:
+            slm_size = [self._input_field.shape[ind] * self._input_field.pixels_sizes[ind]
+                         for ind in range(2)]
 
-        slm_pixel_sizes = self._input_field.pixels_sizes
-
-        target_pixel_sizes = ((Q_(self.settings['wavelength'], 'nm') *
-                              Q_(self.settings['focal_length'], 'mm')) /
-                              slm_pixel_sizes /
-                              np.array(field.shape)
-                              ).to('um')
-
-        field.calibrate_axes(target_pixel_sizes)
-        field.axes = field.get_axes()
-        return field
+        return [Q_(self.settings['wavelength'], 'nm') *
+                Q_(self.settings['focal_length'], 'mm') /
+                size for size in slm_size]
 
     def propagate_field(self):
         self._image_field = self._object_field.fft2()

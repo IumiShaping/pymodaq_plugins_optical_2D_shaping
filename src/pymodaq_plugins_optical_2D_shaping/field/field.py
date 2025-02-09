@@ -52,7 +52,7 @@ except ImportError:
 
 class Field(DataRaw):
     def __init__(self, name='', amplitude: np.ndarray = None, phase: np.ndarray = None,
-                 pixel_sizes=Q_((10., 10.), 'micron')):
+                 pixel_sizes=(Q_(10., 'micron'), Q_(10., 'micron'))):
 
         self._pixels_sizes: Tuple[Q_, Q_] = None
 
@@ -80,14 +80,14 @@ class Field(DataRaw):
         self._pixels_sizes = pixel_sizes
 
     @property
-    def pixels_sizes(self) -> Q_:
+    def pixels_sizes(self) -> Tuple[Q_, Q_]:
         return self._pixels_sizes
 
     def get_axes(self):
-        units = str(self.pixels_sizes.to_base_units().units)
-        return [Axis('Hor Axis', units, scaling=self._pixels_sizes[0].m_as(units), offset=0,
+        units = [str(pixel_size.to_base_units().units) for pixel_size in self.pixels_sizes]
+        return [Axis('Hor Axis', units[1], scaling=self._pixels_sizes[1].m_as(units[1]), offset=0,
                      index=1, size=self.shape[1]),
-                Axis('Ver Axis', units, scaling=self._pixels_sizes[0].m_as(units), offset=0,
+                Axis('Ver Axis', units[0], scaling=self._pixels_sizes[0].m_as(units[0]), offset=0,
                      index=0, size=self.shape[0]),]
 
     @staticmethod
