@@ -32,15 +32,32 @@ class FieldLoaderParameterManager(ParameterManager):
 
 class FieldLoader(FieldLoaderParameterManager, metaclass=ABCMeta):
     LOADER_NAME = abstractproperty()
-
+    with_physical_pixels_size = False
     params = [
     ]
 
     def __init__(self, *args, **kwargs):
         super().__init__()
+        self.parent_app = kwargs.pop('parent')
 
         self._listener = dict()
         self.field = Field()
+
+    @property
+    def pixel_width(self):
+        return self.parent_app.settings['needed_size', 'pixel_width']
+
+    @property
+    def pixel_height(self):
+        return self.parent_app.settings['needed_size', 'pixel_height']
+
+    @property
+    def n_pixel_width(self):
+        return self.parent_app.settings['needed_size', 'width']
+
+    @property
+    def n_pixel_height(self):
+        return self.parent_app.settings['needed_size', 'height']
 
     def register_listener(self, object_instance):
         """ Register objects that will be notified when the field attribute has been changed
