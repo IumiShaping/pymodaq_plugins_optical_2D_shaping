@@ -201,8 +201,13 @@ class FieldLoaderApp(CustomApp):
             self.field.field = np.fliplr(self.field.field)
 
         _field_temp = self.field.deepcopy()
-        self.field.amplitude = rescale(_field_temp.amplitude, (pixel_ratio, 1))
-        self.field.phase = rescale(_field_temp.phase, (pixel_ratio, 1))
+        if self._field_loader.with_physical_pixels_size:
+            self.field.amplitude = _field_temp.amplitude
+            self.field.phase = _field_temp.phase
+        else:
+            self.field.amplitude = rescale(_field_temp.amplitude, (pixel_ratio, 1))
+            self.field.phase = rescale(_field_temp.phase, (pixel_ratio, 1))
+
         self.field.calibrate_axes((Q_(self.settings['needed_size', 'pixel_height'], 'um'),
                                    Q_(self.settings['needed_size', 'pixel_width'], 'um')))
 
@@ -275,8 +280,7 @@ class FieldLoaderApp(CustomApp):
         try:
             self._field_loader: FieldLoader =\
                 field_loader_factory.get_loader(loader_name)(
-                    width=self.settings['needed_size', 'width'],
-                    height=self.settings['needed_size', 'height'],
+                    parent=self,
                     **self.loader_kwargs
                 )
 
