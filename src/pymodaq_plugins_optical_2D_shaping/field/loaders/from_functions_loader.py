@@ -167,7 +167,6 @@ class TwoCirclesOnLine(BaseFieldLoader):
         return amplitude
 
     def compute_field(self):
-        
         x = Q_(np.arange(-self.n_pixel_width/2, self.n_pixel_width/2, 1) * self.pixel_width,
                'micron')
         y = Q_(np.arange(-self.n_pixel_height/2, self.n_pixel_height/2, 1) * self.pixel_height,
@@ -205,7 +204,7 @@ class TwoCirclesOnLine(BaseFieldLoader):
 
         t_values = np.linspace(0, 1, num_points)
         x_line = ((x1_idx * (1 - t_values) + x2_idx * t_values) / self.pixel_width).astype(int)
-        y_line = ((y1_idx * (1 - t_values) + y2_idx * t_values) / self.pixel_width).astype(int)
+        y_line = ((y1_idx * (1 - t_values) + y2_idx * t_values) / self.pixel_height).astype(int)
         dx_range = np.arange(-l // 2, l // 2 + 1)
         dy_range = np.arange(-l // 2, l // 2 )
 
