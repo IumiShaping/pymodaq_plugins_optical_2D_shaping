@@ -14,25 +14,7 @@ SLM = plugin_config('SLM', 'default_slm')
 
 
 class BaseFieldLoader(FieldLoader):
-    params = FieldLoader.params + \
-             [{'title': 'Ny:', 'name': 'ny_pixels', 'type': 'int',
-               'value': plugin_config('SLM', SLM, 'height'), },
-              {'title': 'Nx:', 'name': 'nx_pixels', 'type': 'int',
-               'value': plugin_config('SLM', SLM, 'width'), },
-              {'title': 'Pixel size x (µm):', 'name': 'pixel_size_x', 'type': 'float',
-               'value': plugin_config('SLM', SLM, 'pixel_size'), },
-              {'title': 'Pixel size y (µm):', 'name': 'pixel_size_y', 'type': 'float',
-               'value': plugin_config('SLM', SLM, 'pixel_size'), },]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__()
-        if 'width' in kwargs:
-            self.settings.child('nx_pixels').setValue(kwargs['width'])
-        if 'height' in kwargs:
-            self.settings.child('ny_pixels').setValue(kwargs['height'])
-        if 'pixel_size' in kwargs:
-            self.settings.child('pixel_size_x').setValue(kwargs['pixel_size'])
-            self.settings.child('pixel_size_x').setValue(kwargs['pixel_size'])
+    with_physical_pixels_size = True
 
     def value_changed(self, param: Parameter):
         field = self.compute_field()
@@ -60,9 +42,9 @@ class GaussianIntensity(BaseFieldLoader):
 
     def compute_field(self):
 
-        x = Q_(np.arange(0, self.settings['nx_pixels'], 1) * self.settings['pixel_size_x'],
+        x = Q_(np.arange(0, self.n_pixel_width, 1) * self.pixel_width,
                'micron')
-        y = Q_(np.arange(0, self.settings['ny_pixels'], 1) * self.settings['pixel_size_y'],
+        y = Q_(np.arange(0, self.n_pixel_height, 1) * self.pixel_height,
                'micron')
 
         amplitude = np.sqrt(mutils.gauss2D(
@@ -72,8 +54,8 @@ class GaussianIntensity(BaseFieldLoader):
             Q_(self.settings['beam_size_y'], 'mm').m_as('mm')))
 
         field = Field('GaussianIntensity', amplitude=amplitude,
-                      pixel_sizes=Q_(np.array((self.settings['pixel_size_y'],
-                                               self.settings['pixel_size_x'])),
+                      pixel_sizes=Q_(np.array((self.pixel_height,
+                                               self.pixel_width)),
                                      'um'))
         return field
 
@@ -90,9 +72,9 @@ class LaguerreGauss(GaussianIntensity):
 
     def compute_field(self):
 
-        x = Q_(np.arange(0, self.settings['nx_pixels'], 1) * self.settings['pixel_size_x'],
+        x = Q_(np.arange(0, self.n_pixel_width, 1) * self.pixel_width,
                'micron')
-        y = Q_(np.arange(0, self.settings['ny_pixels'], 1) * self.settings['pixel_size_y'],
+        y = Q_(np.arange(0, self.n_pixel_height, 1) * self.pixel_height,
                'micron')
 
         amplitude = np.sqrt(mutils.gauss2D(
@@ -108,8 +90,8 @@ class LaguerreGauss(GaussianIntensity):
                       self.settings['angular_momentum']
 
         field = Field('GaussianIntensity', amplitude=amplitude, phase=phase_array,
-                      pixel_sizes=Q_(np.array((self.settings['pixel_size_y'],
-                                               self.settings['pixel_size_x'])),
+                      pixel_sizes=Q_(np.array((self.pixel_height,
+                                               self.pixel_width)),
                                      'um'))
         return field
 
@@ -129,21 +111,11 @@ class SinusRectangle(BaseFieldLoader):
                   'value': 250., },
         ]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__()
-        if 'width' in kwargs:
-            self.settings.child('nx_pixels').setValue(kwargs['width'])
-        if 'height' in kwargs:
-            self.settings.child('ny_pixels').setValue(kwargs['height'])
-        if 'pixel_size' in kwargs:
-            self.settings.child('pixel_size_x').setValue(kwargs['pixel_size'])
-            self.settings.child('pixel_size_x').setValue(kwargs['pixel_size'])
-
     def compute_field(self):
 
-        x = Q_(np.arange(0, self.settings['nx_pixels'], 1) * self.settings['pixel_size_x'],
+        x = Q_(np.arange(0, self.n_pixel_width, 1) * self.pixel_width,
                'micron')
-        y = Q_(np.arange(0, self.settings['ny_pixels'], 1) * self.settings['pixel_size_y'],
+        y = Q_(np.arange(0, self.n_pixel_height, 1) * self.pixel_height,
                'micron')
 
         xx, yy = np.meshgrid(x, y)
@@ -154,8 +126,8 @@ class SinusRectangle(BaseFieldLoader):
         amplitude[np.mean(y) + Q_(self.settings['rect_height'], 'um') / 2 <= yy] = 0
 
         field = Field('SinusRectangle', amplitude=amplitude.magnitude,
-                      pixel_sizes=Q_(np.array((self.settings['pixel_size_y'],
-                                               self.settings['pixel_size_x'])),
+                      pixel_sizes=Q_(np.array((self.pixel_height,
+                                               self.pixel_width)),
                                      'um'))
         return field
 
@@ -180,8 +152,6 @@ class TwoCirclesOnLine(BaseFieldLoader):
                   'value': 100., },
         ]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
     def circle(self, x_tab: np.ndarray, y_tab: np.ndarray, x_center: float, y_center: float):
 
@@ -197,10 +167,10 @@ class TwoCirclesOnLine(BaseFieldLoader):
         return amplitude
 
     def compute_field(self):
-
-        x = Q_(np.arange(-self.settings['nx_pixels']/2, self.settings['nx_pixels']/2, 1) * self.settings['pixel_size_x'],
+        
+        x = Q_(np.arange(-self.n_pixel_width/2, self.n_pixel_width/2, 1) * self.pixel_width,
                'micron')
-        y = Q_(np.arange(-self.settings['ny_pixels']/2, self.settings['ny_pixels']/2, 1) * self.settings['pixel_size_y'],
+        y = Q_(np.arange(-self.n_pixel_height/2, self.n_pixel_height/2, 1) * self.pixel_height,
                'micron')
 
         theta = np.radians(Q_(self.settings['rotation_around_center'], 'degree'))
@@ -221,21 +191,21 @@ class TwoCirclesOnLine(BaseFieldLoader):
         #add line of thickness l between circles
         x1_idx, y1_idx = int(x[len(x)-1].magnitude + x1_rot), int(y[len(y)-1].magnitude + y1_rot)
         x2_idx, y2_idx = int(x[len(x)-1].magnitude + x2_rot), int(y[len(y)-1].magnitude + y2_rot)
-        num_points = int(max(abs(x2_idx - x1_idx)/self.settings['pixel_size_x'], abs(y2_idx - y1_idx)/self.settings['pixel_size_y']))
+        num_points = int(max(abs(x2_idx - x1_idx)/self.pixel_width, abs(y2_idx - y1_idx)/self.pixel_height))
         
 
-        if Q_(self.settings['linewidth'], 'um') < Q_(self.settings['pixel_size_y'], 'um'):
+        if Q_(self.settings['linewidth'], 'um') < Q_(self.pixel_height, 'um'):
             #Check if the linewidth is smaller than the pixel size
             # If so, the linewidth is set to be 0
             self.settings['linewidth'] = 0
 
         
         #Convert the linewidth (which is in um) in number of pixel
-        l = int(self.settings['linewidth']/self.settings['pixel_size_y'])
+        l = int(self.settings['linewidth']/self.pixel_height)
 
         t_values = np.linspace(0, 1, num_points)
-        x_line = ((x1_idx * (1 - t_values) + x2_idx * t_values) / self.settings['pixel_size_x']).astype(int)
-        y_line = ((y1_idx * (1 - t_values) + y2_idx * t_values) / self.settings['pixel_size_x']).astype(int)
+        x_line = ((x1_idx * (1 - t_values) + x2_idx * t_values) / self.pixel_width).astype(int)
+        y_line = ((y1_idx * (1 - t_values) + y2_idx * t_values) / self.pixel_width).astype(int)
         dx_range = np.arange(-l // 2, l // 2 + 1)
         dy_range = np.arange(-l // 2, l // 2 )
 
@@ -244,12 +214,12 @@ class TwoCirclesOnLine(BaseFieldLoader):
             x_offsets = (x + x_offsets).ravel()  # Flatten for valid indexing
             y_offsets = (y + y_offsets).ravel()
             
-            mask = (0 <= y_offsets) & (y_offsets < self.settings['ny_pixels']) & (0 <= x_offsets) & (x_offsets < self.settings['nx_pixels'])
+            mask = (0 <= y_offsets) & (y_offsets < self.n_pixel_height) & (0 <= x_offsets) & (x_offsets < self.n_pixel_width)
             amplitude[y_offsets[mask], x_offsets[mask]] = 255
 
         field = Field('2circles_on_line', amplitude=amplitude,
-                      pixel_sizes=Q_(np.array((self.settings['pixel_size_y'],
-                                               self.settings['pixel_size_x'])),
+                      pixel_sizes=Q_(np.array((self.pixel_height,
+                                               self.pixel_width)),
                                      'um'))
         return field
 

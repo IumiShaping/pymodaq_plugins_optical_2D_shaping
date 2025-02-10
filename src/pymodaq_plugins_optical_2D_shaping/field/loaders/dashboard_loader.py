@@ -27,17 +27,19 @@ class DashboardLoader(FieldLoader):
     params = [{'title': 'Detectors', 'name': 'detectors', 'type': 'list', 'limits': []}]
 
     def __init__(self, **kwargs):
-        super().__init__()
+        modules_manager = kwargs.pop('modules_manager', None)
+        super().__init__(**kwargs)
 
-        self._listener = dict()
-        self.field = Field()
-
-        if 'modules_manager' in kwargs:
-            self.modules_manager: ModulesManager = kwargs['modules_manager']
+        if modules_manager is not None:
+            self.modules_manager: ModulesManager = modules_manager
             self.settings.child('detectors').setLimits(self.modules_manager.detectors_name)
         else:
             logger.warning('could not load properly the Dashboard Field Loader as'
                            'no modules manager has been passed')
+
+
+
+
 
     def load(self, *args, load_type: LoadTypeEnum = None, **kwargs) -> Field:
         """ Mandatory reimplemented method. Used to load a target to populate the field attribute"""
