@@ -172,6 +172,10 @@ class OpticalShaping(CustomExt):
         self.connect_action('target', self.show_target)
         self.connect_action('input', self.show_input)
         self.connect_action('algo', self.show_algo)
+
+        self.connect_action('run', self._algorithm.compute_phase_loop)
+        self.connect_action('pause', self._algorithm.stop)
+
         self._algorithm.object_field_signal.connect(self.update_object)
 
         self._input_field_loader.field_signal.connect(self.update_input)

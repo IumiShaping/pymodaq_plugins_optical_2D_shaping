@@ -3,17 +3,21 @@ from abc import ABCMeta, abstractproperty
 import numpy as np
 from qtpy import QtWidgets, QtCore
 
-from pymodaq_gui.managers.parameter_manager import ParameterManager, Parameter
-from pymodaq_gui.parameter import utils as putils
-from pymodaq_gui.parameter.utils import iter_children
-from pymodaq_utils.enums import BaseEnum, enum_checker
-from pymodaq_utils.logger import set_logger, get_module_name
-from pymodaq_gui.plotting.data_viewers import ViewerDispatcher, Viewer0D, Viewer2D
+from pymodaq_utils.utils import ThreadCommand
+
 from pymodaq_data.data import DataRaw, DataToExport
+from pymodaq_data.h5modules.data_saving import DataToExportSaver
+from pymodaq_data.h5modules.saving import SaveType
+
+from pymodaq_gui.managers.parameter_manager import Parameter
+from pymodaq_gui.plotting.data_viewers import ViewerDispatcher, Viewer0D
 from pymodaq_gui.utils.custom_app import CustomApp
 from pymodaq_gui.utils.dock import DockArea, Dock
 from pymodaq_gui.utils import QLED
-from pymodaq_utils.utils import ThreadCommand
+from pymodaq_gui.utils.file_io import select_file
+from pymodaq_gui.parameter import ioxml
+
+
 
 from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
 from pymodaq_plugins_optical_2D_shaping.field import Field
@@ -38,6 +42,8 @@ class AlgoApp(CustomApp):
         self._algorithm: AlgoBase = None
         self._target_field: Field = None
         self._input_field: Field = None
+
+        self._current_data: DataToExport = None
 
         self.setup_ui()
 
@@ -153,11 +159,12 @@ class AlgoApp(CustomApp):
     def setup_actions(self):
         self.add_action('ini_algo', 'Init Algo', 'ini', checkable=True)
         self.add_widget('algo_led', QLED, toolbar=self.toolbar)
-        self.add_action('snap', 'Snap', 'snap', "Take a snapshot from the detector")
-        self.add_action('grab', 'Grab', 'run2', "Grab data from the detector", checkable=True)
-        self.add_action('stop', 'Stop', 'stop', "Stop grabing")
+        self.add_action('snap', 'Snap', 'snap', "Run a loop of the algorithm")
+        self.add_action('grab', 'Grab', 'run2', "Run continuously the algorithm", checkable=True)
+        self.add_action('stop', 'Stop', 'stop', "Stop the algorithm")
         self.add_action('show_target', 'Show Target', 'target',
                         "Show Target in real units", checkable=True)
+        self.add_action('export', 'Export', 'SaveAs', 'Export data')
 
     def connect_things(self):
         self.connect_action('snap', self.compute_phase)
@@ -165,6 +172,7 @@ class AlgoApp(CustomApp):
         self.connect_action('ini_algo', self.ini_algo)
         self.connect_action('stop', self.stop)
         self.connect_action('show_target', lambda show: self.target_widget.setVisible(show))
+        self.connect_action('export', self.export_data)
 
     def stop(self):
         self.command_runner.emit(ThreadCommand('stop'))
@@ -186,7 +194,16 @@ class AlgoApp(CustomApp):
     def algo_settings_changed(self):
         self.algo_changed.emit(self.algorithm)
 
+    def export_data(self):
+        if self._current_data is not None:
+            file_path = select_file(save=True, ext='h5', force_save_extension=True)
+            with DataToExportSaver(file_path, save_type=SaveType.custom) as saver:
+                saver.add_data('/RawData', self._current_data, ioxml.parameter_to_xml_string(self._algorithm.settings))
+
+
     def process_output(self, dte: DataToExport):
+        self._current_data = dte.deepcopy()
+
         fitness = dte.remove(dte.get_data_from_name('fitness'))
         dte_image = dte.get_data_from_full_names(['image/amplitude', 'image/phase'])
         dte_object = dte.get_data_from_full_names(['object/amplitude', 'object/phase'])
