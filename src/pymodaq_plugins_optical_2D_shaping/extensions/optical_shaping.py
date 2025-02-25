@@ -167,9 +167,11 @@ class OpticalShaping(CustomExt):
         self.add_action('send_to_shaper', 'Send phase to shaper', 'random',
                         'Send calculated phase to the control module called *Shaper*',
                         checkable=True)
+        self.add_action('add_focal_move', 'Add Focal Move',
+                        'Add_Step', tip = 'Create a move to probe the extra focal')
         self.add_widget('focal_length', SliderSpinBox, toolbar=self._toolbar,
                         tip='Focal length in cm of a lens computed from a quadratic phase',
-                        value=0, bounds=(-1000, 1000))
+                        value=0.1, bounds=(0.1, 1000))
 
         logger.debug('actions set')
 
@@ -185,6 +187,7 @@ class OpticalShaping(CustomExt):
         self.connect_action('run', self._algorithm.compute_phase_loop)
         self.connect_action('pause', self._algorithm.stop)
 
+        self.connect_action('add_focal_move', self.add_focal_move)
         self.connect_action('focal_length', self.compute_focal_phase, signal_name='valueChanged')
 
         self._algorithm.object_field_signal.connect(self.update_object)
@@ -196,6 +199,18 @@ class OpticalShaping(CustomExt):
         self._input_field_loader.load_field()
         self.update_target_loader_from_algo(self._algorithm.algorithm)
         self._target_loader.load_field()
+
+    def add_focal_move(self):
+        try:
+            self.dashboard.add_move_from_extension('Focal Length', 'FocalLength', self)
+            self.set_action_enabled('add_focal_move', False)
+        except Exception as e:
+            logger.exception(str(e))
+            pass
+
+    def set_focal_length(self, focal: DataActuator):
+        self.get_action('focal_length').setValue(focal.value('cm'))
+        self.compute_focal_phase(focal.value('cm'))
 
     def compute_focal_phase(self, value: float):
         """ compute the phase to send to the SLM to achieve this focal length"""
@@ -273,7 +288,7 @@ def main():
 
     app = mkQApp('Optical Shaping')
 
-    preset_file_name = 'holography'
+    preset_file_name = 'holography_mock'
     file = Path(get_set_preset_path()).joinpath(f"{preset_file_name}.xml")
     if file.exists():
         dashboard, extension, win = load_dashboard_with_preset(preset_file_name, 'Optical Shaping')
