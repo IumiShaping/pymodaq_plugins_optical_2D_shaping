@@ -5,6 +5,8 @@ from collections.abc import Iterable
 
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_data.data import DataRaw, Axis
+from pymodaq.utils.data import DataActuator
+
 from pymodaq_data import Q_
 
 logger = set_logger(get_module_name(__file__))
@@ -210,19 +212,19 @@ class Field(DataRaw):
     def amplitude_as_dwa(self, origin_name: str = '', name: str = None):
         if not (name is None or isinstance(name, str)):
             name = 'amplitude'
-        return DataRaw('amplitude' if name is None else name, data=[self.amplitude],
+        return DataActuator('amplitude' if name is None else name, data=[self.amplitude],
                        axes=self.get_axes(), origin=origin_name)
 
     def phase_as_dwa(self, origin_name: str = '', name: str = None):
         if not (name is None or isinstance(name, str)):
             name = 'phase'
-        return DataRaw('phase' if name is None else name, data=[self.phase], axes=self.get_axes(),
+        return DataActuator('phase' if name is None else name, data=[self.phase], axes=self.get_axes(),
                        origin=origin_name)
 
     def intensity_as_dwa(self, origin_name: str = '', name: str = None):
         if not (name is None or isinstance(name, str)):
             name = 'intensity'
-        return DataRaw('intensity' if name is None else name, data=[self.intensity],
+        return DataActuator('intensity' if name is None else name, data=[self.intensity],
                        axes=self.get_axes(),
                        origin=origin_name)
 
