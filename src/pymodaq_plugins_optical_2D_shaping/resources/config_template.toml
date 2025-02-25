@@ -2,6 +2,8 @@
 
 title = "PyMoDAQ's optical 2D shaping package configuration file"
 
+wavelength_nm = 515
+
 [SLM]
 default_slm = "PLUTO"
 [SLM.PLUTO]
@@ -27,4 +29,4 @@ default_algo = 'Gerchberg-Saxton'
 
 [algo.gbsax]
 focal_length_mm = 100
-wavelength_nm = 515
+

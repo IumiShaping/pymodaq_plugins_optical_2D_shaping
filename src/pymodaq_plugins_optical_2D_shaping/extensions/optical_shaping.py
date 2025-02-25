@@ -9,11 +9,13 @@ from qtpy import QtWidgets, QtCore
 from pymodaq_gui import utils as gutils
 from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
+from pymodaq_utils.utils import  ThreadCommand
+
 from pymodaq.utils.parameter import utils as putils
 from pymodaq.utils.data import DataToExport, DataActuator, DataCalculated
 from pymodaq_gui.plotting.data_viewers.viewer0D import Viewer0D
 from pymodaq_gui.plotting.data_viewers.viewer import ViewerDispatcher
-
+from pymodaq_gui.parameter.pymodaq_ptypes.slide import SliderSpinBox
 
 from pymodaq_utils.config import Config
 from pymodaq_gui.utils.widgets.tree_toml import TreeFromToml
@@ -56,6 +58,11 @@ class OpticalShaping(CustomExt):
 
         self._algorithm: AlgoApp = None
 
+        if 'Shaper' in self.modules_manager.actuators_name:
+            self._shaper = self.modules_manager.get_mod_from_name('Shaper', 'act')
+        else:
+            self._shaper = None
+
         self.setup_ui()
 
     def update_target(self, field: Field):
@@ -68,10 +75,8 @@ class OpticalShaping(CustomExt):
 
     def update_object(self, field: Field):
         """ field contains here the object field"""
-        if self.is_action_checked('send_to_shaper'):
-            if 'Shaper' in self.modules_manager.actuators_name:
-                actuator = self.modules_manager.get_mod_from_name('Shaper', 'act')
-                actuator.move_abs(field.phase_as_dwa())
+        if self.is_action_checked('send_to_shaper') and self._shaper is not None:
+            self._shaper.move_abs(field.phase_as_dwa())
 
     def setup_docks(self):
         """
@@ -162,6 +167,10 @@ class OpticalShaping(CustomExt):
         self.add_action('send_to_shaper', 'Send phase to shaper', 'random',
                         'Send calculated phase to the control module called *Shaper*',
                         checkable=True)
+        self.add_widget('focal_length', SliderSpinBox, toolbar=self._toolbar,
+                        tip='Focal length in cm of a lens computed from a quadratic phase',
+                        value=0, bounds=(-1000, 1000))
+
         logger.debug('actions set')
 
     def connect_things(self):
@@ -176,6 +185,8 @@ class OpticalShaping(CustomExt):
         self.connect_action('run', self._algorithm.compute_phase_loop)
         self.connect_action('pause', self._algorithm.stop)
 
+        self.connect_action('focal_length', self.compute_focal_phase, signal_name='valueChanged')
+
         self._algorithm.object_field_signal.connect(self.update_object)
 
         self._input_field_loader.field_signal.connect(self.update_input)
@@ -185,6 +196,17 @@ class OpticalShaping(CustomExt):
         self._input_field_loader.load_field()
         self.update_target_loader_from_algo(self._algorithm.algorithm)
         self._target_loader.load_field()
+
+    def compute_focal_phase(self, value: float):
+        """ compute the phase to send to the SLM to achieve this focal length"""
+        focal_length = Q_(value, 'cm')
+        pixel_size = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size'), 'um')
+        wavelength = Q_(self._plugin_config('wavelength_nm'), 'nm')
+        if abs(focal_length.magnitude) > 0.1:
+            coeff =  float((pixel_size ** 2 / (wavelength * focal_length) * np.pi).to_reduced_units().magnitude)
+
+            if self._shaper is not None:
+                self._shaper.custom_command('set_quad_phase', both=coeff)
 
     def update_target_loader_from_algo(self, algo: AlgoBase):
         pixel_size = self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size')
