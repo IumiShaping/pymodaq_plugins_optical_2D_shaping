@@ -171,7 +171,7 @@ class OpticalShaping(CustomExt):
                         'Add_Step', tip = 'Create a move to probe the extra focal')
         self.add_widget('focal_length', SliderSpinBox, toolbar=self._toolbar,
                         tip='Focal length in cm of a lens computed from a quadratic phase',
-                        value=0.1, bounds=(0.1, 1000))
+                        value=0.0, bounds=(-1000, 1000))
 
         logger.debug('actions set')
 
@@ -214,14 +214,17 @@ class OpticalShaping(CustomExt):
 
     def compute_focal_phase(self, value: float):
         """ compute the phase to send to the SLM to achieve this focal length"""
-        focal_length = Q_(value, 'cm')
-        pixel_size = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size'), 'um')
-        wavelength = Q_(self._plugin_config('wavelength_nm'), 'nm')
-        if abs(focal_length.magnitude) > 0.1:
+        if np.abs(value) < 0.01:
+            coeff = 0.
+        else:
+            focal_length = Q_(value, 'cm')
+            pixel_size = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size'), 'um')
+            wavelength = Q_(self._plugin_config('wavelength_nm'), 'nm')
+
             coeff =  float((pixel_size ** 2 / (wavelength * focal_length) * np.pi).to_reduced_units().magnitude)
 
-            if self._shaper is not None:
-                self._shaper.custom_command('set_quad_phase', both=coeff)
+        if self._shaper is not None:
+            self._shaper.custom_command('set_quad_phase', both=coeff)
 
     def update_target_loader_from_algo(self, algo: AlgoBase):
         pixel_size = self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size')
