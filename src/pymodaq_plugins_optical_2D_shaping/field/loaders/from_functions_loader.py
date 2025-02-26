@@ -36,8 +36,8 @@ class GaussianIntensity(BaseFieldLoader):
 
     params = BaseFieldLoader.params + \
         [
-            {'title': 'Beam size x (mm):', 'name': 'beam_size_x', 'type': 'float', 'value': 5., },
-            {'title': 'Beam size y (mm):', 'name': 'beam_size_y', 'type': 'float', 'value': 5., },
+            {'title': 'Beam size x (mm):', 'name': 'beam_size_x', 'type': 'float', 'value': 7., },
+            {'title': 'Beam size y (mm):', 'name': 'beam_size_y', 'type': 'float', 'value': 7., },
          ]
 
     def compute_field(self):
@@ -47,11 +47,11 @@ class GaussianIntensity(BaseFieldLoader):
         y = Q_(np.arange(0, self.n_pixel_height, 1) * self.pixel_height,
                'micron')
 
-        amplitude = np.sqrt(mutils.gauss2D(
+        amplitude = mutils.gauss2D(
             x.m_as('mm'), np.mean(x.m_as('mm')),
             Q_(self.settings['beam_size_x'], 'mm').m_as('mm'),
             y.m_as('mm'), np.mean(y.m_as('mm')),
-            Q_(self.settings['beam_size_y'], 'mm').m_as('mm')))
+            Q_(self.settings['beam_size_y'], 'mm').m_as('mm'))
 
         field = Field('GaussianIntensity', amplitude=amplitude,
                       pixel_sizes=Q_(np.array((self.pixel_height,
