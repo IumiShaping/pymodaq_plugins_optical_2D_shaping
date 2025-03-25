@@ -15,7 +15,7 @@ from pymodaq.utils.parameter import utils as putils
 from pymodaq.utils.data import DataToExport, DataActuator, DataCalculated
 from pymodaq_gui.plotting.data_viewers.viewer0D import Viewer0D
 from pymodaq_gui.plotting.data_viewers.viewer import ViewerDispatcher
-from pymodaq_gui.parameter.pymodaq_ptypes.slide import SliderSpinBox
+from pymodaq_gui.utils.widgets.slider import SliderSpinBox
 
 from pymodaq_utils.config import Config
 from pymodaq_gui.utils.widgets.tree_toml import TreeFromToml
