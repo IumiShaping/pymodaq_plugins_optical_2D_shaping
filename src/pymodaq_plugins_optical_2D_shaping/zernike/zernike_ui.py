@@ -1,17 +1,11 @@
 from typing import Tuple, Union
 import numpy as np
-
 from pathlib import Path
 
 from qtpy import QtWidgets, QtCore, QtGui
-from skimage.transform import rescale, resize
 
-from pymodaq_gui.managers.parameter_manager import Parameter
-from pymodaq_gui.plotting.data_viewers.viewer2D import Viewer2D
 from pymodaq_gui.utils.custom_app import CustomApp
-from pymodaq_gui.utils.dock import DockArea, Dock
-
-from pymodaq_gui.utils.widgets.slider import SliderSpinBox
+from pymodaq_gui.parameter.pymodaq_ptypes import SliderSpinBox
 
 
 class WidgetWithBkg(QtWidgets.QWidget):
