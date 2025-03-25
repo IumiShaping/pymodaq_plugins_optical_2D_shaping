@@ -1,32 +1,8 @@
-from typing import Tuple, Union
-import numpy as np
-from pathlib import Path
-
-from qtpy import QtWidgets, QtCore, QtGui
+from pymodaq_gui.utils.widgets.widget_bkg import WidgetWithBkg
+from qtpy import QtWidgets, QtCore
 
 from pymodaq_gui.utils.custom_app import CustomApp
 from pymodaq_gui.parameter.pymodaq_ptypes import SliderSpinBox
-
-
-class WidgetWithBkg(QtWidgets.QWidget):
-
-    def __init__(self, bkg_path: Union[str, Path], *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if isinstance(bkg_path, str):
-            bkg_path = Path(bkg_path)
-            if not bkg_path.is_file():
-                raise ValueError(f'Unknown background file with path: {bkg_path}')
-
-        self._bkg_path = bkg_path
-        self.setup_palette()
-
-    def setup_palette(self):
-        pixmap = QtGui.QPixmap(str(self._bkg_path))
-        self.setFixedSize(pixmap.size())
-
-        palette = QtGui.QPalette()
-        palette.setBrush(palette.ColorRole.Window, QtGui.QBrush(pixmap))
-        self.setPalette(palette)
 
 
 class ZernikeUI(CustomApp):
@@ -67,7 +43,6 @@ class ZernikeUI(CustomApp):
 
 
 def main():
-    from pathlib import Path
     from pymodaq_gui.utils.utils import mkQApp
 
     def print_info(n, m, value):

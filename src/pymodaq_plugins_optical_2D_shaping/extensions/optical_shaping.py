@@ -15,7 +15,7 @@ from pymodaq.utils.parameter import utils as putils
 from pymodaq.utils.data import DataToExport, DataActuator, DataCalculated
 from pymodaq_gui.plotting.data_viewers.viewer0D import Viewer0D
 from pymodaq_gui.plotting.data_viewers.viewer import ViewerDispatcher
-from pymodaq_gui.utils.widgets.slider import SliderSpinBox
+from pymodaq_gui.parameter.pymodaq_ptypes import SliderSpinBox
 
 from pymodaq_utils.config import Config
 from pymodaq_gui.utils.widgets.tree_toml import TreeFromToml
@@ -58,7 +58,8 @@ class OpticalShaping(CustomExt):
 
         self._algorithm: AlgoApp = None
 
-        if 'Shaper' in self.modules_manager.actuators_name:
+
+        if self.modules_manager is not None and 'Shaper' in self.modules_manager.actuators_name:
             self._shaper = self.modules_manager.get_mod_from_name('Shaper', 'act')
         else:
             self._shaper = None
@@ -166,6 +167,9 @@ class OpticalShaping(CustomExt):
 
         self.add_action('send_to_shaper', 'Send phase to shaper', 'random',
                         'Send calculated phase to the control module called *Shaper*',
+                        checkable=True)
+        self.add_action('utilities', 'Utilities', 'utility2',
+                        tip='Open the Utility window with focal and Zernike correction',
                         checkable=True)
         self.add_action('add_focal_move', 'Add Focal Move',
                         'Add_Step', tip = 'Create a move to probe the extra focal')
@@ -292,6 +296,7 @@ def main():
     app = mkQApp('Optical Shaping')
 
     preset_file_name = 'holography_mock'
+    preset_file_name = 'bl'
     file = Path(get_set_preset_path()).joinpath(f"{preset_file_name}.xml")
     if file.exists():
         dashboard, extension, win = load_dashboard_with_preset(preset_file_name, 'Optical Shaping')
