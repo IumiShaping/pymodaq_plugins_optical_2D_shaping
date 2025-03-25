@@ -5,6 +5,26 @@ from pymodaq_gui.utils.custom_app import CustomApp
 from pymodaq_gui.parameter.pymodaq_ptypes import SliderSpinBox
 
 
+class ZernikeCoeffs:
+    order_max = 4
+    def __init__(self, zernike_coeffs: dict = None):
+        if zernike_coeffs is None:
+            zernike_coeffs = {}
+            for n in range(self.order_max):
+                for m in range(-n, n+2, 2):
+                    zernike_coeffs[f'{n}{m}'] = 0.
+        self._zernike_coeffs = zernike_coeffs
+        
+    def get(self, n:int, m: int):
+        return self._zernike_coeffs.get(f'{n}{m}', None)
+
+    def set(self, n: int, m: int, value: float):
+        self._zernike_coeffs[f'{n}{m}'] = value
+
+    def __repr__(self):
+        return f'{self._zernike_coeffs}'
+
+
 class ZernikeUI(CustomApp):
 
     slider_changed_sig = QtCore.Signal(int, int, float)

@@ -24,7 +24,7 @@ from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp, AlgoBase
 
 from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, Field, Q_
-
+from pymodaq_plugins_optical_2D_shaping.utilities.corrections import Correction
 from pymodaq.extensions.utils import CustomExt
 
 logger = set_logger(get_module_name(__file__))
@@ -58,6 +58,7 @@ class OpticalShaping(CustomExt):
 
         self._algorithm: AlgoApp = None
 
+        self._corrections: Correction = None
 
         if self.modules_manager is not None and 'Shaper' in self.modules_manager.actuators_name:
             self._shaper = self.modules_manager.get_mod_from_name('Shaper', 'act')
@@ -116,6 +117,9 @@ class OpticalShaping(CustomExt):
 
         self._algorithm = AlgoApp(self._algo_dockarea)
 
+        self._corrections_dockarea = gutils.DockArea()
+        self._corrections = Correction(self._corrections_dockarea)
+
     def setup_menu(self):
         """
         to be subclassed
@@ -168,7 +172,7 @@ class OpticalShaping(CustomExt):
         self.add_action('send_to_shaper', 'Send phase to shaper', 'random',
                         'Send calculated phase to the control module called *Shaper*',
                         checkable=True)
-        self.add_action('utilities', 'Utilities', 'utility2',
+        self.add_action('corrections', 'Corrections', 'utility2',
                         tip='Open the Utility window with focal and Zernike correction',
                         checkable=True)
         self.add_action('add_focal_move', 'Add Focal Move',
@@ -203,6 +207,13 @@ class OpticalShaping(CustomExt):
         self._input_field_loader.load_field()
         self.update_target_loader_from_algo(self._algorithm.algorithm)
         self._target_loader.load_field()
+
+        self.connect_action('corrections', self.show_corrections)
+
+    def show_corrections(self, show=True):
+        self._corrections_dockarea.setVisible(show)
+        self._corrections_dockarea.closeEvent = lambda event: self.set_action_checked('corrections', False)
+
 
     def add_focal_move(self):
         try:
