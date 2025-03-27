@@ -1,5 +1,7 @@
+
 from pymodaq_gui.utils.widgets.widget_bkg import WidgetWithBkg
 from qtpy import QtWidgets, QtCore
+
 
 from pymodaq_gui.utils.custom_app import CustomApp
 from pymodaq_gui.parameter.pymodaq_ptypes import SliderSpinBox
@@ -49,6 +51,10 @@ class ZernikeUI(CustomApp):
                 self.parent.layout().addWidget(self.sliders[f'{n}{m}'], n, m+self.order_max,
                                                QtCore.Qt.AlignmentFlag.AlignHCenter|QtCore.Qt.AlignmentFlag.AlignBottom)
 
+    def reset(self):
+        for slider in self.sliders:
+            self.sliders[slider].setValue(0.0)
+
     def create_lambda(self, n, m):
         return lambda: self.slider_changed(n, m)
 
@@ -60,6 +66,7 @@ class ZernikeUI(CustomApp):
 
     def connect_things(self):
         pass
+
 
 
 def main():
