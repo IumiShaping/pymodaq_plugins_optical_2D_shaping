@@ -5,6 +5,7 @@ import time
 import numpy as np
 from qtpy import QtWidgets, QtCore
 
+from zernpy import ZernPol
 
 from pymodaq_gui import utils as gutils
 from pymodaq_utils import utils as utils
@@ -56,6 +57,8 @@ class OpticalShaping(CustomExt):
         self._input_field_loader: FieldLoaderApp = None
         self._input_field: Field = None
 
+        self._object_field: Field = None
+
         self._algorithm: AlgoApp = None
 
         self._corrections: Correction = None
@@ -77,8 +80,17 @@ class OpticalShaping(CustomExt):
 
     def update_object(self, field: Field):
         """ field contains here the object field"""
+        if field is None:
+            field = self._input_field
+
+        self._object_field = field
+
         if self.is_action_checked('send_to_shaper') and self._shaper is not None:
-            self._shaper.move_abs(field.phase_as_dwa())
+            self._shaper.move_abs(field.phase_as_dwa() + self._correction_phase)
+
+    def update_correction_phase(self, dwa: DataCalculated):
+        self._correction_phase = dwa
+        self.update_object(self._object_field)
 
     def setup_docks(self):
         """
@@ -195,9 +207,6 @@ class OpticalShaping(CustomExt):
         self.connect_action('run', self._algorithm.compute_phase_loop)
         self.connect_action('pause', self._algorithm.stop)
 
-        self.connect_action('add_focal_move', self.add_focal_move)
-        self.connect_action('focal_length', self.compute_focal_phase, signal_name='valueChanged')
-
         self._algorithm.object_field_signal.connect(self.update_object)
 
         self._input_field_loader.field_signal.connect(self.update_input)
@@ -209,37 +218,32 @@ class OpticalShaping(CustomExt):
         self._target_loader.load_field()
 
         self.connect_action('corrections', self.show_corrections)
+        self._corrections.phase_changed.connect(self.update_correction_phase)
 
     def show_corrections(self, show=True):
         self._corrections_dockarea.setVisible(show)
         self._corrections_dockarea.closeEvent = lambda event: self.set_action_checked('corrections', False)
 
 
-    def add_focal_move(self):
-        try:
-            self.dashboard.add_move_from_extension('Focal Length', 'FocalLength', self)
-            self.set_action_enabled('add_focal_move', False)
-        except Exception as e:
-            logger.exception(str(e))
-            pass
+    def _get_xy(self) -> tuple[np.ndarray, np.ndarray]:
+        """ Get the pixel indexes from the selected SLM centered on the center of the SLM
 
-    def set_focal_length(self, focal: DataActuator):
-        self.get_action('focal_length').setValue(focal.value('cm'))
-        self.compute_focal_phase(focal.value('cm'))
+        Return:
+        -------
+        x: np.ndarray
+        y: np.ndarray
+        """
+        shape = self.shape
+        return  (np.linspace(-shape[1] / 2, shape[1] / 2, shape[1], endpoint=True),
+                 np.linspace(-shape[0] / 2, shape[0] / 2, shape[0], endpoint=True),
+                 )
 
-    def compute_focal_phase(self, value: float):
-        """ compute the phase to send to the SLM to achieve this focal length"""
-        if np.abs(value) < 0.01:
-            coeff = 0.
-        else:
-            focal_length = Q_(value, 'cm')
-            pixel_size = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size'), 'um')
-            wavelength = Q_(self._plugin_config('wavelength_nm'), 'nm')
-
-            coeff =  float((pixel_size ** 2 / (wavelength * focal_length) * np.pi).to_reduced_units().magnitude)
-
-        if self._shaper is not None:
-            self._shaper.custom_command('set_quad_phase', both=coeff)
+    @property
+    def shape(self) -> tuple[int, int]:
+        """ Get the shape of the configured SLM"""
+        return (self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'height'),
+                self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'width'),
+                )
 
     def update_target_loader_from_algo(self, algo: AlgoBase):
         pixel_size = self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size')
@@ -277,26 +281,6 @@ class OpticalShaping(CustomExt):
         self.dockarea.parent().close()
 
 
-def main_only_app():
-    from pathlib import Path
-    from pymodaq.utils.daq_utils import get_set_preset_path
-    from pymodaq.utils.gui_utils.utils import mkQApp
-    from pymodaq.utils.gui_utils.loader_utils import load_dashboard_with_preset
-
-    app = mkQApp('Optical Shaping')
-
-    win = QtWidgets.QMainWindow()
-    area = gutils.DockArea()
-    win.setCentralWidget(area)
-    win.resize(1000, 500)
-    win.setWindowTitle('PyMoDAQ Dashboard')
-    win.show()
-
-    optical_app = OpticalShaping(area, None)
-
-    app.exec()
-
-
 def main():
     from pathlib import Path
     from pymodaq.utils.config import get_set_preset_path
@@ -319,8 +303,6 @@ def main():
         win.show()
 
     app.exec()
-
-
 
 
 if __name__ == '__main__':
