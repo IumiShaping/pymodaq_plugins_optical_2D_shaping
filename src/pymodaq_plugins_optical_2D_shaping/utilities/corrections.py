@@ -81,6 +81,9 @@ class Correction(CustomApp):
         self.unit_radius_sb = SpinBox(value=2.0)
         self.unit_radius_sb.setMaximumWidth(50)
 
+        self.beam_fwhm_sb = SpinBox(value=2.0, suffix = 'mm')
+        self.beam_fwhm_sb.setMaximumWidth(50)
+
         main_widget = QtWidgets.QWidget()
         self.docks['corrections'].addWidget(main_widget)
 
@@ -127,6 +130,9 @@ class Correction(CustomApp):
     def setup_actions(self):
         self.add_action('show_phase', 'Show Phase', 'show', tip='Display the correction phase in a 2D Viewer',
                         checkable=True, toolbar=self._toolbar)
+        self.add_widget('beam_fwhm_label', QtWidgets.QLabel('Beam FWHM: '), toolbar=self._toolbar)
+        self.add_widget('beam_fwhm', self.beam_fwhm_sb, toolbar=self._toolbar,
+                        tip='Input beam FWHM in Intensity')
         self.add_widget('unity_radius_label', QtWidgets.QLabel('Unity Radius: '), toolbar=self._toolbar)
         self.add_widget('unity_radius', self.unit_radius_sb, toolbar=self._toolbar,
                         tip='Unity radius for Zernike polynomials, '
