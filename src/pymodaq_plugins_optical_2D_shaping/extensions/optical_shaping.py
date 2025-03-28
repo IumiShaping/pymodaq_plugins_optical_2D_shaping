@@ -58,6 +58,7 @@ class OpticalShaping(CustomExt):
         self._input_field: Field = None
 
         self._object_field: Field = None
+        self._correction_phase: DataCalculated = None
 
         self._algorithm: AlgoApp = None
 
@@ -291,7 +292,7 @@ def main():
     app = mkQApp('Optical Shaping')
 
     preset_file_name = 'holography_mock'
-    preset_file_name = 'bl'
+
     file = Path(get_set_preset_path()).joinpath(f"{preset_file_name}.xml")
     if file.exists():
         dashboard, extension, win = load_dashboard_with_preset(preset_file_name, 'Optical Shaping')
