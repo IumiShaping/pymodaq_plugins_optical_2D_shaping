@@ -185,7 +185,12 @@ class Correction(CustomApp):
         r = (np.sqrt(xx**2 + yy**2) / unity_radius).to_base_units().magnitude
         r[r>=1.] = 0.
         theta = np.angle(xx.magnitude + 1j*yy.magnitude)
-        compute = len(self.zernike_values) == 0 or len(self.zernike_values) != int(np.sum(np.arange(zernike.order_max+1)))
+
+        if len(self.zernike_values) != int(np.sum(np.arange(zernike.order_max+1))):
+            compute = True
+            self.zernike_values = []
+        else:
+            compute = False
 
         for n in range(zernike.order_max):
             for m in range(-n, n+2, 2):
