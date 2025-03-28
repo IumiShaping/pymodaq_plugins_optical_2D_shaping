@@ -45,6 +45,7 @@ class Correction(CustomApp):
         self._zernike_coeffs = ZernikeCoeffs()
 
         self._beam_fwhm = beam_fwhm
+        self.zernike_values: list[np.ndarray] = []
 
         self.setup_ui()
 
@@ -184,13 +185,16 @@ class Correction(CustomApp):
         r = (np.sqrt(xx**2 + yy**2) / unity_radius).to_base_units().magnitude
         r[r>=1.] = 0.
         theta = np.angle(xx.magnitude + 1j*yy.magnitude)
+        compute = len(self.zernike_values) == 0 or len(self.zernike_values) != int(np.sum(np.arange(zernike.order_max+1)))
 
         for n in range(zernike.order_max):
             for m in range(-n, n+2, 2):
                 polynomials.append(ZernPol(n=n, m=m))
+                if compute:
+                    self.zernike_values.append(polynomials[-1].polynomial_value(r, theta))
                 amplitudes.append(zernike.get(n, m))
 
-        return ZernPol.sum_zernikes(amplitudes, polynomials, r, theta)
+        return np.sum(list(map(np.multiply, self.zernike_values, amplitudes)), 0)
 
     def _get_xy(self) -> tuple[np.ndarray, np.ndarray]:
         """ Get the pixel indexes from the selected SLM centered on the center of the SLM
