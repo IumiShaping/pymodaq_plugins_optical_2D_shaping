@@ -87,7 +87,10 @@ class OpticalShaping(CustomExt):
         self._object_field = field
 
         if self.is_action_checked('send_to_shaper') and self._shaper is not None:
-            self._shaper.move_abs(field.phase_as_dwa() + self._correction_phase)
+            if self._correction_phase is None:
+                self._shaper.move_abs(field.phase_as_dwa())
+            else:
+                self._shaper.move_abs(field.phase_as_dwa() + self._correction_phase)
 
     def update_correction_phase(self, dwa: DataCalculated):
         self._correction_phase = dwa
@@ -188,11 +191,6 @@ class OpticalShaping(CustomExt):
         self.add_action('corrections', 'Corrections', 'utility2',
                         tip='Open the Utility window with focal and Zernike correction',
                         checkable=True)
-        self.add_action('add_focal_move', 'Add Focal Move',
-                        'Add_Step', tip = 'Create a move to probe the extra focal')
-        self.add_widget('focal_length', SliderSpinBox, toolbar=self._toolbar,
-                        tip='Focal length in cm of a lens computed from a quadratic phase',
-                        value=0.0, bounds=(-1000, 1000))
 
         logger.debug('actions set')
 
