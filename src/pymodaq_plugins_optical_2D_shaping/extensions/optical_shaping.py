@@ -5,6 +5,12 @@ import time
 import numpy as np
 from qtpy import QtWidgets, QtCore
 
+from zernpy import ZernPol
+
+from pymodaq_gui import utils as gutils
+from pymodaq_utils import utils as utils
+from pymodaq_utils.logger import set_logger, get_module_name
+from pymodaq_utils.utils import  ThreadCommand
 
 from pymodaq_gui import utils as gutils
 from pymodaq_utils import utils as utils
@@ -15,7 +21,8 @@ from pymodaq.utils.parameter import utils as putils
 from pymodaq.utils.data import DataToExport, DataActuator, DataCalculated
 from pymodaq_gui.plotting.data_viewers.viewer0D import Viewer0D
 from pymodaq_gui.plotting.data_viewers.viewer import ViewerDispatcher
-from pymodaq_gui.parameter.pymodaq_ptypes.slide import SliderSpinBox
+
+from pymodaq_gui.parameter.pymodaq_ptypes import SliderSpinBox
 
 from pymodaq_utils.config import Config
 from pymodaq_gui.utils.widgets.tree_toml import TreeFromToml
@@ -24,6 +31,8 @@ from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp, AlgoBase
 
 from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, Field, Q_
+
+from pymodaq_plugins_optical_2D_shaping.utilities.corrections import Correction
 
 from pymodaq.extensions.utils import CustomExt
 
@@ -56,9 +65,14 @@ class OpticalShaping(CustomExt):
         self._input_field_loader: FieldLoaderApp = None
         self._input_field: Field = None
 
+        self._object_field: Field = None
+        self._correction_phase: DataCalculated = None
+
         self._algorithm: AlgoApp = None
 
-        if 'Shaper' in self.modules_manager.actuators_name:
+        self._corrections: Correction = None
+
+        if self.modules_manager is not None and 'Shaper' in self.modules_manager.actuators_name:
             self._shaper = self.modules_manager.get_mod_from_name('Shaper', 'act')
         else:
             self._shaper = None
@@ -75,8 +89,26 @@ class OpticalShaping(CustomExt):
 
     def update_object(self, field: Field):
         """ field contains here the object field"""
-        if self.is_action_checked('send_to_shaper') and self._shaper is not None:
-            self._shaper.move_abs(field.phase_as_dwa())
+
+        if field is None:
+            field = self._input_field
+
+        self._object_field = field
+
+
+        if self._shaper is not None:
+            phase_to_send = 0.
+            if self.is_action_checked('send_algo_to_shaper') or self.is_action_checked('send_correc_to_shaper'):
+                if self.is_action_checked('send_algo_to_shaper'):
+                    phase_to_send += field.phase_as_dwa()
+                elif self.is_action_checked('send_correc_to_shaper'):
+                    phase_to_send += self._correction_phase
+
+                self._shaper.move_abs(phase_to_send)
+
+    def update_correction_phase(self, dwa: DataCalculated):
+        self._correction_phase = dwa
+        self.update_object(self._object_field)
 
     def setup_docks(self):
         """
@@ -114,6 +146,9 @@ class OpticalShaping(CustomExt):
         self.docks['algo'].addWidget(algo_main_window)
 
         self._algorithm = AlgoApp(self._algo_dockarea)
+
+        self._corrections_dockarea = gutils.DockArea()
+        self._corrections = Correction(self._corrections_dockarea)
 
     def setup_menu(self):
         """
@@ -164,15 +199,15 @@ class OpticalShaping(CustomExt):
         self.add_action('run', 'Run Optimisation', 'run2', checkable=True)
         self.add_action('pause', 'Pause Optimisation', 'pause', checkable=True)
 
-        self.add_action('send_to_shaper', 'Send phase to shaper', 'random',
+        self.add_action('send_algo_to_shaper', 'Algo to shaper', 'random',
                         'Send calculated phase to the control module called *Shaper*',
                         checkable=True)
-        self.add_action('add_focal_move', 'Add Focal Move',
-                        'Add_Step', tip = 'Create a move to probe the extra focal')
-        self.add_widget('focal_length', SliderSpinBox, toolbar=self._toolbar,
-                        tip='Focal length in cm of a lens computed from a quadratic phase',
-                        value=0.0, bounds=(-1000, 1000))
-
+        self.add_action('corrections', 'Corrections', 'utility2',
+                        tip='Open the Utility window with focal and Zernike correction',
+                        checkable=True)
+        self.add_action('send_correc_to_shaper', 'Correction to shaper', 'random',
+                        'Send correction phase to the control module called *Shaper*',
+                        checkable=True)
         logger.debug('actions set')
 
     def connect_things(self):
@@ -187,9 +222,6 @@ class OpticalShaping(CustomExt):
         self.connect_action('run', self._algorithm.compute_phase_loop)
         self.connect_action('pause', self._algorithm.stop)
 
-        self.connect_action('add_focal_move', self.add_focal_move)
-        self.connect_action('focal_length', self.compute_focal_phase, signal_name='valueChanged')
-
         self._algorithm.object_field_signal.connect(self.update_object)
 
         self._input_field_loader.field_signal.connect(self.update_input)
@@ -200,31 +232,33 @@ class OpticalShaping(CustomExt):
         self.update_target_loader_from_algo(self._algorithm.algorithm)
         self._target_loader.load_field()
 
-    def add_focal_move(self):
-        try:
-            self.dashboard.add_move_from_extension('Focal Length', 'FocalLength', self)
-            self.set_action_enabled('add_focal_move', False)
-        except Exception as e:
-            logger.exception(str(e))
-            pass
+        self.connect_action('corrections', self.show_corrections)
+        self._corrections.phase_changed.connect(self.update_correction_phase)
 
-    def set_focal_length(self, focal: DataActuator):
-        self.get_action('focal_length').setValue(focal.value('cm'))
-        self.compute_focal_phase(focal.value('cm'))
+    def show_corrections(self, show=True):
+        self._corrections_dockarea.setVisible(show)
+        self._corrections_dockarea.closeEvent = lambda event: self.set_action_checked('corrections', False)
 
-    def compute_focal_phase(self, value: float):
-        """ compute the phase to send to the SLM to achieve this focal length"""
-        if np.abs(value) < 0.01:
-            coeff = 0.
-        else:
-            focal_length = Q_(value, 'cm')
-            pixel_size = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size'), 'um')
-            wavelength = Q_(self._plugin_config('wavelength_nm'), 'nm')
 
-            coeff =  float((pixel_size ** 2 / (wavelength * focal_length) * np.pi).to_reduced_units().magnitude)
+    def _get_xy(self) -> tuple[np.ndarray, np.ndarray]:
+        """ Get the pixel indexes from the selected SLM centered on the center of the SLM
 
-        if self._shaper is not None:
-            self._shaper.custom_command('set_quad_phase', both=coeff)
+        Return:
+        -------
+        x: np.ndarray
+        y: np.ndarray
+        """
+        shape = self.shape
+        return  (np.linspace(-shape[1] / 2, shape[1] / 2, shape[1], endpoint=True),
+                 np.linspace(-shape[0] / 2, shape[0] / 2, shape[0], endpoint=True),
+                 )
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        """ Get the shape of the configured SLM"""
+        return (self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'height'),
+                self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'width'),
+                )
 
     def update_target_loader_from_algo(self, algo: AlgoBase):
         pixel_size = self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size')
@@ -262,26 +296,6 @@ class OpticalShaping(CustomExt):
         self.dockarea.parent().close()
 
 
-def main_only_app():
-    from pathlib import Path
-    from pymodaq.utils.daq_utils import get_set_preset_path
-    from pymodaq.utils.gui_utils.utils import mkQApp
-    from pymodaq.utils.gui_utils.loader_utils import load_dashboard_with_preset
-
-    app = mkQApp('Optical Shaping')
-
-    win = QtWidgets.QMainWindow()
-    area = gutils.DockArea()
-    win.setCentralWidget(area)
-    win.resize(1000, 500)
-    win.setWindowTitle('PyMoDAQ Dashboard')
-    win.show()
-
-    optical_app = OpticalShaping(area, None)
-
-    app.exec()
-
-
 def main():
     from pathlib import Path
     from pymodaq.utils.config import get_set_preset_path
@@ -292,6 +306,7 @@ def main():
     app = mkQApp('Optical Shaping')
 
     preset_file_name = 'holography_mock'
+
     file = Path(get_set_preset_path()).joinpath(f"{preset_file_name}.xml")
     if file.exists():
         dashboard, extension, win = load_dashboard_with_preset(preset_file_name, 'Optical Shaping')
@@ -303,8 +318,6 @@ def main():
         win.show()
 
     app.exec()
-
-
 
 
 if __name__ == '__main__':

@@ -36,8 +36,10 @@ class GaussianIntensity(BaseFieldLoader):
 
     params = BaseFieldLoader.params + \
         [
-            {'title': 'Beam size x (mm):', 'name': 'beam_size_x', 'type': 'float', 'value': 7., },
-            {'title': 'Beam size y (mm):', 'name': 'beam_size_y', 'type': 'float', 'value': 7., },
+            {'title': 'Beam size x (mm):', 'name': 'beam_size_x', 'type': 'float',
+             'value': plugin_config('input', 'gaussian', 'fwhm_x'), },
+            {'title': 'Beam size y (mm):', 'name': 'beam_size_y', 'type': 'float',
+             'value': plugin_config('input', 'gaussian', 'fwhm_y'), },
          ]
 
     def compute_field(self):

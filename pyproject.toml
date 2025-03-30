@@ -16,6 +16,7 @@ dependencies = [
     'pyfftw',
     'scikit-image',
     'pymodaq_gui>5.0.11',
+    'zernpy',
 ]
 
 
