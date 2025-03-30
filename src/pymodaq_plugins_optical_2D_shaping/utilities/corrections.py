@@ -9,7 +9,7 @@ from qtpy import QtWidgets, QtCore, QtGui
 from zernpy.calculations.calc_psfs_check import pixel_size
 
 from pymodaq_data import Q_
-from pymodaq_data.data import DataCalculated
+from pymodaq.utils.data import DataActuator
 
 from pymodaq_gui.utils.custom_app import CustomApp, Dock, DockArea
 from pymodaq_gui.utils.widgets.widget_bkg import WidgetWithBkg
@@ -34,7 +34,7 @@ class CorrectionValues:
 class Correction(CustomApp):
 
     correction_changed = QtCore.Signal(CorrectionValues)
-    phase_changed = QtCore.Signal(DataCalculated)
+    phase_changed = QtCore.Signal(DataActuator)
 
     _plugin_config = plugin_config
 
@@ -79,10 +79,11 @@ class Correction(CustomApp):
 
         self._toolbar = QtWidgets.QToolBar()
         self.unit_radius_sb = SpinBox(value=2.0)
-        self.unit_radius_sb.setMaximumWidth(50)
+        self.unit_radius_sb.setMaximumWidth(100)
 
-        self.beam_fwhm_sb = SpinBox(value=2.0, suffix = 'mm')
-        self.beam_fwhm_sb.setMaximumWidth(50)
+        self.beam_fwhm_sb = SpinBox(value=plugin_config('input', 'gaussian', 'fwhm_x'),
+                                    suffix = 'mm')
+        self.beam_fwhm_sb.setMaximumWidth(100)
 
         main_widget = QtWidgets.QWidget()
         self.docks['corrections'].addWidget(main_widget)
@@ -154,13 +155,13 @@ class Correction(CustomApp):
         self.focal_length.setValue(0.)
         self._zernike_ui.reset()
 
-    def compute_corrections(self, correction: CorrectionValues) -> DataCalculated:
+    def compute_corrections(self, correction: CorrectionValues) -> DataActuator:
         quad_phase_array = self.compute_focal_phase(correction.focal_length)
         linear_phase_array = self.compute_linear_phase(correction.tilt_x, correction.tilt_y)
         zernike_phase = self.compute_zernike_phase(correction.zernike)
 
-        phase = DataCalculated('Correction phase',
-                               data=[quad_phase_array+linear_phase_array+zernike_phase])
+        phase = DataActuator('Correction phase',
+                             data=[quad_phase_array+linear_phase_array+zernike_phase])
 
         if self.is_action_checked('show_phase'):
             self.viewer2D.show_data(phase)
