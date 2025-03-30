@@ -4,6 +4,7 @@ title = "PyMoDAQ's optical 2D shaping package configuration file"
 
 wavelength_nm = 515
 
+
 [SLM]
 default_slm = "PLUTO"
 [SLM.PLUTO]
@@ -24,9 +25,14 @@ default_loader = "ImageFileLoader"
 [input]
 default_loader = "GaussianIntensityLoader"
 
+    [input.gaussian]
+    fwhm_x = 7.0  #mm
+    fwhm_y = 7.0  #mm
+
+
 [algo]
 default_algo = 'Gerchberg-Saxton'
 
-[algo.gbsax]
-focal_length_mm = 100
+    [algo.gbsax]
+    focal_length_mm = 100
 
