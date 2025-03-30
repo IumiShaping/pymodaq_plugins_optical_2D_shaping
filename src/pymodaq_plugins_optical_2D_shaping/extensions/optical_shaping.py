@@ -89,13 +89,13 @@ class OpticalShaping(CustomExt):
 
         if self._shaper is not None:
             phase_to_send = 0.
-            send = self.is_action_checked('send_algo_to_shaper') or self.is_action_checked('send_correc_to_shaper')
-            if self.is_action_checked('send_algo_to_shaper'):
-                phase_to_send += field.phase_as_dwa()
-            elif self.is_action_checked('send_correc_to_shaper'):
-                phase_to_send += self._correction_phase
+            if self.is_action_checked('send_algo_to_shaper') or self.is_action_checked('send_correc_to_shaper'):
+                if self.is_action_checked('send_algo_to_shaper'):
+                    phase_to_send += field.phase_as_dwa()
+                elif self.is_action_checked('send_correc_to_shaper'):
+                    phase_to_send += self._correction_phase
 
-            self._shaper.move_abs(field.phase_as_dwa() + self._correction_phase)
+                self._shaper.move_abs(phase_to_send)
 
     def update_correction_phase(self, dwa: DataCalculated):
         self._correction_phase = dwa
