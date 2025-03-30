@@ -86,11 +86,16 @@ class OpticalShaping(CustomExt):
 
         self._object_field = field
 
-        if self.is_action_checked('send_to_shaper') and self._shaper is not None:
-            if self._correction_phase is None:
-                self._shaper.move_abs(field.phase_as_dwa())
-            else:
-                self._shaper.move_abs(field.phase_as_dwa() + self._correction_phase)
+
+        if self._shaper is not None:
+            phase_to_send = 0.
+            send = self.is_action_checked('send_algo_to_shaper') or self.is_action_checked('send_correc_to_shaper')
+            if self.is_action_checked('send_algo_to_shaper'):
+                phase_to_send += field.phase_as_dwa()
+            elif self.is_action_checked('send_correc_to_shaper'):
+                phase_to_send += self._correction_phase
+
+            self._shaper.move_abs(field.phase_as_dwa() + self._correction_phase)
 
     def update_correction_phase(self, dwa: DataCalculated):
         self._correction_phase = dwa
@@ -185,11 +190,14 @@ class OpticalShaping(CustomExt):
         self.add_action('run', 'Run Optimisation', 'run2', checkable=True)
         self.add_action('pause', 'Pause Optimisation', 'pause', checkable=True)
 
-        self.add_action('send_to_shaper', 'Send phase to shaper', 'random',
+        self.add_action('send_algo_to_shaper', 'Algo to shaper', 'random',
                         'Send calculated phase to the control module called *Shaper*',
                         checkable=True)
         self.add_action('corrections', 'Corrections', 'utility2',
                         tip='Open the Utility window with focal and Zernike correction',
+                        checkable=True)
+        self.add_action('send_correc_to_shaper', 'Correction to shaper', 'random',
+                        'Send correction phase to the control module called *Shaper*',
                         checkable=True)
 
         logger.debug('actions set')
