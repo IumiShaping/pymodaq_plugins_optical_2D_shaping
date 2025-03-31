@@ -95,14 +95,14 @@ class OpticalShaping(CustomExt):
 
         self._object_field = field
 
-
         if self._shaper is not None:
             phase_to_send = 0.
             if self.is_action_checked('send_algo_to_shaper') or self.is_action_checked('send_correc_to_shaper'):
                 if self.is_action_checked('send_algo_to_shaper'):
-                    phase_to_send += field.phase_as_dwa()
-                elif self.is_action_checked('send_correc_to_shaper'):
-                    phase_to_send += self._correction_phase
+                    phase_to_send = phase_to_send + field.phase_as_dwa()
+                if self.is_action_checked('send_correc_to_shaper'):
+                    if self._correction_phase is not None:
+                        phase_to_send = phase_to_send + self._correction_phase
 
                 self._shaper.move_abs(phase_to_send)
 
@@ -239,7 +239,6 @@ class OpticalShaping(CustomExt):
         self._corrections_dockarea.setVisible(show)
         self._corrections_dockarea.closeEvent = lambda event: self.set_action_checked('corrections', False)
 
-
     def _get_xy(self) -> tuple[np.ndarray, np.ndarray]:
         """ Get the pixel indexes from the selected SLM centered on the center of the SLM
 
@@ -305,7 +304,7 @@ def main():
 
     app = mkQApp('Optical Shaping')
 
-    preset_file_name = 'holography_mock'
+    preset_file_name = 'holography'
 
     file = Path(get_set_preset_path()).joinpath(f"{preset_file_name}.xml")
     if file.exists():

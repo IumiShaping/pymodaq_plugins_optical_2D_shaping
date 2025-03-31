@@ -21,7 +21,7 @@ from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 from pymodaq_plugins_optical_2D_shaping.utilities.zernike import (ZernikeUI, SliderSpinBox,
                                                                   ZernikeCoeffs)
 
-
+here = Path(__file__).parent
 
 @dataclass()
 class CorrectionValues:
@@ -44,20 +44,20 @@ class Correction(CustomApp):
         self._zernike_ui: ZernikeUI = None
         self._zernike_coeffs = ZernikeCoeffs()
 
-        self._beam_fwhm = beam_fwhm
-        self.zernike_values: list[np.ndarray] = []
-
         self.setup_ui()
+
+        self.beam_fwhm_sb.setValue(beam_fwhm.m_as('mm'))
+        self.zernike_values: list[np.ndarray] = []
 
     @property
     def beam_fwhm(self) -> Q_:
         """ Get/Set the beam FWHM in intensity as a Quantity"""
-        return self._beam_fwhm
+        return Q_(self.beam_fwhm_sb.value(), 'mm')
 
     @beam_fwhm.setter
     def beam_fwhm(self, fwhm: Q_):
-        if fwhm.is_compatible_with(self._beam_fwhm):
-            self._beam_fwhm = fwhm
+        if fwhm.is_compatible_with(self.beam_fwhm):
+            self.beam_fwhm_sb.setValue(fwhm.m_as('mm'))
 
     def emit_corrections(self):
         corrections = CorrectionValues(self.tilt_x.value(),
@@ -95,7 +95,7 @@ class Correction(CustomApp):
 
         self.tilt_x = SliderSpinBox(value=0., bounds=(-10, 10))
         self.tilt_y = SliderSpinBox(value=0., bounds=(-10, 10))
-        self.focal_length = SliderSpinBox(value=0., bounds=(-10, 10))
+        self.focal_length = SliderSpinBox(value=0., bounds=(-200, 200))
 
         self.item_select = ItemSelect()
         self.item_select.set_value(dict(all_items=['un', 'deux', 'trois'],
@@ -117,7 +117,7 @@ class Correction(CustomApp):
         widget_zernike = QtWidgets.QWidget()
         widget_zernike.setLayout(QtWidgets.QHBoxLayout())
 
-        widget = WidgetWithBkg('../resources/zernike.png')
+        widget = WidgetWithBkg(here.parent.joinpath('resources/zernike.png'))
         self._zernike_ui = ZernikeUI(widget)
 
         main_widget.layout().addWidget(widget_zernike)
@@ -202,11 +202,11 @@ class Correction(CustomApp):
         for n in range(zernike.order_max):
             for m in range(-n, n+2, 2):
                 polynomials.append(ZernPol(n=n, m=m))
-                if compute:
+                if True:
                     self.zernike_values.append(polynomials[-1].polynomial_value(r, theta))
                 amplitudes.append(zernike.get(n, m))
 
-        return np.sum(list(map(np.multiply, self.zernike_values, amplitudes)), 0)
+        return np.sum(list(map(np.multiply, self.zernike_values, amplitudes)), 0) * np.pi
 
     def _get_xy(self) -> tuple[np.ndarray, np.ndarray]:
         """ Get the pixel indexes from the selected SLM centered on the center of the SLM
