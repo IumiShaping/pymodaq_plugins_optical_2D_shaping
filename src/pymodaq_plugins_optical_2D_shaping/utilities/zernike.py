@@ -8,7 +8,7 @@ from pymodaq_gui.parameter.pymodaq_ptypes import SliderSpinBox
 
 
 class ZernikeCoeffs:
-    order_max = 4
+    order_max = 5
     def __init__(self, zernike_coeffs: dict = None):
         if zernike_coeffs is None:
             zernike_coeffs = {}
@@ -34,7 +34,7 @@ class ZernikeUI(CustomApp):
     def __init__(self, parent):
         super().__init__(parent)
 
-        self.order_max = 4
+        self.order_max = 5
         self.bounds = (-10, 10)
 
         self.setup_ui()
