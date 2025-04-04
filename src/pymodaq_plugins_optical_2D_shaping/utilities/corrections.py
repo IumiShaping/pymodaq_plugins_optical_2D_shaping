@@ -2,7 +2,7 @@ from typing import Tuple, Union
 import numpy as np
 from pathlib import Path
 from dataclasses import dataclass
-
+from time import perf_counter
 from zernpy import ZernPol
 
 from qtpy import QtWidgets, QtCore, QtGui
@@ -43,11 +43,13 @@ class Correction(CustomApp):
 
         self._zernike_ui: ZernikeUI = None
         self._zernike_coeffs = ZernikeCoeffs()
-
+        self.zernike_values: dict[np.ndarray] = {}
         self.setup_ui()
 
         self.beam_fwhm_sb.setValue(beam_fwhm.m_as('mm'))
-        self.zernike_values: list[np.ndarray] = []
+
+        self.timing = perf_counter()
+
 
     @property
     def beam_fwhm(self) -> Q_:
@@ -60,6 +62,7 @@ class Correction(CustomApp):
             self.beam_fwhm_sb.setValue(fwhm.m_as('mm'))
 
     def emit_corrections(self):
+
         corrections = CorrectionValues(self.tilt_x.value(),
                                        self.tilt_y.value(),
                                        self.focal_length.value(),
@@ -67,6 +70,8 @@ class Correction(CustomApp):
 
         self.correction_changed.emit(corrections)
         self.phase_changed.emit(self.compute_corrections(corrections))
+        print(perf_counter() - self.timing)
+        self.timing = perf_counter()
 
     def update_zernike(self, n, m, value):
         self._zernike_coeffs.set(n, m, value)
@@ -149,6 +154,11 @@ class Correction(CustomApp):
         self.connect_action('show_phase', self.viewer_widget.setVisible)
         self.connect_action('reset', self.reset)
 
+        self.connect_action('unity_radius', self.compute_zernike_base,
+                            signal_name='sigValueChanged')
+        self.connect_action('beam_fwhm', self.compute_zernike_base,
+                            signal_name='sigValueChanged')
+
     def reset(self):
         self.tilt_y.setValue(0.)
         self.tilt_x.setValue(0.)
@@ -179,11 +189,18 @@ class Correction(CustomApp):
         -------
 
         """
+        zernike_phase = np.zeros(self.shape)
+
+        for n in range(zernike.order_max):
+            for m in range(-n, n+2, 2):
+                if np.abs(zernike.get(n, m)) > 0.001:
+                    zernike_phase += zernike.get(n, m) * self.zernike_values[f'{n}{m}']
+        return zernike_phase * 2 * np.pi
+
+    def compute_zernike_base(self):
         pixel_size = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size'), 'um')
         unity_radius = self.unit_radius_sb.value() * self.beam_fwhm
 
-        polynomials = []
-        amplitudes = []
         xlin, ylin = self._get_xy()
         xlin *= pixel_size
         ylin *= pixel_size
@@ -193,20 +210,10 @@ class Correction(CustomApp):
         r[r>=1.] = 0.
         theta = np.angle(xx.magnitude + 1j*yy.magnitude)
 
-        if len(self.zernike_values) != int(np.sum(np.arange(zernike.order_max+1))):
-            compute = True
-            self.zernike_values = []
-        else:
-            compute = False
-
-        for n in range(zernike.order_max):
+        for n in range(self._zernike_ui.order_max):
             for m in range(-n, n+2, 2):
-                polynomials.append(ZernPol(n=n, m=m))
-                if True:
-                    self.zernike_values.append(polynomials[-1].polynomial_value(r, theta))
-                amplitudes.append(zernike.get(n, m))
-
-        return np.sum(list(map(np.multiply, self.zernike_values, amplitudes)), 0) * np.pi
+                zern_pol = ZernPol(n=n, m=m)
+                self.zernike_values[f'{n}{m}'] = zern_pol.polynomial_value(r, theta)
 
     def _get_xy(self) -> tuple[np.ndarray, np.ndarray]:
         """ Get the pixel indexes from the selected SLM centered on the center of the SLM
@@ -250,8 +257,8 @@ class Correction(CustomApp):
         #todo: compute the physical relation between this tilt value and a displacement in mm
         # in the focal plane
 
-        ylin *= tilty
-        xlin *= tiltx
+        ylin *= tilty * 2* np.pi
+        xlin *= tiltx * 2* np.pi
         yy, xx = np.meshgrid(ylin, xlin, indexing='ij')
 
         return yy + xx
