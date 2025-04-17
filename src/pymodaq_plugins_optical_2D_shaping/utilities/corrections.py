@@ -117,8 +117,6 @@ class Correction(CustomApp):
         widget_main_correction.layout().addWidget(QtWidgets.QLabel('Focal Length'), 0, 2)
         widget_main_correction.layout().addWidget(self.focal_length, 1, 2)
 
-        widget_main_correction.layout().addWidget(self.item_select, 0, 3, 2, 1)
-
         main_widget.layout().addWidget(widget_main_correction)
 
         widget_zernike = QtWidgets.QWidget()
