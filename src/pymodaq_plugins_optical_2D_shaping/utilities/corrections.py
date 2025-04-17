@@ -31,6 +31,12 @@ class CorrectionValues:
     zernike: ZernikeCoeffs = ZernikeCoeffs()
 
 
+beam_fwhm = Q_(np.sqrt(1/2*(
+        plugin_config('input', 'gaussian', 'fwhm_x')**2 +
+        plugin_config('input', 'gaussian', 'fwhm_y')**2)),
+               'mm')
+
+
 class Correction(CustomApp):
 
     correction_changed = QtCore.Signal(CorrectionValues)
@@ -38,7 +44,7 @@ class Correction(CustomApp):
 
     _plugin_config = plugin_config
 
-    def __init__(self, parent: DockArea, beam_fwhm=Q_(5, 'mm')):
+    def __init__(self, parent: DockArea, beam_fwhm=beam_fwhm):
         super().__init__(parent)
 
         self._zernike_ui: ZernikeUI = None
@@ -49,7 +55,6 @@ class Correction(CustomApp):
         self.beam_fwhm_sb.setValue(beam_fwhm.m_as('mm'))
 
         self.timing = perf_counter()
-
 
     @property
     def beam_fwhm(self) -> Q_:
@@ -102,10 +107,6 @@ class Correction(CustomApp):
         self.tilt_x = SliderSpinBox(value=0., bounds=(-10, 10))
         self.tilt_y = SliderSpinBox(value=0., bounds=(-10, 10))
         self.focal_length = SliderSpinBox(value=0., bounds=(-200, 200))
-
-        self.item_select = ItemSelect()
-        self.item_select.set_value(dict(all_items=['un', 'deux', 'trois'],
-                                        selected=[]))
 
         widget_main_correction.layout().addWidget(QtWidgets.QLabel('Tilt X'), 0, 0)
         widget_main_correction.layout().addWidget(self.tilt_x, 1, 0)
