@@ -61,13 +61,14 @@ class Correction(CustomApp):
         if fwhm.is_compatible_with(self.beam_fwhm):
             self.beam_fwhm_sb.setValue(fwhm.m_as('mm'))
 
+    def get_corrections(self) -> CorrectionValues:
+        return CorrectionValues(self.tilt_x.value(),
+                                self.tilt_y.value(),
+                                self.focal_length.value(),
+                                self._zernike_coeffs)
+
     def emit_corrections(self):
-
-        corrections = CorrectionValues(self.tilt_x.value(),
-                                       self.tilt_y.value(),
-                                       self.focal_length.value(),
-                                       self._zernike_coeffs)
-
+        corrections = self.get_corrections()
         self.correction_changed.emit(corrections)
         self.phase_changed.emit(self.compute_corrections(corrections))
         print(perf_counter() - self.timing)
