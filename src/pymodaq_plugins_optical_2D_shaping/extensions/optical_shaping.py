@@ -1,37 +1,22 @@
-from typing import List, Union
-import time
-
-
 import numpy as np
 from qtpy import QtWidgets, QtCore
 
-from zernpy import ZernPol
-
-from pymodaq_gui import utils as gutils
 from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
-from pymodaq_utils.utils import  ThreadCommand
+from pymodaq_utils.config import Config
+from pymodaq.utils.data import DataToExport, DataCalculated
 
-from pymodaq_gui import utils as gutils
-from pymodaq_utils import utils as utils
-from pymodaq_utils.logger import set_logger, get_module_name
-from pymodaq_utils.utils import  ThreadCommand
+from pymodaq_data.h5modules.data_saving import DataToExportSaver
 
-from pymodaq.utils.parameter import utils as putils
-from pymodaq.utils.data import DataToExport, DataActuator, DataCalculated
 from pymodaq_gui.plotting.data_viewers.viewer0D import Viewer0D
 from pymodaq_gui.plotting.data_viewers.viewer import ViewerDispatcher
-
-from pymodaq_gui.parameter.pymodaq_ptypes import SliderSpinBox
-
-from pymodaq_utils.config import Config
+from pymodaq_gui.utils.file_io import select_file
+from pymodaq_gui import utils as gutils
 from pymodaq_gui.utils.widgets.tree_toml import TreeFromToml
 
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp, AlgoBase
-
 from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, Field, Q_
-
 from pymodaq_plugins_optical_2D_shaping.utilities.corrections import Correction
 
 from pymodaq.extensions.utils import CustomExt
@@ -105,6 +90,29 @@ class OpticalShaping(CustomExt):
                         phase_to_send = phase_to_send + self._correction_phase
 
                 self._shaper.move_abs(phase_to_send)
+
+    def save_phase(self):
+
+        fname = select_file(save=True, ext='h5', force_save_extension=True)
+        if fname:
+
+            correction_values = self._corrections.get_corrections()
+
+            quad_phase_array = self._corrections.compute_focal_phase(correction_values.focal_length)
+            linear_phase_array = self._corrections.compute_linear_phase(correction_values.tilt_x, correction_values.tilt_y)
+            zernike_phase = self._corrections.compute_zernike_phase(correction_values.zernike)
+            dte = DataToExport('Phases')
+            if self._object_field is not None:
+                dte.append(self._object_field.phase_as_dwa(name='Algo Phase'))
+
+            dte.append(DataCalculated('Quadratic Phase', data=[quad_phase_array]),)
+            dte.append(DataCalculated('Linear Phase', data=[linear_phase_array]),)
+            dte.append(DataCalculated('Zernike Phase', data=[zernike_phase]))
+
+
+            with DataToExportSaver(fname) as h5saver:
+                h5saver.add_data('/', dte)
+
 
     def update_correction_phase(self, dwa: DataCalculated):
         self._correction_phase = dwa
@@ -188,11 +196,12 @@ class OpticalShaping(CustomExt):
         self.add_action('settings', 'Plugin Settings', 'Settings',
                         'Open the plugin configuration file',
                         checkable=True)
-
+        self.toolbar.addSeparator()
         self.add_action('target', 'Target Selection', 'target',
                         'Open the Target FieldLoader window', checkable=True)
         self.add_action('input', 'Input Beam Selection', 'input',
                         'Open the InputBeam FieldLoader window', checkable=True)
+        self.toolbar.addSeparator()
         self.add_action('algo', 'Algo. Selection', 'algo', 'Open the Algorithm window', checkable=True)
         self.set_action_checked('algo', True)
 
@@ -202,13 +211,18 @@ class OpticalShaping(CustomExt):
         self.add_action('send_algo_to_shaper', 'Algo to shaper', 'random',
                         'Send calculated phase to the control module called *Shaper*',
                         checkable=True)
+        self.toolbar.addSeparator()
         self.add_action('corrections', 'Corrections', 'utility2',
                         tip='Open the Utility window with focal and Zernike correction',
                         checkable=True)
         self.add_action('send_correc_to_shaper', 'Correction to shaper', 'random',
                         'Send correction phase to the control module called *Shaper*',
                         checkable=True)
-        logger.debug('actions set')
+        self.toolbar.addSeparator()
+        self.add_action('save_phase', 'Save', 'SaveAs_32',
+                        'Save Phases to a file',)
+
+    logger.debug('actions set')
 
     def connect_things(self):
         logger.debug('connecting things')
@@ -234,6 +248,8 @@ class OpticalShaping(CustomExt):
 
         self.connect_action('corrections', self.show_corrections)
         self._corrections.phase_changed.connect(self.update_correction_phase)
+
+        self.connect_action('save_phase', self.save_phase)
 
     def show_corrections(self, show=True):
         self._corrections_dockarea.setVisible(show)
@@ -304,7 +320,7 @@ def main():
 
     app = mkQApp('Optical Shaping')
 
-    preset_file_name = 'holography'
+    preset_file_name = 'holography_mock'
 
     file = Path(get_set_preset_path()).joinpath(f"{preset_file_name}.xml")
     if file.exists():
