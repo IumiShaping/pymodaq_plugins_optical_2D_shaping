@@ -225,3 +225,57 @@ class TwoCirclesOnLine(BaseFieldLoader):
         return field
 
 
+@LoaderFactory.register_loader()
+class DoubleGaussian(BaseFieldLoader):
+    LOADER_NAME = 'DoubleGaussianLoader'
+
+    params = BaseFieldLoader.params + \
+             [
+                 {'title': 'sigma_x (um):', 'name': 'sigma_x', 'type': 'float',
+                  'value': 300., },
+                 {'title': 'sigma_y (um):', 'name': 'sigma_y', 'type': 'float',
+                  'value': 300., },
+                 {'title': 'Position x from center (um):', 'name': 'x_from_center', 'type': 'float',
+                  'value': 500., },
+                 {'title': 'Add asymetry (um) :', 'name': 'asymetry', 'type': 'float',
+                  'value': 0., },
+                 {'title': 'Rotation around center (degree):', 'name': 'rotation_around_center', 'type': 'float',
+                  'value': 0., },
+             ]
+
+    def Gaussian_with_center(self, x_tab: np.ndarray, y_tab: np.ndarray, x0: float, y0: float, sigma_x: float,
+                             sigma_y: float):
+        X, Y = np.meshgrid(x_tab.magnitude, y_tab.magnitude)
+        return np.exp(-((X - x0) ** 2 / (2 * sigma_x ** 2) + (Y - y0) ** 2 / (2 * sigma_y ** 2)))
+
+    def compute_field(self):
+        x = Q_(np.arange(-self.n_pixel_width / 2, self.n_pixel_width / 2, 1) * self.pixel_width,
+               'micron')
+        y = Q_(np.arange(-self.n_pixel_height / 2, self.n_pixel_height / 2, 1) * self.pixel_height,
+               'micron')
+
+        theta = np.radians(Q_(self.settings['rotation_around_center'], 'degree'))
+        R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+
+        # Gaussian 1
+        beam_center_unrotated = [Q_(self.settings['x_from_center'], 'um'), Q_(0, 'um')]
+        beam_center_unrotated_magn = [beam_center_unrotated[0].magnitude, beam_center_unrotated[1].magnitude]
+
+        x1_rot, y1_rot = R @ beam_center_unrotated_magn
+        amplitude = self.Gaussian_with_center(x, y, x1_rot, y1_rot, Q_(self.settings['sigma_x'], 'um').magnitude,
+                                              Q_(self.settings['sigma_y'], 'um').magnitude)
+
+        # Gaussian 2
+        beam_center_unrotated_magn = [
+            beam_center_unrotated[0].magnitude + Q_(self.settings['asymetry'], 'um').magnitude,
+            beam_center_unrotated[1].magnitude]
+        x2_rot, y2_rot = -R @ beam_center_unrotated_magn
+        amplitude += self.Gaussian_with_center(x, y, x2_rot, y2_rot, Q_(self.settings['sigma_x'], 'um').magnitude,
+                                               Q_(self.settings['sigma_y'], 'um').magnitude)
+
+        field = Field('Double_gaussian', amplitude=amplitude,
+                      pixel_sizes=Q_(np.array((self.pixel_height,
+                                               self.pixel_width)),
+                                     'um'))
+        return field
+
