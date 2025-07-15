@@ -218,6 +218,10 @@ class OpticalShaping(CustomExt):
         self.add_action('send_correc_to_shaper', 'Correction to shaper', 'random',
                         'Send correction phase to the control module called *Shaper*',
                         checkable=True)
+        if self.dashboard is not None:
+            self.add_action('add_corrections', 'Add Corrections', 'Add_Step',
+                            'Add Focal and Zernike polynomials as individual actuators in Dashboard',
+                            )
         self.toolbar.addSeparator()
         self.add_action('save_phase', 'Save', 'SaveAs_32',
                         'Save Phases to a file',)
@@ -248,6 +252,8 @@ class OpticalShaping(CustomExt):
 
         self.connect_action('corrections', self.show_corrections)
         self._corrections.phase_changed.connect(self.update_correction_phase)
+        if self.dashboard is not None:
+            self.connect_action('add_corrections', self.add_corrections_actuators)
 
         self.connect_action('save_phase', self.save_phase)
 
@@ -274,6 +280,25 @@ class OpticalShaping(CustomExt):
         return (self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'height'),
                 self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'width'),
                 )
+
+    def add_corrections_actuators(self):
+        try:
+            if self._plugin_config('corrections', 'actuators', 'focal_length'):
+                self.dashboard.add_move_from_extension(f'FocalLength', "FocalLength",
+                                                       self._corrections,
+                                                       ui_identifier='Simple')
+            for n in range(self._plugin_config('corrections', 'zernike', 'order_max')):
+                if self._plugin_config('corrections', 'zernike', 'actuators', f'n{n}'):
+                    for m in range(-n, n+2, 2):
+                        self.dashboard.add_move_from_extension(f'Zernike {n}/{m}',
+                                                               "Zernike",
+                                                               self._corrections,
+                                                               ui_identifier = 'Simple')
+                        self.dashboard.actuators_modules[-1].axis_name = f'{n}{m}'
+            self.set_action_enabled("add_zernike", False)
+
+        except Exception as e:
+            logger.exception('Could not create Zernike Actuators', exc_info=e)
 
     def update_target_loader_from_algo(self, algo: AlgoBase):
         pixel_size = self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size')

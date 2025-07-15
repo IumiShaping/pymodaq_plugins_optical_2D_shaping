@@ -5,10 +5,13 @@ from qtpy import QtWidgets, QtCore
 
 from pymodaq_gui.utils.custom_app import CustomApp
 from pymodaq_gui.parameter.pymodaq_ptypes import SliderSpinBox
+from pymodaq_plugins_optical_2D_shaping.utils import Config
+
+plugin_config = Config()
 
 
 class ZernikeCoeffs:
-    order_max = 5
+    order_max = plugin_config('corrections', 'zernike', 'order_max')
     def __init__(self, zernike_coeffs: dict = None):
         if zernike_coeffs is None:
             zernike_coeffs = {}

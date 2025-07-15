@@ -35,3 +35,19 @@ default_algo = 'Gerchberg-Saxton'
 
     [algo.gbsax]
     focal_length_mm = 100
+
+
+[corrections]
+    [corrections.actuators]
+    focal_length = true
+
+    [corrections.zernike]
+    order_max = 5
+
+        [corrections.zernike.actuators]
+        n0 = false
+        n1 = false
+        n2 = true
+        n3 = true
+        n4 = false
+

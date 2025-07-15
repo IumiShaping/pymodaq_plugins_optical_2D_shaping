@@ -55,6 +55,7 @@ class Correction(CustomApp):
         self.beam_fwhm_sb.setValue(beam_fwhm.m_as('mm'))
 
         self.timing = perf_counter()
+        self.compute_zernike_base()
 
     @property
     def beam_fwhm(self) -> Q_:
@@ -79,7 +80,7 @@ class Correction(CustomApp):
         print(perf_counter() - self.timing)
         self.timing = perf_counter()
 
-    def update_zernike(self, n, m, value):
+    def update_zernike(self, n: int, m: int, value: float):
         self._zernike_coeffs.set(n, m, value)
         self.emit_corrections()
 
@@ -114,7 +115,7 @@ class Correction(CustomApp):
         widget_main_correction.layout().addWidget(QtWidgets.QLabel('Tilt Y'), 0, 1)
         widget_main_correction.layout().addWidget(self.tilt_y, 1, 1)
 
-        widget_main_correction.layout().addWidget(QtWidgets.QLabel('Focal Length'), 0, 2)
+        widget_main_correction.layout().addWidget(QtWidgets.QLabel('Focal Length (cm)'), 0, 2)
         widget_main_correction.layout().addWidget(self.focal_length, 1, 2)
 
         main_widget.layout().addWidget(widget_main_correction)
@@ -132,6 +133,13 @@ class Correction(CustomApp):
         self.viewer2D = Viewer2D(self.viewer_widget)
         widget_zernike.layout().addWidget(self.viewer_widget)
         self.viewer_widget.setVisible(False)
+
+    def set_focal_length(self, focal: Q_ | float):
+        """ Programmatically set the focal length using a Quantity or explicit float as cm"""
+        if isinstance(focal, Q_):
+            self.focal_length.setValue(focal.m_as('cm'))
+        else:
+            self.focal_length.setValue(focal)
 
     def setup_actions(self):
         self.add_action('show_phase', 'Show Phase', 'show', tip='Display the correction phase in a 2D Viewer',

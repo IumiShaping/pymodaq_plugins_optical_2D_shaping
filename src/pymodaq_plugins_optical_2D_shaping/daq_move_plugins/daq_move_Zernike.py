@@ -5,12 +5,16 @@ from pymodaq.control_modules.move_utility_classes import (DAQ_Move_base, comon_p
 
 from pymodaq_utils.utils import ThreadCommand  # object used to send info back to the main thread
 from pymodaq_gui.parameter import Parameter
+from pymodaq_plugins_optical_2D_shaping.utils import Config
 
 if TYPE_CHECKING:
     from pymodaq_plugins_optical_2D_shaping.utilities.corrections import Correction
 
+plugin_config = Config()
+ORDER_MAX = plugin_config('corrections', 'zernike', 'order_max')
 
-class DAQ_Move_FocalLength(DAQ_Move_base):
+
+class DAQ_Move_Zernike(DAQ_Move_base):
     """ Instrument plugin class for an actuator.
     
     This object inherits all functionalities to communicate with PyMoDAQ’s DAQ_Move module through inheritance via
@@ -24,8 +28,11 @@ class DAQ_Move_FocalLength(DAQ_Move_base):
 
     """
     is_multiaxes = False
-    _axis_names: Union[List[str], Dict[str, int]] = ['Focal']
-    _controller_units: Union[str, List[str]] = 'cm'
+    _axis_names: Union[List[str], Dict[str, int]] = []
+    for n in range(ORDER_MAX):
+        for m in range(-n, n+2, 2):
+            _axis_names.append(f'{n}{m}')
+    _controller_units: Union[str, List[str]] = ''
     _epsilon: Union[float, List[float]] = 0.1
     data_actuator_type = DataActuatorType.DataActuator
 
@@ -59,7 +66,7 @@ class DAQ_Move_FocalLength(DAQ_Move_base):
         """
         self.controller: 'Correction' = controller
 
-        info = "Focal Length Move initialized"
+        info = "Zernike Move initialized"
         initialized = True
         return info, initialized
 
@@ -75,7 +82,10 @@ class DAQ_Move_FocalLength(DAQ_Move_base):
         self.target_value = value
         value = self.set_position_with_scaling(value)  # apply scaling if the user specified one
 
-        self.controller.set_focal_length(value.value(units=self.axis_unit))
+        n = int(self.axis_name[0])
+        m = int(self.axis_name[1:])
+
+        self.controller.update_zernike(n, m, value.value())
 
     def move_rel(self, value: DataActuator):
         """ Move the actuator to the relative target actuator value defined by value
