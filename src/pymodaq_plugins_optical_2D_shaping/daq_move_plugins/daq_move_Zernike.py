@@ -85,7 +85,7 @@ class DAQ_Move_Zernike(DAQ_Move_base):
         n = int(self.axis_name[0])
         m = int(self.axis_name[1:])
 
-        self.controller.update_zernike(n, m, value.value())
+        self.controller.set_zernike_polynomial(n, m, value.value())
 
     def move_rel(self, value: DataActuator):
         """ Move the actuator to the relative target actuator value defined by value

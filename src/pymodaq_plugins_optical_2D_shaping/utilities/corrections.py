@@ -141,6 +141,10 @@ class Correction(CustomApp):
         else:
             self.focal_length.setValue(focal)
 
+    def set_zernike_polynomial(self, n: int, m: int, value: float):
+        """ Programmatically set the Zernike Polynomials by updating the UI"""
+        self._zernike_ui.sliders[f'{n}{m}'].setValue(value)
+
     def setup_actions(self):
         self.add_action('show_phase', 'Show Phase', 'show', tip='Display the correction phase in a 2D Viewer',
                         checkable=True, toolbar=self._toolbar)

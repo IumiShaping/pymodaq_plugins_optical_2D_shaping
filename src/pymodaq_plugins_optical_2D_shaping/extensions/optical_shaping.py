@@ -295,10 +295,10 @@ class OpticalShaping(CustomExt):
                                                                self._corrections,
                                                                ui_identifier = 'Simple')
                         self.dashboard.actuators_modules[-1].axis_name = f'{n}{m}'
-            self.set_action_enabled("add_zernike", False)
+            self.set_action_enabled("add_corrections", False)
 
         except Exception as e:
-            logger.exception('Could not create Zernike Actuators', exc_info=e)
+            logger.exception('Could not create Corrections Actuators', exc_info=e)
 
     def update_target_loader_from_algo(self, algo: AlgoBase):
         pixel_size = self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size')
