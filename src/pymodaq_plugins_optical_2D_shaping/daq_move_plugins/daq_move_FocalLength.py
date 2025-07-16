@@ -100,5 +100,8 @@ class DAQ_Move_FocalLength(DAQ_Move_base):
 
       pass
 
+    def close(self):
+        pass
+
 if __name__ == '__main__':
     main(__file__, init=False)
