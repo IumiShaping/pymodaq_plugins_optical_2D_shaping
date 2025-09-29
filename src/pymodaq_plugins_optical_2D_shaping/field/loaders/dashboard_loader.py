@@ -34,6 +34,7 @@ class DashboardLoader(FieldLoader):
             self.modules_manager: ModulesManager = modules_manager
             self.settings.child('detectors').setLimits(self.modules_manager.detectors_name)
         else:
+            self.modules_manager = None
             logger.warning('could not load properly the Dashboard Field Loader as'
                            'no modules manager has been passed')
 
@@ -43,9 +44,9 @@ class DashboardLoader(FieldLoader):
 
     def load(self, *args, load_type: LoadTypeEnum = None, **kwargs) -> Field:
         """ Mandatory reimplemented method. Used to load a target to populate the field attribute"""
-
-        detector = self.modules_manager.get_mod_from_name(self.settings['detectors'])
-        if detector.current_data is not None:
-            dwa = detector.current_data[0]
-            self.field.amplitude = dwa[0]
-        return self.field
+        if self.modules_manager is not None:
+            detector = self.modules_manager.get_mod_from_name(self.settings['detectors'])
+            if detector.current_data is not None:
+                dwa = detector.current_data[0]
+                self.field.amplitude = dwa[0]
+            return self.field

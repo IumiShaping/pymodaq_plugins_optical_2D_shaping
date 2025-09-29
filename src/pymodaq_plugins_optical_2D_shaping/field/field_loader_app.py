@@ -3,16 +3,26 @@ import numpy as np
 from qtpy import QtWidgets, QtCore
 from skimage.transform import rescale, resize
 
+from pymodaq_utils.config import Config
+
+from pymodaq_data import DataToExport, DataCalculated
+from pymodaq_data.h5modules.saving import H5SaverLowLevel
+from pymodaq_data.h5modules.data_saving import DataSaverLoader
+
 from pymodaq_gui.managers.parameter_manager import Parameter
 from pymodaq_gui.plotting.data_viewers.viewer2D import Viewer2D
 from pymodaq_gui.utils.custom_app import CustomApp
 from pymodaq_gui.utils.dock import DockArea, Dock
+from pymodaq_gui.utils.file_io import select_file
 
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 from pymodaq_plugins_optical_2D_shaping.field import Field, field_loader_factory, Q_
 from pymodaq_plugins_optical_2D_shaping.field.factory import LoaderFactory, FieldLoader
 
 from pymodaq_gui.managers.roi_manager import ROI2D_TYPES, ROI
+
+
+config_utils = Config()
 
 
 class FieldLoaderApp(CustomApp):
@@ -22,6 +32,8 @@ class FieldLoaderApp(CustomApp):
          'limits': field_loader_factory.field_loaders,
          'value': field_loader_factory.field_loaders[0]},
         {'title': 'Reload:', 'name': 'reload', 'type': 'bool_push', 'label': 'Reload!',
+         'value': False},
+        {'title': 'Save:', 'name': 'save', 'type': 'bool_push', 'label': 'Save Field!',
          'value': False},
         {'title': 'Initial size', 'name': 'ini_size', 'type': 'group', 'children': [
             {'title': 'Height', 'name': 'height', 'type': 'int', 'value': 0, 'readonly': True},
@@ -110,7 +122,9 @@ class FieldLoaderApp(CustomApp):
             self.field_widget.setVisible(param.value())
 
         elif param.name() == 'reload':
+            if param.value():
                 self.load_field()
+                param.setValue(False)
 
         elif param.name() == 'show_needed_area':
             self.show_roi_target(param.value())
@@ -131,6 +145,27 @@ class FieldLoaderApp(CustomApp):
                 self.mask.sigRegionChangeFinished.disconnect()
                 self.mask = None
 
+        elif param.name() == 'save':
+            if param.value():
+                self.save_field()
+                param.setValue(False)
+
+    def save_field(self):
+        pass
+        file_name = select_file(start_path=config_utils('data_saving','h5file', 'save_path'),
+                                save=True, ext='h5')  # see daq_utils
+        if file_name != '':
+            dwa = DataCalculated('Field',
+                                 data=[
+                                     self.field.amplitude_as_dwa().data[0],
+                                     self.field.phase_as_dwa().data[0]
+                                 ],
+                                 labels=['Amplitude', 'Phase'],
+                                 axes = self.field.axes.copy())
+
+            with DataSaverLoader(file_name) as saver:
+                saver.add_data('/RawData/', dwa)
+
 
     def update_slm(self, slm_default_name: str):
         self.settings.child('needed_size', 'height').setValue(
@@ -146,11 +181,12 @@ class FieldLoaderApp(CustomApp):
         """ Method used for notification when its parent object is registered within a FieldLoader
         """
         self._ini_field = field
-        self.field = self._ini_field.deepcopy()
-        self.update_ini_size()
-        self.update_final_size()
-        self.update_viewers()
-        self.field_signal.emit(self.field)
+        if self._ini_field is not None:
+            self.field = self._ini_field.deepcopy()
+            self.update_ini_size()
+            self.update_final_size()
+            self.update_viewers()
+            self.field_signal.emit(self.field)
 
     def update_viewers(self):
         needed_shape = (self.settings['needed_size', 'height'],
@@ -181,11 +217,12 @@ class FieldLoaderApp(CustomApp):
     def load_field(self, *args, **kwargs):
         notify = kwargs.pop('notify', True)
         self._ini_field = self._field_loader.load_field(*args, notify=notify, **kwargs)
-        self.threshold_phase(self._ini_field)
-        self.field = self._ini_field.deepcopy()
-        self.update_ini_size()
-        self.update_final_size()
-        self.update_viewers()
+        if self._ini_field is not None:
+            self.threshold_phase(self._ini_field)
+            self.field = self._ini_field.deepcopy()
+            self.update_ini_size()
+            self.update_final_size()
+            self.update_viewers()
 
     def update_ini_size(self):
         self.settings.child('ini_size', 'height').setValue(self._ini_field.shape[0])
