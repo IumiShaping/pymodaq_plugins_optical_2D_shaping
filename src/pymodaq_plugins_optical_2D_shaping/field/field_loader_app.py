@@ -163,11 +163,8 @@ class FieldLoaderApp(CustomApp):
                                  labels=['Amplitude', 'Phase'],
                                  axes = self.field.axes.copy())
 
-            h5saver = H5SaverLowLevel()
-            h5saver.init_file(file_name)
-
-            datasaver = DataSaverLoader(h5saver)
-            datasaver.add_data('/RawData/', dwa)
+            with DataSaverLoader(file_name) as saver:
+                saver.add_data('/RawData/', dwa)
 
 
     def update_slm(self, slm_default_name: str):
