@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import cv2
-from skimage.measure import shannon_entropy
+from skimage.measure import shannon_entropy, blur_effect
 from skimage.io import imread
 from skimage.color import rgb2gray
 from skimage.transform import rescale, resize
@@ -135,6 +135,15 @@ class AutoFocusLaplacian:
     def compute(array):
         laplacian = cv2.Laplacian(array, cv2.CV_64F)  # Apply Laplacian filter
         return np.var(laplacian)  # Compute variance of Laplacian
+
+
+@AutoFocusFactory.register()
+class AutoFocusSkImage:
+    name = 'SkImage'
+
+    @staticmethod
+    def compute(array):
+        return blur_effect(array)
 
 
 
