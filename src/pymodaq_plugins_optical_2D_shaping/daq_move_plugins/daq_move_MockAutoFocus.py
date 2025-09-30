@@ -1,5 +1,5 @@
 
-from typing import Union, List, Dict, TYPE_CHECKING
+from typing import Union, List, Dict, TYPE_CHECKING, Optional
 from pymodaq.control_modules.move_utility_classes import (DAQ_Move_base, comon_parameters_fun,
                                                           main, DataActuatorType, DataActuator)
 
@@ -31,7 +31,7 @@ class DAQ_Move_MockAutoFocus(DAQ_Move_base):
     params = [] + comon_parameters_fun(is_multiaxes, axis_names=_axis_names, epsilon=_epsilon)
 
     def ini_attributes(self):
-        self.controller: Autofocus = None
+        self.controller: Optional[Autofocus] = None
 
     def get_actuator_value(self) -> DataActuator:
         """Get the current value from the hardware with scaling conversion.
@@ -40,7 +40,7 @@ class DAQ_Move_MockAutoFocus(DAQ_Move_base):
         -------
         DataActuator: The position obtained after scaling conversion.
         """
-        return DataActuator(self.axis_name, data=self.controller.blurr)
+        return DataActuator(self.axis_name, data=self.controller.blur)
 
     def ini_stage(self, controller: Autofocus = None):
         """Actuator communication initialization
@@ -77,7 +77,7 @@ class DAQ_Move_MockAutoFocus(DAQ_Move_base):
         self.target_value = value
         value = self.set_position_with_scaling(value)  # apply scaling if the user specified one
 
-        self.controller.blurr = value.value()
+        self.controller.blur = value.value()
 
     def move_rel(self, value: DataActuator):
         """ Move the actuator to the relative target actuator value defined by value

@@ -7,6 +7,8 @@ from pymodaq.utils.data import DataFromPlugins, Axis, DataToExport
 from pymodaq.control_modules.viewer_utility_classes import DAQ_Viewer_base, comon_parameters, main
 from pymodaq.utils.parameter import Parameter
 
+from pymodaq.control_modules.thread_commands import ThreadStatus
+
 from pymodaq_plugins_optical_2D_shaping.hardware.autofocus import Autofocus
 
 
@@ -14,7 +16,7 @@ class DAQ_2DViewer_MockAutoFocus(DAQ_Viewer_base):
     """
     """
     params = comon_parameters + [
-        {'title': 'Blurr', 'name': 'blurr', 'type': 'int', 'value': 10},
+        {'title': 'Blur', 'name': 'blur', 'type': 'int', 'value': 10},
     ]
 
     def ini_attributes(self):
@@ -28,8 +30,8 @@ class DAQ_2DViewer_MockAutoFocus(DAQ_Viewer_base):
         param: Parameter
             A given parameter (within detector_settings) whose value has been changed by the user
         """
-        if param.name() == 'blurr':
-            self.controller.blurr = param.value()
+        if param.name() == 'blur':
+            self.controller.blur = param.value()
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -50,6 +52,9 @@ class DAQ_2DViewer_MockAutoFocus(DAQ_Viewer_base):
             self.controller = Autofocus()
         else:
             self.controller = controller
+
+        self.emit_status(ThreadCommand(ThreadStatus.UPDATE_MAIN_SETTINGS,
+                                       [('wait_time', ), 100, 'value']))
 
         info = "Autofocus initialized"
         initialized = True

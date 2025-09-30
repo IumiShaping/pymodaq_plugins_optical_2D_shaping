@@ -149,22 +149,23 @@ class AutoFocusSkImage:
 
 class Autofocus:
 
-    _blurr_amplitude = 10
+    _blur_amplitude = 10
 
     @property
-    def blurr(self):
-        return self._blurr_amplitude
+    def blur(self):
+        return self._blur_amplitude
 
-    @blurr.setter
-    def blurr(self, new_blurr: int):
-        self._blurr_amplitude = int(abs(new_blurr))
+    @blur.setter
+    def blur(self, new_blur: float):
+        self._blur_amplitude = new_blur
 
     def grab(self):
-        if self.blurr == 0:
+        blur = int(np.rint(np.abs(self.blur)))
+        if blur == 0:
             return CAT_ARRAY
         else:
-            array = rescale(cv2.blur(CAT_ARRAY, (self.blurr, self.blurr)),
-                            1 + self._blurr_amplitude/100)
+            array = rescale(cv2.blur(CAT_ARRAY, (blur, blur)),
+                            1 + abs(self.blur)/100)
             crop_width = (np.array(array.shape) - np.array(CAT_ARRAY.shape)) / 2
             crop_width = tuple(crop_width.astype(int))
             return crop(array, crop_width)

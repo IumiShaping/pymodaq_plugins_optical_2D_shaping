@@ -20,11 +20,11 @@ class AutoFocus(OptimizerModelGeneric):
 
     params = [{'title': 'Optimizing signal', 'name': 'optimizing_signal', 'type': 'group',
                'children': [
+                   {'title': 'BlurMetric', 'name': 'blur_metric', 'type': 'list',
+                    'limits': AutoFocusFactory.names(), 'value': AutoFocusFactory.names()[0]},
                    {'title': 'Get data', 'name': 'data_probe', 'type': 'action'},
                    {'title': 'Optimize 2Ds:', 'name': 'optimize_2d', 'type': 'itemselect',
                              'checkbox': True},
-                   {'title': 'BlurMetric', 'name': 'blur_metric', 'type': 'list',
-                    'limits': AutoFocusFactory.names(), 'value': AutoFocusFactory.names()[0]},
                ]},]
 
 
