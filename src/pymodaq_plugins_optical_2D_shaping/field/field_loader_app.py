@@ -4,6 +4,7 @@ from qtpy import QtWidgets, QtCore
 from skimage.transform import rescale, resize
 
 from pymodaq_utils.config import Config
+from pymodaq_utils.math_utils import normalize
 
 from pymodaq_data import DataToExport, DataCalculated
 from pymodaq_data.h5modules.saving import H5SaverLowLevel
@@ -254,10 +255,11 @@ class FieldLoaderApp(CustomApp):
             else:
                 ratio = np.array(needed_shape) / np.array(self.field.shape)
             _field_temp = self.field.deepcopy()
-            self.field.amplitude = rescale(_field_temp.amplitude,
-                                           ratio * self.settings['utils', 'sizing', 'scaling'])
-            self.field.phase = rescale(_field_temp.phase,
-                                       ratio * self.settings['utils', 'sizing', 'scaling'])
+
+            self.field.amplitude = self.rescale_normalize(_field_temp.amplitude,
+                                                          ratio * self.settings['utils', 'sizing', 'scaling'])
+            self.field.phase = self.rescale_normalize(_field_temp.phase,
+                                                      ratio * self.settings['utils', 'sizing', 'scaling'])
 
         self.settings.child('utils', 'sizing', 'height').setValue(self.field.shape[0])
         self.settings.child('utils', 'sizing', 'width').setValue(self.field.shape[1])
@@ -295,6 +297,16 @@ class FieldLoaderApp(CustomApp):
             self.field.phase = phase
 
         #print(self.field.shape)
+
+    def rescale_normalize(self, array_in: np.ndarray, ratio) -> np.ndarray:
+        """ Rescale and renormalize the output array to have the same intensity dynamic as the input array"""
+        array_out = rescale(array_in, ratio)
+        array_normalized = normalize(array_out) * (np.max(array_in) - np.min(array_in)) + np.min(array_in)
+        if np.any(np.isnan(normalize(array_normalized))):  # generate nan is the array is constant
+            return array_out
+        else:
+            return array_normalized
+
 
     def get_npad_between(self, first_shape, second_shape):
         """ Get the padding necessary to match object shape and image shape
