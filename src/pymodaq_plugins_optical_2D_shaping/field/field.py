@@ -58,7 +58,7 @@ class Field(DataRaw):
 
         self._pixels_sizes: Tuple[Q_, Q_] = None
 
-        super().__init__(name=name, data=[np.array([[1, 1], [1, 1]])],)
+        super().__init__(name=name, data=[np.ones((2, 2)), np.zeros((2, 2))],)
 
         self.calibrate_axes(pixel_sizes)
 
@@ -167,47 +167,47 @@ class Field(DataRaw):
     @property
     def field(self) -> np.ndarray:
         """ Get set the field as a complex 2D array"""
-        return self[0]
+        return self[0] * np.exp(1j * self[1])
 
     @field.setter
     def field(self, field_array: np.ndarray):
-        self.data = [field_array]
+        self.data = [np.abs(field_array), np.angle(field_array)]
         self.set_axes_manager(self.shape, self.get_axes(), ())
 
     @property
     def amplitude(self) -> np.ndarray:
-        return np.abs(self.field)
+        return self[0]
 
     @amplitude.setter
     def amplitude(self, amp_array: np.ndarray):
 
-        if not self.field.shape == amp_array.shape:
+        if not self.amplitude.shape == amp_array.shape:
             logger.warning('New amplitude is not coherent with existing phase shape'
                            'Setting the phase to flat zeros')
             phase_array = np.zeros_like(amp_array)
         else:
             phase_array = self.phase
 
-        self.field = amp_array * np.exp(1j * phase_array)
+        self.data = [amp_array, phase_array]
 
     @property
     def intensity(self) -> np.ndarray:
-        return np.abs(self.field) ** 2
+        return np.abs(self.amplitude) ** 2
 
     @property
     def phase(self) -> np.ndarray:
-        return np.angle(self.field)
+        return self[1]
 
     @phase.setter
     def phase(self, phase_array: np.ndarray):
-        if not self.field.shape == phase_array.shape:
+        if not self.phase.shape == phase_array.shape:
             logger.warning('New phase is not coherent with existing amplitude shape'
                            'Setting the amplitude to flat ones')
             amp_array = np.ones_like(phase_array)
         else:
             amp_array = self.amplitude
 
-        self.field = amp_array * np.exp(1j * phase_array)
+        self.data = [amp_array, phase_array]
 
     def amplitude_as_dwa(self, origin_name: str = '', name: str = None):
         if not (name is None or isinstance(name, str)):
