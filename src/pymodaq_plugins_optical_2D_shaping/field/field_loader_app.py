@@ -358,9 +358,11 @@ class FieldLoaderApp(CustomApp):
 
         amp_widget = QtWidgets.QWidget()
         self.amp_viewer = Viewer2D(amp_widget)
+        self.amp_viewer.view.get_action('legend').trigger()
 
         phase_widget = QtWidgets.QWidget()
         self.phase_viewer = Viewer2D(phase_widget)
+        self.phase_viewer.view.get_action('legend').trigger()
 
         self.show_roi_target(self.settings['needed_size', 'show_needed_area'])
 
