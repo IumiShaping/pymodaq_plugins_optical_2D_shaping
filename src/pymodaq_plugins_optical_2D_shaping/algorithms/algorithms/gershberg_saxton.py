@@ -63,20 +63,19 @@ class GbSax(AlgoBase):
             self.do_things_after_set_input()
 
     def do_things_after_set_input(self):
-        """ Apply the initial phase to the input field """
+        """ Apply the initial phase to the object field """
 
-        field = self._target_field.deepcopy()
+        shape = self._object_field.shape
         if self.settings['target_phase'] == TargetPhase.RANDOM:
-            field.phase = np.random.random_sample(field.shape) * 2 *np.pi
+            phase = np.random.random_sample(shape) * 2 *np.pi
         elif self.settings['target_phase'] == TargetPhase.QUADRATIC:
-            ny, nx = field.shape
+            ny, nx = shape
             x = np.pi / nx * np.linspace(-nx/2, nx/2 , nx , endpoint=False)**2
             y = np.pi / ny * np.linspace(-ny/2, ny/2 , ny , endpoint=False)**2
             xv, yv = np.meshgrid(x, y)
-            field.phase = xv + yv
+            phase = xv + yv
 
-        self._image_field = field
-        self.evolve_field()
+        self.set_phase_in_object_plane(phase)
 
     def set_phase_in_object_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
         if phase.shape == self._object_field.shape:
