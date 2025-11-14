@@ -178,17 +178,6 @@ class FieldLoaderApp(CustomApp):
         self.amp_viewer.roi_target.setVisible(show)
         self.phase_viewer.roi_target.setVisible(show)
 
-    def update_field(self, field: Field):
-        """ Method used for notification when its parent object is registered within a FieldLoader
-        """
-        self._ini_field = field
-        if self._ini_field is not None:
-            self.field = self._ini_field.deepcopy()
-            self.update_ini_size()
-            self.update_final_size()
-            self.update_viewers()
-            self.field_signal.emit(self.field)
-
     def update_viewers(self):
         needed_shape = (self.settings['needed_size', 'height'],
                         self.settings['needed_size', 'width'],
@@ -224,6 +213,8 @@ class FieldLoaderApp(CustomApp):
             self.update_ini_size()
             self.update_final_size()
             self.update_viewers()
+
+            self.field_signal.emit(self.field)
 
     def update_ini_size(self):
         self.settings.child('ini_size', 'height').setValue(self._ini_field.shape[0])

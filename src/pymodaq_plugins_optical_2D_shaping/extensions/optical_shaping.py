@@ -45,10 +45,7 @@ class OpticalShaping(CustomExt):
         self.viewer_observable: ViewerDispatcher = None
 
         self._target_loader: FieldLoaderApp = None
-        self._target_field: Field = None
-
         self._input_field_loader: FieldLoaderApp = None
-        self._input_field: Field = None
 
         self._object_field: Field = None
         self._correction_phase: DataCalculated = None
@@ -64,19 +61,25 @@ class OpticalShaping(CustomExt):
 
         self.setup_ui()
 
-    def update_target(self, field: Field):
-        self._target_field = field
-        self._algorithm.set_target_field(self._target_field)
+        self.do_things_after_init()
 
-    def update_input(self, field: Field):
-        self._input_field = field
-        self._algorithm.set_input_field(self._input_field)
+    @property
+    def input_field(self) -> Field:
+        return self._input_field_loader.field
+
+    @property
+    def target_field(self) -> Field:
+        return self._target_loader.field
+
+    def do_things_after_init(self):
+        self._input_field_loader.load_field()
+        self._target_loader.load_field()
 
     def update_object(self, field: Field):
         """ field contains here the object field"""
 
         if field is None:
-            field = self._input_field
+            field = self.input_field
 
         self._object_field = field
 
@@ -132,20 +135,6 @@ class OpticalShaping(CustomExt):
         ########
         pyqtgraph.dockarea.Dock
         """
-
-        self._target_dockarea = gutils.DockArea()
-        self._target_loader = FieldLoaderApp(self._target_dockarea,
-                                             modules_manager=self.modules_manager)
-        self._target_loader.set_loader_in_settings(
-            self._plugin_config('target', 'default_loader'))
-        self._target_field = Field()
-
-        self._input_field_dockarea = gutils.DockArea()
-        self._input_field_loader = FieldLoaderApp(self._input_field_dockarea)
-        self._input_field_loader.set_loader_in_settings(
-            self._plugin_config('input', 'default_loader'))
-        self._input_field: Field = Field()
-
         self.docks['algo'] = gutils.Dock('Algo')
         self.dockarea.addDock(self.docks['algo'])
         algo_main_window = QtWidgets.QMainWindow()
@@ -154,6 +143,17 @@ class OpticalShaping(CustomExt):
         self.docks['algo'].addWidget(algo_main_window)
 
         self._algorithm = AlgoApp(self._algo_dockarea)
+
+        self._target_dockarea = gutils.DockArea()
+        self._target_loader = FieldLoaderApp(self._target_dockarea,
+                                             modules_manager=self.modules_manager)
+        self._target_loader.set_loader_in_settings(
+            self._plugin_config('target', 'default_loader'))
+
+        self._input_field_dockarea = gutils.DockArea()
+        self._input_field_loader = FieldLoaderApp(self._input_field_dockarea)
+        self._input_field_loader.set_loader_in_settings(
+            self._plugin_config('input', 'default_loader'))
 
         self._corrections_dockarea = gutils.DockArea()
         self._corrections = Correction(self._corrections_dockarea)
@@ -242,13 +242,11 @@ class OpticalShaping(CustomExt):
 
         self._algorithm.object_field_signal.connect(self.update_object)
 
-        self._input_field_loader.field_signal.connect(self.update_input)
-        self._target_loader.field_signal.connect(self.update_target)
+        self._input_field_loader.field_signal.connect(self._algorithm.set_input_field)
+        self._target_loader.field_signal.connect(self._algorithm.set_target_field)
         self._algorithm.algo_changed.connect(self.update_target_loader_from_algo)
 
-        self._input_field_loader.load_field()
         self.update_target_loader_from_algo(self._algorithm.algorithm)
-        self._target_loader.load_field()
 
         self.connect_action('corrections', self.show_corrections)
         self._corrections.phase_changed.connect(self.update_correction_phase)
