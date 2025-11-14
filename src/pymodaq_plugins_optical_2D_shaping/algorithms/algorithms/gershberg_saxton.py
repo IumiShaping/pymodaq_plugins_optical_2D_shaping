@@ -29,7 +29,7 @@ plugin_config = PluginConfig()
 
 class TargetPhase(StrEnum):
     RANDOM = 'random'
-    QUADRATIC = 'quadratic'
+    QUADRATIC = 'quadratic'  # see https://doi.org/10.1364/OE.25.014323
 
 
 
