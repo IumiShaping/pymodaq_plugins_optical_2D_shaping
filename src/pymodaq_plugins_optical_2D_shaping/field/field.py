@@ -213,20 +213,22 @@ class Field(DataRaw):
         if not (name is None or isinstance(name, str)):
             name = 'amplitude'
         return DataActuator('amplitude' if name is None else name, data=[self.amplitude],
-                       axes=self.get_axes(), origin=origin_name)
+                            axes=self.get_axes(), origin=origin_name,
+                            labels=['Amplitude'])
 
     def phase_as_dwa(self, origin_name: str = '', name: str = None):
         if not (name is None or isinstance(name, str)):
             name = 'phase'
-        return DataActuator('phase' if name is None else name, data=[self.phase], axes=self.get_axes(),
-                       origin=origin_name)
+        return DataActuator('phase' if name is None else name, data=[self.phase],
+                            axes=self.get_axes(), origin=origin_name,
+                            labels=['Phase'])
 
     def intensity_as_dwa(self, origin_name: str = '', name: str = None):
         if not (name is None or isinstance(name, str)):
             name = 'intensity'
         return DataActuator('intensity' if name is None else name, data=[self.intensity],
-                       axes=self.get_axes(),
-                       origin=origin_name)
+                            axes=self.get_axes(), origin=origin_name,
+                            labels=['Intensity'])
 
     def normalise_to_intensity(self, field: 'Field'):
         """ Normalise a Field object to this input total intensity
