@@ -7,6 +7,7 @@ from pymodaq_plugins_optical_2D_shaping.field import Field, LoaderFactory, Field
 from pymodaq_gui.parameter import Parameter
 from pymodaq_utils import math_utils as mutils
 from pymodaq_data import Q_, Unit
+from LightPipes import Begin, GaussBeam, Intensity, Phase
 
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 
@@ -279,3 +280,56 @@ class DoubleGaussian(BaseFieldLoader):
                                      'um'))
         return field
 
+
+
+@LoaderFactory.register_loader()
+class LaguerreGaussian(BaseFieldLoader):
+
+    LOADER_NAME = 'LaguerreGaussian'
+
+    params = BaseFieldLoader.params + \
+        [
+            {'title': 'Beam waist (mm):', 'name': 'waist', 'type': 'float',
+             'value': plugin_config('input', 'laguerre', 'waist'), },
+            {'title': 'Wavelength (nm):', 'name': 'wavelength', 'type': 'float',
+             'value': plugin_config('wavelength_nm'), },
+            {'title': 'Radial order :', 'name': 'radial_index', 'type': 'int',
+             'value': plugin_config('input', 'laguerre', 'radial_index'), },
+            {'title': 'Azimutal order:', 'name': 'azimutal_index', 'type': 'int',
+             'value': plugin_config('input', 'laguerre', 'azimutal_index'), },
+         ]
+
+    def crop_center(self, img: np.ndarray, cropx: int, cropy: int):
+        y, x = img.shape
+        startx = int(x // 2 - cropx // 2)
+        starty = int(y // 2 - cropy // 2)
+        return img[starty:starty + cropy, startx:startx + cropx]
+
+    def compute_field(self):
+
+        n_pixels_max = max(self.n_pixel_width, self.n_pixel_height)
+        size_max = max(self.n_pixel_height * self.pixel_height,
+                       self.n_pixel_width * self.pixel_width) * 1e-6
+        field_in = Begin(size_max, self.settings['wavelength'] * 1e-9, n_pixels_max)
+
+        laguerre_gaussian_field = GaussBeam(field_in, self.settings['waist'] * 1e-3,
+                                            LG=True,
+                                            n=self.settings['radial_index'],
+                                            m=self.settings['azimutal_index'])
+
+        amplitude = self.crop_center(np.sqrt(Intensity(laguerre_gaussian_field)),
+                                     self.n_pixel_width,
+                                     self.n_pixel_height)
+
+        phase = self.crop_center(Phase(laguerre_gaussian_field),
+                                     self.n_pixel_width,
+                                     self.n_pixel_height)
+
+
+        field = Field('LaguerreGaussian',
+                      amplitude=amplitude,
+                      phase=phase,
+                      pixel_sizes=Q_(np.array((self.pixel_height,
+                                               self.pixel_width)),
+                                     'um'))
+        return field
