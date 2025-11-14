@@ -8,11 +8,12 @@ from pathlib import Path
 from typing import Union, Tuple, List, TYPE_CHECKING, Any
 
 import numpy as np
-
+from pymodaq_utils.enums import StrEnum
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataFromPlugins, DataToExport, DataRaw
 from pymodaq_utils import math_utils as mutils
 from pymodaq_data import Q_
+from pymodaq_gui.parameter import Parameter
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field
@@ -24,6 +25,12 @@ if TYPE_CHECKING:
 
 logger = set_logger(get_module_name(__file__))
 plugin_config = PluginConfig()
+
+
+class TargetPhase(StrEnum):
+    RANDOM = 'random'
+    QUADRATIC = 'quadratic'
+
 
 
 @AlgorithmFactory.register_algorithm()
@@ -43,10 +50,33 @@ class GbSax(AlgoBase):
          'value': plugin_config('wavelength_nm',)},
         {'title': 'Focal length (mm)', 'name': 'focal_length', 'type': 'float',
          'value': plugin_config('algo', 'gbsax', 'focal_length_mm')},
+        {'title': 'Target Phase', 'name': 'target_phase', 'type': 'list',
+         'limits': TargetPhase.values(), 'value': TargetPhase.QUADRATIC.value,},
     ]
 
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
+
+    def value_changed(self, param: Parameter):
+        self.parent_app.algo_settings_changed()
+        if param.name() == 'target_phase':
+            self.do_things_after_set_input()
+
+    def do_things_after_set_input(self):
+        """ Apply the initial phase to the input field """
+
+        field = self._target_field.deepcopy()
+        if self.settings['target_phase'] == TargetPhase.RANDOM:
+            field.phase = np.random.random_sample(field.shape) * 2 *np.pi
+        elif self.settings['target_phase'] == TargetPhase.QUADRATIC:
+            ny, nx = field.shape
+            x = np.pi / nx * np.linspace(-nx/2, nx/2 , nx , endpoint=False)**2
+            y = np.pi / ny * np.linspace(-ny/2, ny/2 , ny , endpoint=False)**2
+            xv, yv = np.meshgrid(x, y)
+            field.phase = xv + yv
+
+        self._image_field = field
+        self.evolve_field()
 
     def set_phase_in_object_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
         if phase.shape == self._object_field.shape:
