@@ -52,7 +52,15 @@ class Srep15426(GbSax):
         self._target_field = field
         self._image_field = Field.init_from_field(self._target_field)
 
-        self._target_mask = self.generate_random_target_mask()
+        self._target_mask = self.generate_even_mask()
+
+    def generate_even_mask(self):
+        shape = self._target_field.shape
+        mask = np.ones_like(self._target_field.amplitude)
+        for ind_line in range(shape[0]):
+            for ind_col in range(shape[1]):
+                mask[ind_line, ind_col] = 0 if mutils.odd_even(ind_line+ind_col) else 1
+        return mask
 
     def generate_random_target_mask(self):
         return np.random.randint(0, 2, self._target_field.shape)
