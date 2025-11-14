@@ -103,7 +103,14 @@ class GbSax(AlgoBase):
         self._image_field = self.scale_target_with_geometry(self._image_field)
 
     def evolve_field(self):
-        field_image_corrected = Field(amplitude=self._target_field.amplitude,
+
+        if self.mask is not None:
+            amplitude = self._image_field.amplitude.copy()
+            amplitude[*self.mask] = self._target_field.amplitude[*self.mask]
+        else:
+            amplitude = self._target_field.amplitude
+
+        field_image_corrected = Field(amplitude=amplitude,
                                       phase=self._image_field.phase,
                                       pixel_sizes=self._image_field.pixels_sizes)
         field_object_corrected = field_image_corrected.ifft2()
