@@ -47,7 +47,7 @@ class AlgoApp(CustomApp):
 
         self.setup_ui()
 
-        self.set_algorithm(self.settings['algorithm'])
+        self.get_action('ini_algo').trigger()
 
     @property
     def algorithm(self):
