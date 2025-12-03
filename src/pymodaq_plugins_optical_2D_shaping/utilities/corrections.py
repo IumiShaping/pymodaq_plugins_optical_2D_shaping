@@ -109,10 +109,10 @@ class Correction(CustomApp):
         self.tilt_y = SliderSpinBox(value=0., bounds=(-10, 10))
         self.focal_length = SliderSpinBox(value=0., bounds=(-200, 200))
 
-        widget_main_correction.layout().addWidget(QtWidgets.QLabel('Tilt X'), 0, 0)
+        widget_main_correction.layout().addWidget(QtWidgets.QLabel('Shift X (mm)'), 0, 0)
         widget_main_correction.layout().addWidget(self.tilt_x, 1, 0)
 
-        widget_main_correction.layout().addWidget(QtWidgets.QLabel('Tilt Y'), 0, 1)
+        widget_main_correction.layout().addWidget(QtWidgets.QLabel('Shift Y (mm)'), 0, 1)
         widget_main_correction.layout().addWidget(self.tilt_y, 1, 1)
 
         widget_main_correction.layout().addWidget(QtWidgets.QLabel('Focal Length (cm)'), 0, 2)
@@ -266,11 +266,17 @@ class Correction(CustomApp):
 
     def compute_linear_phase(self, tiltx: float, tilty: float) -> np.ndarray[float, float]:
         xlin, ylin = self._get_xy()
-        #todo: compute the physical relation between this tilt value and a displacement in mm
-        # in the focal plane
+        #todo: specify the algorithm use because for now the linear shift will be done only for gbsax
 
-        ylin *= tilty * 2* np.pi
-        xlin *= tiltx * 2* np.pi
+        shift_x = Q_(tiltx, 'mm')
+        shift_y = Q_(tilty, 'mm')
+        pixel_SLM = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size'), 'um')
+        focal_postSLM = Q_(self._plugin_config('algo')['gbsax']['focal_length_mm'], 'mm')
+        wavelength = Q_(self._plugin_config('wavelength_nm'), 'nm')
+
+        coeff = (2*np.pi / (wavelength * focal_postSLM))
+        ylin *= (shift_y * coeff * pixel_SLM).to_reduced_units().magnitude
+        xlin *= (shift_x * coeff * pixel_SLM).to_reduced_units().magnitude
         yy, xx = np.meshgrid(ylin, xlin, indexing='ij')
 
         return yy + xx
