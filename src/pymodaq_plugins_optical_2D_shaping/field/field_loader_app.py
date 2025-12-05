@@ -41,10 +41,10 @@ class FieldLoaderApp(CustomApp):
             {'title': 'Width', 'name': 'width', 'type': 'int', 'value': 0, 'readonly': True},
         ]},
         {'title': 'Needed size', 'name': 'needed_size', 'type': 'group', 'children': [
-            {'title': 'Pixel Height (µm)', 'name': 'pixel_height', 'type': 'int',
+            {'title': 'Pixel Height (µm)', 'name': 'pixel_height', 'type': 'float',
              'value': plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'pixel_size'),
              'readonly': False},
-            {'title': 'Pixel Width (µm)', 'name': 'pixel_width', 'type': 'int',
+            {'title': 'Pixel Width (µm)', 'name': 'pixel_width', 'type': 'float',
              'value': plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'pixel_size'),
              'readonly': False},
             {'title': 'Height', 'name': 'height', 'type': 'int',
