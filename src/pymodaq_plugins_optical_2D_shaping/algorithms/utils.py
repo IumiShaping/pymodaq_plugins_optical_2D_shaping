@@ -46,8 +46,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self.parent_app = parent
         self._target_field = Field()
         self._input_field = Field()
-        self._object_field = Field(amplitude=self._input_field.amplitude.copy(),
-                                   phase=np.random.random(self._input_field.shape))
+        self._object_field = Field(amplitude=self._input_field.amplitude.copy())
         self._object_field.calibrate_axes(self._input_field.pixels_sizes)
         self._image_field = Field()
 

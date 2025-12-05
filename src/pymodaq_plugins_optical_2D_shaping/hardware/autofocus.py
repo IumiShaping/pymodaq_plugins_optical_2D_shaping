@@ -8,7 +8,7 @@ from skimage.measure import shannon_entropy, blur_effect
 from skimage.io import imread
 from skimage.color import rgb2gray
 from skimage.transform import rescale, resize
-from skimage.util import crop
+from skimage.util import crop, random_noise
 
 resources_path = Path(__file__).parent.parent.joinpath('resources')
 cheshire_cat_path = resources_path.joinpath('cheshirecat_rect.png')
@@ -146,6 +146,20 @@ class AutoFocusSkImage:
         return blur_effect(array)
 
 
+@AutoFocusFactory.register()
+class AutoFocusMaxFrequency:
+    name = 'MaxFrequency'
+
+    @staticmethod
+    def compute(array):
+        ft = np.abs(np.fft.fftshift(np.fft.fft(np.fft.fftshift(np.mean(array, 0)))))
+        ft_cropped = ft[int(len(ft)/2+1):]
+        arg_max = np.argmax(ft_cropped)
+
+        return arg_max
+
+
+
 
 class Autofocus:
 
@@ -168,4 +182,8 @@ class Autofocus:
                             1 + abs(self.blur)/100)
             crop_width = (np.array(array.shape) - np.array(CAT_ARRAY.shape)) / 2
             crop_width = tuple(crop_width.astype(int))
-            return crop(array, crop_width)
+            cropped_array =  crop(array, crop_width)
+            # return random_noise(cropped_array, mode='speckle', mean=0.5, var=0.1)
+            noise = random_noise(cropped_array, mode='gaussian', mean=0., var=0.05)
+            noise[noise<0] = 0.
+            return noise

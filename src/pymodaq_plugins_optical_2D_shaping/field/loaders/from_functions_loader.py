@@ -1,12 +1,15 @@
 from numbers import Number
 from typing import Tuple, Union
 
+
 import numpy as np
 
 from pymodaq_plugins_optical_2D_shaping.field import Field, LoaderFactory, FieldLoader
 from pymodaq_gui.parameter import Parameter
 from pymodaq_utils import math_utils as mutils
 from pymodaq_data import Q_, Unit
+from LightPipes import Begin, GaussBeam, Intensity, Phase
+from LightPipes import Field as LPField
 
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 
@@ -279,3 +282,106 @@ class DoubleGaussian(BaseFieldLoader):
                                      'um'))
         return field
 
+
+@LoaderFactory.register_loader()
+class LaguerreGaussian(BaseFieldLoader):
+
+    LOADER_NAME = 'LaguerreGaussian'
+
+    params = BaseFieldLoader.params + \
+        [
+            {'title': 'Beam waist (mm):', 'name': 'waist', 'type': 'float',
+             'value': plugin_config('input', 'laguerre', 'waist'), },
+            {'title': 'Wavelength (nm):', 'name': 'wavelength', 'type': 'float',
+             'value': plugin_config('wavelength_nm'), },
+            {'title': 'Doughnut:', 'name': 'doughnut', 'type': 'bool', 'value': True, },
+
+            {'title': 'Radial order :', 'name': 'radial_index', 'type': 'int',
+             'value': plugin_config('input', 'laguerre', 'radial_index'), },
+            {'title': 'Azimutal order:', 'name': 'azimutal_index', 'type': 'int',
+             'value': plugin_config('input', 'laguerre', 'azimutal_index'), },
+         ]
+
+    def crop_center(self, img: np.ndarray, cropx: int, cropy: int):
+        y, x = img.shape
+        startx = int(x // 2 - cropx // 2)
+        starty = int(y // 2 - cropy // 2)
+        return img[starty:starty + cropy, startx:startx + cropx]
+
+    def compute_field_in(self) -> LPField:
+        n_pixels_max = int(np.sqrt(2) * max(self.n_pixel_width, self.n_pixel_height))
+        size_max = n_pixels_max * max(self.pixel_height,
+                                      self.pixel_width) * 1e-6
+        return Begin(size_max, self.settings['wavelength'] * 1e-9, n_pixels_max)
+
+    def compute_field(self):
+        field_in = self.compute_field_in()
+
+        laguerre_gaussian_field = GaussBeam(field_in, self.settings['waist'] * 1e-3,
+                                            LG=True,
+                                            n=self.settings['radial_index'],
+                                            m=self.settings['azimutal_index'],
+                                            doughnut=self.settings['doughnut'],)
+
+        amplitude = self.crop_center(np.sqrt(Intensity(laguerre_gaussian_field)),
+                                     self.n_pixel_width,
+                                     self.n_pixel_height)
+
+        phase = self.crop_center(Phase(laguerre_gaussian_field),
+                                     self.n_pixel_width,
+                                     self.n_pixel_height)
+
+
+        field = Field('LaguerreGaussian',
+                      amplitude=amplitude,
+                      phase=phase,
+                      pixel_sizes=Q_(np.array((self.pixel_height,
+                                               self.pixel_width)),
+                                     'um'))
+        return field
+
+
+@LoaderFactory.register_loader()
+class FerrisWheel(LaguerreGaussian):
+
+    LOADER_NAME = 'FerrisWheel'
+
+    params = BaseFieldLoader.params + \
+        [
+            {'title': 'Beam waist (mm):', 'name': 'waist', 'type': 'float',
+             'value': plugin_config('input', 'laguerre', 'waist'), },
+            {'title': 'Wavelength (nm):', 'name': 'wavelength', 'type': 'float',
+             'value': plugin_config('wavelength_nm'), },
+            {'title': 'Doughnut:', 'name': 'doughnut', 'type': 'bool', 'value': True, },
+            {'title': 'Azimutal order 1:', 'name': 'azimutal_index_1', 'type': 'int', 'value': 3, },
+            {'title': 'Azimutal order 2:', 'name': 'azimutal_index_2', 'type': 'int', 'value': 11, },
+            {'title': 'Alpha:', 'name': 'alpha', 'type': 'float', 'value': 5e-4, },
+         ]
+
+    def compute_field(self):
+        field_in = self.compute_field_in()
+
+        lg1 = GaussBeam(field_in, self.settings['waist'] * 1e-3,
+                        LG=True, n=0, m=self.settings['azimutal_index_1'],
+                        doughnut=self.settings['doughnut'],)
+        lg2 = GaussBeam(field_in, self.settings['waist'] * 1e-3,
+                        LG=True, n=0, m=self.settings['azimutal_index_2'],
+                        doughnut=self.settings['doughnut'],)
+
+
+        amplitude = self.crop_center(np.sqrt(np.abs(lg1.field+self.settings['alpha']*lg2.field)**2),
+                                     self.n_pixel_width,
+                                     self.n_pixel_height)
+
+        phase = self.crop_center(np.angle(lg1.field+self.settings['alpha']*lg2.field),
+                                     self.n_pixel_width,
+                                     self.n_pixel_height)
+
+
+        field = Field('FerrisWheel',
+                      amplitude=amplitude,
+                      phase = phase,
+                      pixel_sizes=Q_(np.array((self.pixel_height,
+                                               self.pixel_width)),
+                                     'um'))
+        return field

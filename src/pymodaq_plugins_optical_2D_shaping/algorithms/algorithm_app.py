@@ -47,7 +47,7 @@ class AlgoApp(CustomApp):
 
         self.setup_ui()
 
-        self.set_algorithm(self.settings['algorithm'])
+        self.get_action('ini_algo').trigger()
 
     @property
     def algorithm(self):
@@ -286,6 +286,7 @@ class AlgoRunner(QtCore.QObject):
 def main():
     from pathlib import Path
     from pymodaq.utils.daq_utils import get_set_preset_path
+    from pymodaq_utils.math_utils import normalize_to
 
     from skimage.io import imread
     from skimage.color import rgb2gray
@@ -295,6 +296,8 @@ def main():
 
     cheshire_cat_path = Path(__file__).parent.parent.joinpath(
         'resources/cheshirecat_rect.png')
+    cemes_path = Path(__file__).parent.parent.joinpath(
+        'resources/Cemes - Logo - Sigle - Blanc.png')
 
     app = mkQApp('Optical Shaping')
 
@@ -305,6 +308,7 @@ def main():
     win.setWindowTitle('PyMoDAQ Dashboard')
     win.show()
 
+    # get amplitude
     target_intensity = imread(cheshire_cat_path)
     if len(target_intensity.shape) == 3:
         target_intensity = rgb2gray(target_intensity[..., 0:3])
@@ -312,8 +316,18 @@ def main():
     ratio = np.max(np.array((1080, 1920)) / np.array(target_intensity.shape))
     target_intensity = rescale(target_intensity, 1 * ratio)
 
+    # get phase
+    target_phase = imread(cemes_path)
+    if len(target_phase.shape) == 3:
+        target_phase = rgb2gray(target_phase[..., 0:3])
+
+    ratio = np.max(np.array((1080, 1920)) / np.array(target_phase.shape))
+    target_phase = rescale(target_phase, 1 * ratio)
+    target_phase =  normalize_to(target_phase, 2* np.pi)
+
     algo_app = AlgoApp(area)
-    target = Field(amplitude=np.sqrt(np.flipud(target_intensity)))
+    target = Field(amplitude=np.sqrt(np.flipud(normalize_to(target_phase, 1))),
+                   phase=np.flipud(target_phase))
     input = Field(amplitude=np.ones(target.shape))
 
     algo_app.set_target_field(target)

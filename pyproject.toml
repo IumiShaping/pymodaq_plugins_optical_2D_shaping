@@ -12,7 +12,7 @@ package-url = 'https://github.com/IumiShaping/pymodaq_plugins_optical_2D_shaping
 name = "pymodaq_plugins_optical_2D_shaping"
 description = "PyMoDAQ's extension plugin to run optical shaping from various shapers (focusing on amplitude and phase shaping) and the image propagation"
 dependencies = [
-    "pymodaq>=5.0.0",
+    "pymodaq>=5.2.0",
     'pyfftw',
     'scikit-image',
     'opencv-python',

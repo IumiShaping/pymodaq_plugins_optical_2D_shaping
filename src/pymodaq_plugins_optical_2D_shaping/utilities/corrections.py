@@ -89,7 +89,7 @@ class Correction(CustomApp):
         self.docks['corrections'] = Dock('Corrections')
         self.dockarea.addDock(self.docks['corrections'])
 
-        self._toolbar = QtWidgets.QToolBar()
+        self.set_toolbar(QtWidgets.QToolBar())
         self.unit_radius_sb = SpinBox(value=2.0)
         self.unit_radius_sb.setMaximumWidth(100)
 

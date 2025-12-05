@@ -57,7 +57,7 @@ class ImageFileLoader(FieldLoader):
             return self.field
 
     def load_image_from_name(self, fname: Union[str, Path] = cheshire_cat_path,
-                             load_type=LoadTypeEnum.AMPLITUDE,
+                             load_type: LoadTypeEnum = LoadTypeEnum.AMPLITUDE,
                              notify=True):
 
         load_type = enum_checker(LoadTypeEnum, load_type)
