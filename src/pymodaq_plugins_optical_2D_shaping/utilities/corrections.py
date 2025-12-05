@@ -271,7 +271,7 @@ class Correction(CustomApp):
         shift_x = Q_(tiltx, 'mm')
         shift_y = Q_(tilty, 'mm')
         pixel_SLM = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size'), 'um')
-        focal_postSLM = Q_(self._plugin_config('algo')['gbsax']['focal_length_mm'], 'mm')
+        focal_postSLM = Q_(self._plugin_config('algo', 'gbsax', 'focal_length_mm'), 'mm')
         wavelength = Q_(self._plugin_config('wavelength_nm'), 'nm')
 
         coeff = (2*np.pi / (wavelength * focal_postSLM))
