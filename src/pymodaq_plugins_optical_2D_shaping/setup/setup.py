@@ -47,7 +47,7 @@ registerParameterType('group_setup', ScalableSetupElement, override=True)
 
 class Setup(QObject, ParameterManager):
     params = [
-        {''}
+        {'title': 'Elements', 'name': 'elements', 'type': ScalableSetupElement},
     ]
 
     def __init__(self, ):
