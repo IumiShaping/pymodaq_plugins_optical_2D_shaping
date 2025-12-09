@@ -127,79 +127,49 @@ class GbSax(AlgoBase):
 
 
 @AlgorithmFactory.register_algorithm()
-class GbSaxWeighted(GbSax):
-    """ Implementation of the Gerchberg-Saxton iterative algorithm to create amplitude modulated
+class GbSaxAdaptiveWeighted(GbSax):
+    """ Implementation of the Weighted Gerchberg-Saxton iterative algorithm to create amplitude modulated
     image with phase only spatial light modulators in the Fourier plane of a converging lens
 
     The corresponding experimental setup should define a working light wavelength and a focal length
     of the used lens
+
+    The algorithm is based on paper https://doi.org/10.1364/OE.413723
+
     """
 
     ALGO_NAME = 'Weighted Gerchberg-Saxton'
     ITERATIVE = True
 
-    params = [
-        {'title': 'Wavelength (nm)', 'name': 'wavelength', 'type': 'float',
-         'value': plugin_config('wavelength_nm',)},
-        {'title': 'Focal length (mm)', 'name': 'focal_length', 'type': 'float',
-         'value': plugin_config('algo', 'gbsax', 'focal_length_mm')},
-        {'title': 'Target Phase', 'name': 'target_phase', 'type': 'list',
-         'limits': TargetPhase.values(), 'value': TargetPhase.QUADRATIC.value,},
+    mask_params = [
+        {'title': 'Center:' , 'name': 'center', 'type': 'group', 'children': [
+            {'title': 'x0:', 'name': 'posx', 'type': 'int', 'value': 1190},
+            {'title': 'y0:', 'name': 'posy', 'type': 'int', 'value': 549}
+        ]},
+        {'title': 'Size:', 'name': 'size', 'type': 'group', 'children': [
+            {'title': 'Width:', 'name': 'width', 'type': 'int', 'value': 1096},
+            {'title': 'Height:', 'name': 'height', 'type': 'int', 'value': 638}
+        ]}
     ]
+
+    params = GbSax.params + mask_params
 
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
 
-    def value_changed(self, param: Parameter):
-        self.parent_app.algo_settings_changed()
-        if param.name() == 'target_phase':
-            self.do_things_after_set_input()
-
-    def do_things_after_set_input(self):
-        """ Apply the initial phase to the object field """
-
-        shape = self._object_field.shape
-        if self.settings['target_phase'] == TargetPhase.RANDOM:
-            phase = np.random.random_sample(shape) * 2 *np.pi
-        elif self.settings['target_phase'] == TargetPhase.QUADRATIC:
-            ny, nx = shape
-            x = np.pi / nx * np.linspace(-nx/2, nx/2 , nx , endpoint=False)**2
-            y = np.pi / ny * np.linspace(-ny/2, ny/2 , ny , endpoint=False)**2
-            xv, yv = np.meshgrid(x, y)
-            phase = xv + yv
-
-        self.set_phase_in_object_plane(phase)
-
-    def set_phase_in_object_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
-        if phase.shape == self._object_field.shape:
-            self._object_field.phase = phase.copy()
-            self._object_field.amplitude = (
-                    self._input_field.amplitude.copy() *
-                    (induced_amplitude if induced_amplitude is not None else 1))
-        else:
-            raise ValueError('The phase shape is incoherent with the parameters')
-
-
-    def get_target_pixels_size(self, slm_size: Tuple[Q_, Q_] = None) -> list[Q_]:
-        """ Get the expected physical size of the pixels in the target plane given
-        the chosen algorithm and physical parameters: focal length, wavelength..."""
-        if slm_size is None:
-            slm_size = [self._input_field.shape[ind] * self._input_field.pixels_sizes[ind]
-                         for ind in range(2)]
-
-        return [Q_(self.settings['wavelength'], 'nm') *
-                Q_(self.settings['focal_length'], 'mm') /
-                size for size in slm_size]
-
-    def propagate_field(self):
-        self._image_field = self._object_field.fft2()
-        self._image_field = self.scale_target_with_geometry(self._image_field)
+        self.amplitude_mask: Field = None
 
     def evolve_field(self):
 
-        if self.mask is not None:
-            amplitude = self._image_field.amplitude.copy()
-            amplitude[*self.mask] = self._target_field.amplitude[*self.mask]
+        if self.amplitude_mask is None or self._target_field.shape != self.amplitude_mask.shape:
+            self.amplitude_mask = self.mask_from_params()
+
+        if self.amplitude_mask is not None:
+            mask_target = self.amplitude_mask.amplitude
+            mask_noise = np.ones_like(mask_target) - mask_target
+            amplitude = (self._target_field.amplitude * mask_target  *
+                         np.exp(self._target_field.amplitude - self.image_field.amplitude) +
+                         self._image_field.amplitude * mask_noise)
         else:
             amplitude = self._target_field.amplitude
 
@@ -210,18 +180,22 @@ class GbSaxWeighted(GbSax):
 
         self.set_phase_in_object_plane(field_object_corrected.phase)
 
-    @property
-    def fitness(self) -> float:
-        """ Compute fitness with respect to the image_field and target_field """
-        return 100 * np.sum(
-            np.abs(np.sqrt(self._target_field.intensity) - self._image_field.intensity)) ** 2 \
-            / np.prod(self._image_field.shape) / np.sum(self._target_field.intensity)
+    def mask_from_params(self) -> Field:
 
-    def compute_phase(self):
-        self.propagate_field()
-        self.evolve_field()
+        center = (self.settings['center', 'posy'], self.settings['center', 'posx'])
+        size = (self.settings['size', 'height'], self.settings['size', 'width'])
+
+        mask = Field.init_from_field(self._target_field).amplitude * 0
+        mask[
+            int(center[0] - size[0] / 2): int(center[0] + size[0] / 2),
+            int(center[1] - size[1] / 2): int(center[1] + size[1] / 2)] = 1
+        return Field(amplitude=mask)
 
 
+    def value_changed(self, param: Parameter):
+        super().value_changed(param)
+        if param.name() in ('posx', 'posy', 'width', 'height'):
+            self.amplitude_mask = self.mask_from_params()
 
 
 

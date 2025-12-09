@@ -114,7 +114,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         field.calibrate_axes(self.get_target_pixels_size())
         return field
 
-    def get_target_pixels_size(self) -> list[Q_]:
+    def get_target_pixels_size(self, slm_size: Tuple[Q_, Q_] = None) -> list[Q_]:
         """ Get the expected physical size of the pixels in the target plane given
         the chosen algorithm and physical parameters: focal length, wavelength...
 
