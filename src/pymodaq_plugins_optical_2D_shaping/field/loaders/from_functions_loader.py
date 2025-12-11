@@ -385,3 +385,50 @@ class FerrisWheel(LaguerreGaussian):
                                                self.pixel_width)),
                                      'um'))
         return field
+
+
+
+@LoaderFactory.register_loader()
+class RectangleIntensity(BaseFieldLoader):
+    LOADER_NAME = 'RectangleIntensityLoader'
+
+    params = BaseFieldLoader.params + [
+        {'title': 'Longueur du rectangle (um):', 'name': 'length', 'type': 'float', 'value': 1000.},
+        {'title': 'Hauteur du rectangle (um):', 'name': 'height', 'type': 'float', 'value': 1000.},
+        {'title': 'Épaisseur du bord (um):', 'name': 'thickness', 'type': 'float', 'value': 200.},
+    ]
+
+    def compute_field(self):
+        # Axes of the target plane
+        x = Q_(np.arange(-self.n_pixel_width / 2, self.n_pixel_width / 2) * self.pixel_width, 'um')
+        y = Q_(np.arange(-self.n_pixel_height / 2, self.n_pixel_height / 2) * self.pixel_height, 'um')
+
+        X, Y = np.meshgrid(x.magnitude, y.magnitude)
+
+        # Rectangle parameters
+        L = Q_(self.settings['length'], 'um').magnitude
+        H = Q_(self.settings['height'], 'um').magnitude
+        T = Q_(self.settings['thickness'], 'um').magnitude
+
+        # |X| and |Y|
+        absX = np.abs(X)
+        absY = np.abs(Y)
+
+        # mask for the rectangle "external borders to external"
+        inside_outer = (absX <= L/2) & (absY <= H/2)
+
+        # mask for the rectangle "internal borders to internal"
+        inside_inner = (absX <= (L/2 - T)) & (absY <= (H/2 - T))
+
+        # mask = external - internal
+        border_mask = inside_outer & (~inside_inner)
+
+        amplitude = np.zeros_like(X)
+        amplitude[border_mask] = 255
+
+        field = Field(
+            'RectangleIntensity',
+            amplitude=amplitude,
+            pixel_sizes=Q_(np.array((self.pixel_height, self.pixel_width)), 'um')
+        )
+        return field
