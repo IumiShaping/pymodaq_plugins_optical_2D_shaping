@@ -9,6 +9,7 @@ from pymodaq_gui.managers.parameter_manager import ParameterManager, Parameter
 from pymodaq_utils.enums import BaseEnum
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataRaw
+from pymodaq_utils.enums import StrEnum
 
 from pymodaq_plugins_optical_2D_shaping.field import Field, FieldLoader, Q_
 
@@ -20,6 +21,11 @@ logger = set_logger(get_module_name(__file__))
 
 class MaskError(Exception):
     pass
+
+
+class TargetPhase(StrEnum):
+    RANDOM = 'random'
+    QUADRATIC = 'quadratic'  # see https://doi.org/10.1364/OE.25.014323
 
 
 class AlgoParameterManager(ParameterManager):
@@ -88,6 +94,21 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self._input_field = field
         self.do_things_after_set_input()
 
+    def define_input_phase(self, phase_type: 'TargetPhase'):
+        shape = self._object_field.shape
+        if phase_type == TargetPhase.RANDOM:
+            phase = np.random.random_sample(shape) * 2 *np.pi
+        elif phase_type == TargetPhase.QUADRATIC:
+            ny, nx = shape
+            x = np.pi / nx * np.linspace(-nx/2, nx/2 , nx , endpoint=False)**2
+            y = np.pi / ny * np.linspace(-ny/2, ny/2 , ny , endpoint=False)**2
+            xv, yv = np.meshgrid(x, y)
+            phase = xv + yv
+        else:
+            raise ValueError('Unknown phase type')
+
+        self.set_phase_in_object_plane(phase)
+
     def set_object_field(self, field: Field):
         self._object_field = field
 
@@ -97,6 +118,15 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
     def set_target_intensity(self, intensity: np.ndarray):
         self._target_field.amplitude = np.sqrt(intensity)
+
+    def set_phase_in_object_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
+        if phase.shape == self._object_field.shape:
+            self._object_field.phase = phase.copy()
+            self._object_field.amplitude = (
+                    self._input_field.amplitude.copy() *
+                    (induced_amplitude if induced_amplitude is not None else 1))
+        else:
+            raise ValueError('The phase shape is incoherent with the parameters')
 
     @property
     def intensity_image(self):

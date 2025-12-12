@@ -5,6 +5,7 @@ from qtpy import QtWidgets, QtCore
 
 from pymodaq_utils.utils import ThreadCommand
 
+
 from pymodaq_data.data import DataRaw, DataToExport
 from pymodaq_data.h5modules.data_saving import DataToExportSaver
 from pymodaq_data.h5modules.saving import SaveType
@@ -21,6 +22,7 @@ from pymodaq_gui.managers.roi_manager import ROI2D_TYPES, ROI
 from pymodaq_gui.plotting.utils.plot_utils import RoiInfo
 
 from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import TargetPhase
 from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 
@@ -29,6 +31,8 @@ class AlgoApp(CustomApp):
     params = [
         {'title': 'Algorithm', 'name': 'algorithm', 'type': 'list',
          'limits': algo_factory.algorithms, 'value': plugin_config('algo', 'default_algo')},
+        {'title': 'Target Phase', 'name': 'target_phase', 'type': 'list',
+         'limits': TargetPhase.values(), 'value': TargetPhase.QUADRATIC.value, },
         {'title': 'Masking', 'name': 'masking', 'type': 'group', 'children': [
             {'title': 'Apply Mask', 'name': 'apply_mask', 'type': 'bool', 'value': False},
             {'title': 'Slices', 'name': 'slices', 'type': 'str',
@@ -73,11 +77,11 @@ class AlgoApp(CustomApp):
     def set_input_field(self, field: Field):
 
         object_field = field.deepcopy()
-        object_field.phase = np.random.random(field.shape) * 2 * np.pi
 
         if self._algorithm is not None:
             self._algorithm.set_object_field(object_field)
             self._algorithm.set_input_field(field)
+            self._algorithm.define_input_phase(self.settings['target_phase'])
 
         self._input_field = field
 
@@ -168,6 +172,7 @@ class AlgoApp(CustomApp):
         self.add_action('snap', 'Snap', 'snap', "Run a loop of the algorithm")
         self.add_action('grab', 'Grab', 'run2', "Run continuously the algorithm", checkable=True)
         self.add_action('stop', 'Stop', 'stop', "Stop the algorithm")
+        self.add_action('reset_phase', 'Reset Phase', 'Refresh2', "Reset the SLM phase")
         self.add_action('show_target', 'Show Target', 'target',
                         "Show Target in real units", checkable=True)
         self.add_action('export', 'Export', 'SaveAs', 'Export data')
@@ -179,6 +184,11 @@ class AlgoApp(CustomApp):
         self.connect_action('stop', self.stop)
         self.connect_action('show_target', lambda show: self.target_widget.setVisible(show))
         self.connect_action('export', self.export_data)
+        self.connect_action('reset_phase', self.define_phase)
+
+    def define_phase(self):
+        if self._algorithm is not None:
+            self._algorithm.define_input_phase(self.settings['target_phase'])
 
     def stop(self):
         self.command_runner.emit(ThreadCommand('stop'))
@@ -196,7 +206,7 @@ class AlgoApp(CustomApp):
     def value_changed(self, param: Parameter):
         if param.name() == 'algorithm':
             self.set_algorithm()
-        if param.name() in ('apply_mask', 'slices'):
+        elif param.name() in ('apply_mask', 'slices'):
             if self.settings['masking', 'apply_mask']:
                 slices = eval(self.settings['masking', 'slices'])
                 if hasattr(slices, '__iter__'):
@@ -206,7 +216,6 @@ class AlgoApp(CustomApp):
                     self.algorithm.set_mask(slices)
             else:
                 self.algorithm.set_mask(None)
-
 
     def algo_settings_changed(self):
         self.algo_changed.emit(self.algorithm)
