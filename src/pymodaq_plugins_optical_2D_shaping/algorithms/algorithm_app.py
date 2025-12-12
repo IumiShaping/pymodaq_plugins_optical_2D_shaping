@@ -30,8 +30,9 @@ class AlgoApp(CustomApp):
         {'title': 'Algorithm', 'name': 'algorithm', 'type': 'list',
          'limits': algo_factory.algorithms, 'value': plugin_config('algo', 'default_algo')},
         {'title': 'Masking', 'name': 'masking', 'type': 'group', 'children': [
-            {'title': 'Show Mask', 'name': 'show_mask', 'type': 'bool', 'value': False},
             {'title': 'Apply Mask', 'name': 'apply_mask', 'type': 'bool', 'value': False},
+            {'title': 'Slices', 'name': 'slices', 'type': 'str',
+             'value': '(slice(162, 882, None), slice(545, 1825, None))'},
         ]}
     ]
 
@@ -195,23 +196,16 @@ class AlgoApp(CustomApp):
     def value_changed(self, param: Parameter):
         if param.name() == 'algorithm':
             self.set_algorithm()
-        elif param.name() == 'show_mask':
-            viewer = self.image_viewers.viewers[0]
-            if param.value():
-                viewer.roi_manager.add_roi_programmatically('RectROI')
-                self.mask: ROI = viewer.roi_manager.get_roi_from_index(0)
-                self.mask.sigRegionChangeFinished.connect(
-                    lambda : self.value_changed(self.settings.child('masking', 'apply_mask')))
-            else:
-                viewer.roi_manager.remove_roi_programmatically(0)
-                self.mask.sigRegionChangeFinished.disconnect()
-                self.mask = None
-        if param.name() == 'apply_mask':
-            if self.mask is not None and param.value():
-                self.algorithm.set_mask(RoiInfo.info_from_rect_roi(self.mask).to_slices())
+        if param.name() in ('apply_mask', 'slices'):
+            if self.settings['masking', 'apply_mask']:
+                slices = eval(self.settings['masking', 'slices'])
+                if hasattr(slices, '__iter__'):
+                    for _slice in slices:
+                        if not isinstance(_slice, slice):
+                            return
+                    self.algorithm.set_mask(slices)
             else:
                 self.algorithm.set_mask(None)
-
 
 
     def algo_settings_changed(self):

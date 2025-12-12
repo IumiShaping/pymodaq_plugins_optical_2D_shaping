@@ -141,18 +141,8 @@ class GbSaxAdaptiveWeighted(GbSax):
     ALGO_NAME = 'Weighted Gerchberg-Saxton'
     ITERATIVE = True
 
-    mask_params = [
-        {'title': 'Center:' , 'name': 'center', 'type': 'group', 'children': [
-            {'title': 'x0:', 'name': 'posx', 'type': 'int', 'value': 1190},
-            {'title': 'y0:', 'name': 'posy', 'type': 'int', 'value': 549}
-        ]},
-        {'title': 'Size:', 'name': 'size', 'type': 'group', 'children': [
-            {'title': 'Width:', 'name': 'width', 'type': 'int', 'value': 1096},
-            {'title': 'Height:', 'name': 'height', 'type': 'int', 'value': 638}
-        ]}
-    ]
 
-    params = GbSax.params + mask_params
+    params = GbSax.params
 
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
@@ -160,11 +150,11 @@ class GbSaxAdaptiveWeighted(GbSax):
         self.amplitude_mask: Field = None
 
     def evolve_field(self):
+        if self.mask is not None and (
+                self.amplitude_mask is None or self._target_field.shape != self.amplitude_mask.shape):
+            self.amplitude_mask = self.mask_from_slices()
 
-        if self.amplitude_mask is None or self._target_field.shape != self.amplitude_mask.shape:
-            self.amplitude_mask = self.mask_from_params()
-
-        if self.amplitude_mask is not None:
+        if self.mask is not None and self.amplitude_mask is not None:
             mask_target = self.amplitude_mask.amplitude
             mask_noise = np.ones_like(mask_target) - mask_target
             amplitude = (self._target_field.amplitude * mask_target  *
@@ -180,25 +170,22 @@ class GbSaxAdaptiveWeighted(GbSax):
 
         self.set_phase_in_object_plane(field_object_corrected.phase)
 
-    def mask_from_params(self) -> Field:
-
-        center = (self.settings['center', 'posy'], self.settings['center', 'posx'])
-        size = (self.settings['size', 'height'], self.settings['size', 'width'])
-
+    def mask_from_slices(self) -> Field:
         mask = Field.init_from_field(self._target_field).amplitude * 0
-        mask[
-            int(center[0] - size[0] / 2): int(center[0] + size[0] / 2),
-            int(center[1] - size[1] / 2): int(center[1] + size[1] / 2)] = 1
+        mask[*self.mask] = 1
         return Field(amplitude=mask)
 
 
-    def value_changed(self, param: Parameter):
-        super().value_changed(param)
-        if param.name() in ('posx', 'posy', 'width', 'height'):
-            self.amplitude_mask = self.mask_from_params()
-
-
-
+    @property
+    def fitness(self) -> float:
+        """ Compute fitness with respect to the image_field and target_field """
+        if self.amplitude_mask is not None:
+            return 100 * np.sum(
+                np.abs(np.sqrt(self._target_field.intensity)
+                       - self._image_field.intensity) * self.amplitude_mask.amplitude) ** 2 \
+                / np.prod(self._image_field.shape) / np.sum(self._target_field.intensity * self.amplitude_mask.amplitude)
+        else:
+            return super().fitness
 
 
 
