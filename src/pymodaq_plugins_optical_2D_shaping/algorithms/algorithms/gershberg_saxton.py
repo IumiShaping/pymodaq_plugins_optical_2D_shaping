@@ -27,12 +27,6 @@ logger = set_logger(get_module_name(__file__))
 plugin_config = PluginConfig()
 
 
-class TargetPhase(StrEnum):
-    RANDOM = 'random'
-    QUADRATIC = 'quadratic'  # see https://doi.org/10.1364/OE.25.014323
-
-
-
 @AlgorithmFactory.register_algorithm()
 class GbSax(AlgoBase):
     """ Implementation of the Gerchberg-Saxton iterative algorithm to create amplitude modulated
@@ -50,8 +44,6 @@ class GbSax(AlgoBase):
          'value': plugin_config('wavelength_nm',)},
         {'title': 'Focal length (mm)', 'name': 'focal_length', 'type': 'float',
          'value': plugin_config('algo', 'gbsax', 'focal_length_mm')},
-        {'title': 'Target Phase', 'name': 'target_phase', 'type': 'list',
-         'limits': TargetPhase.values(), 'value': TargetPhase.QUADRATIC.value,},
     ]
 
     def __init__(self, parent: 'AlgoApp' = None):
@@ -59,33 +51,11 @@ class GbSax(AlgoBase):
 
     def value_changed(self, param: Parameter):
         self.parent_app.algo_settings_changed()
-        if param.name() == 'target_phase':
-            self.do_things_after_set_input()
 
     def do_things_after_set_input(self):
         """ Apply the initial phase to the object field """
 
-        shape = self._object_field.shape
-        if self.settings['target_phase'] == TargetPhase.RANDOM:
-            phase = np.random.random_sample(shape) * 2 *np.pi
-        elif self.settings['target_phase'] == TargetPhase.QUADRATIC:
-            ny, nx = shape
-            x = np.pi / nx * np.linspace(-nx/2, nx/2 , nx , endpoint=False)**2
-            y = np.pi / ny * np.linspace(-ny/2, ny/2 , ny , endpoint=False)**2
-            xv, yv = np.meshgrid(x, y)
-            phase = xv + yv
-
-        self.set_phase_in_object_plane(phase)
-
-    def set_phase_in_object_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
-        if phase.shape == self._object_field.shape:
-            self._object_field.phase = phase.copy()
-            self._object_field.amplitude = (
-                    self._input_field.amplitude.copy() *
-                    (induced_amplitude if induced_amplitude is not None else 1))
-        else:
-            raise ValueError('The phase shape is incoherent with the parameters')
-
+        pass
 
     def get_target_pixels_size(self, slm_size: Tuple[Q_, Q_] = None) -> list[Q_]:
         """ Get the expected physical size of the pixels in the target plane given
