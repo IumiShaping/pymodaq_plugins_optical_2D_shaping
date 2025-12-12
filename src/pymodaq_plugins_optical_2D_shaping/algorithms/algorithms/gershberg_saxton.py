@@ -103,7 +103,10 @@ class GbSax(AlgoBase):
         self._image_field = self.scale_target_with_geometry(self._image_field)
 
     def evolve_field(self):
-        field_image_corrected = Field(amplitude=self._target_field.amplitude,
+
+        amplitude = self._target_field.amplitude
+
+        field_image_corrected = Field(amplitude=amplitude,
                                       phase=self._image_field.phase,
                                       pixel_sizes=self._image_field.pixels_sizes)
         field_object_corrected = field_image_corrected.ifft2()
@@ -120,6 +123,81 @@ class GbSax(AlgoBase):
     def compute_phase(self):
         self.propagate_field()
         self.evolve_field()
+
+
+
+@AlgorithmFactory.register_algorithm()
+class GbSaxAdaptiveWeighted(GbSax):
+    """ Implementation of the Weighted Gerchberg-Saxton iterative algorithm to create amplitude modulated
+    image with phase only spatial light modulators in the Fourier plane of a converging lens
+
+    The corresponding experimental setup should define a working light wavelength and a focal length
+    of the used lens
+
+    The algorithm is based on paper https://doi.org/10.1364/OE.413723
+
+    """
+
+    ALGO_NAME = 'Weighted Gerchberg-Saxton'
+    ITERATIVE = True
+
+    mask_params = [
+        {'title': 'Center:' , 'name': 'center', 'type': 'group', 'children': [
+            {'title': 'x0:', 'name': 'posx', 'type': 'int', 'value': 1190},
+            {'title': 'y0:', 'name': 'posy', 'type': 'int', 'value': 549}
+        ]},
+        {'title': 'Size:', 'name': 'size', 'type': 'group', 'children': [
+            {'title': 'Width:', 'name': 'width', 'type': 'int', 'value': 1096},
+            {'title': 'Height:', 'name': 'height', 'type': 'int', 'value': 638}
+        ]}
+    ]
+
+    params = GbSax.params + mask_params
+
+    def __init__(self, parent: 'AlgoApp' = None):
+        super().__init__(parent)
+
+        self.amplitude_mask: Field = None
+
+    def evolve_field(self):
+
+        if self.amplitude_mask is None or self._target_field.shape != self.amplitude_mask.shape:
+            self.amplitude_mask = self.mask_from_params()
+
+        if self.amplitude_mask is not None:
+            mask_target = self.amplitude_mask.amplitude
+            mask_noise = np.ones_like(mask_target) - mask_target
+            amplitude = (self._target_field.amplitude * mask_target  *
+                         np.exp(self._target_field.amplitude - self.image_field.amplitude) +
+                         self._image_field.amplitude * mask_noise)
+        else:
+            amplitude = self._target_field.amplitude
+
+        field_image_corrected = Field(amplitude=amplitude,
+                                      phase=self._image_field.phase,
+                                      pixel_sizes=self._image_field.pixels_sizes)
+        field_object_corrected = field_image_corrected.ifft2()
+
+        self.set_phase_in_object_plane(field_object_corrected.phase)
+
+    def mask_from_params(self) -> Field:
+
+        center = (self.settings['center', 'posy'], self.settings['center', 'posx'])
+        size = (self.settings['size', 'height'], self.settings['size', 'width'])
+
+        mask = Field.init_from_field(self._target_field).amplitude * 0
+        mask[
+            int(center[0] - size[0] / 2): int(center[0] + size[0] / 2),
+            int(center[1] - size[1] / 2): int(center[1] + size[1] / 2)] = 1
+        return Field(amplitude=mask)
+
+
+    def value_changed(self, param: Parameter):
+        super().value_changed(param)
+        if param.name() in ('posx', 'posy', 'width', 'height'):
+            self.amplitude_mask = self.mask_from_params()
+
+
 
 
 

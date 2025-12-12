@@ -49,10 +49,15 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self._object_field = Field(amplitude=self._input_field.amplitude.copy())
         self._object_field.calibrate_axes(self._input_field.pixels_sizes)
         self._image_field = Field()
+        self.mask: tuple[slice, slice] = None
 
     def quit(self):
         """ to reimplement if neccessary"""
         pass
+
+    def set_mask(self, slices: tuple[slice, slice] = None):
+        """ Get a mask object from which one can compute image_field constraints (or not)"""
+        self.mask = slices
 
     @property
     def image_field(self) -> Field:
@@ -109,7 +114,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         field.calibrate_axes(self.get_target_pixels_size())
         return field
 
-    def get_target_pixels_size(self) -> list[Q_]:
+    def get_target_pixels_size(self, slm_size: Tuple[Q_, Q_] = None) -> list[Q_]:
         """ Get the expected physical size of the pixels in the target plane given
         the chosen algorithm and physical parameters: focal length, wavelength...
 

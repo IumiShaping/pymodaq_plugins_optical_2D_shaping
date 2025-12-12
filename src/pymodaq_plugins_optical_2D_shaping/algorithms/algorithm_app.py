@@ -17,7 +17,8 @@ from pymodaq_gui.utils import QLED
 from pymodaq_gui.utils.file_io import select_file
 from pymodaq_gui.parameter import ioxml
 
-
+from pymodaq_gui.managers.roi_manager import ROI2D_TYPES, ROI
+from pymodaq_gui.plotting.utils.plot_utils import RoiInfo
 
 from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
 from pymodaq_plugins_optical_2D_shaping.field import Field
@@ -28,6 +29,10 @@ class AlgoApp(CustomApp):
     params = [
         {'title': 'Algorithm', 'name': 'algorithm', 'type': 'list',
          'limits': algo_factory.algorithms, 'value': plugin_config('algo', 'default_algo')},
+        {'title': 'Masking', 'name': 'masking', 'type': 'group', 'children': [
+            {'title': 'Show Mask', 'name': 'show_mask', 'type': 'bool', 'value': False},
+            {'title': 'Apply Mask', 'name': 'apply_mask', 'type': 'bool', 'value': False},
+        ]}
     ]
 
     command_runner = QtCore.Signal(ThreadCommand)
@@ -190,6 +195,24 @@ class AlgoApp(CustomApp):
     def value_changed(self, param: Parameter):
         if param.name() == 'algorithm':
             self.set_algorithm()
+        elif param.name() == 'show_mask':
+            viewer = self.image_viewers.viewers[0]
+            if param.value():
+                viewer.roi_manager.add_roi_programmatically('RectROI')
+                self.mask: ROI = viewer.roi_manager.get_roi_from_index(0)
+                self.mask.sigRegionChangeFinished.connect(
+                    lambda : self.value_changed(self.settings.child('masking', 'apply_mask')))
+            else:
+                viewer.roi_manager.remove_roi_programmatically(0)
+                self.mask.sigRegionChangeFinished.disconnect()
+                self.mask = None
+        if param.name() == 'apply_mask':
+            if self.mask is not None and param.value():
+                self.algorithm.set_mask(RoiInfo.info_from_rect_roi(self.mask).to_slices())
+            else:
+                self.algorithm.set_mask(None)
+
+
 
     def algo_settings_changed(self):
         self.algo_changed.emit(self.algorithm)
