@@ -1,6 +1,6 @@
 
 from abc import ABCMeta, abstractproperty
-from typing import Tuple, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING, Union
 
 import numpy as np
 from qtpy import QtWidgets
@@ -16,6 +16,10 @@ if TYPE_CHECKING:
     from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
 
 logger = set_logger(get_module_name(__file__))
+
+
+class MaskError(Exception):
+    pass
 
 
 class AlgoParameterManager(ParameterManager):
@@ -55,9 +59,22 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         """ to reimplement if neccessary"""
         pass
 
-    def set_mask(self, slices: tuple[slice, slice] = None):
+    def set_mask(self, slices: Union[tuple[slice, slice], None] = None):
         """ Get a mask object from which one can compute image_field constraints (or not)"""
         self.mask = slices
+
+    def mask_from_slices(self) -> Field:
+        """ Return a Field to be used to mask within the algorithm
+
+        To be reimplemented if needed
+
+        Examples
+        --------
+        mask = Field.init_from_field(self._target_field).amplitude * 0
+        mask[*self.mask] = 1
+        return Field(amplitude=mask)
+        """
+        raise MaskError
 
     @property
     def image_field(self) -> Field:
