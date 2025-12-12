@@ -2,6 +2,7 @@ from typing import Tuple, Union
 import numpy as np
 from qtpy import QtWidgets, QtCore
 from skimage.transform import rescale, resize
+from scipy.ndimage import gaussian_filter
 
 from pymodaq_utils.config import Config
 from pymodaq_utils.math_utils import normalize
@@ -69,6 +70,11 @@ class FieldLoaderApp(CustomApp):
                 {'title': 'Height', 'name': 'height', 'type': 'int', 'value': 0, 'readonly': True},
                 {'title': 'Width', 'name': 'width', 'type': 'int', 'value': 0, 'readonly': True},
             ]},
+            {'title': 'Smoothing', 'name': 'smoothing', 'type': 'group', 'children': [
+                {'title': 'Apply:', 'name': 'apply_smoothing', 'type': 'bool', 'value': False},
+                {'title': 'Sigma X (pxl)', 'name': 'sigma_x', 'type': 'int', 'value': 10,},
+                {'title': 'Sigma Y (pxl)', 'name': 'sigma_y', 'type': 'int', 'value': 10, },
+            ]},
             {'title': 'Masking', 'name': 'masking', 'type': 'group', 'children': [
                 {'title': 'Mask type', 'name': 'mask_type', 'type': 'list',
                  'limits': ROI2D_TYPES, 'value': ROI2D_TYPES[0]},
@@ -114,7 +120,9 @@ class FieldLoaderApp(CustomApp):
         if param.name() == 'loader':
             self.loader = param.value()
 
-        elif param.name() in ('flipud', 'fliplr', 'do_scaling', 'scaling', 'aspect_ratio', 'apply_mask'):
+        elif param.name() in ('flipud', 'fliplr', 'do_scaling', 'scaling', 'aspect_ratio', 'apply_mask',
+                              'apply_smoothing', 'sigma_y', 'sigma_x'
+            ):
             self.field = self._ini_field.deepcopy()
             self.update_final_size()
             self.update_viewers()
@@ -286,6 +294,16 @@ class FieldLoaderApp(CustomApp):
             phase = np.zeros(self.field.amplitude.shape)
             phase[*slices_sure] = mask_phase
             self.field.phase = phase
+
+        if self.settings['utils', 'smoothing', 'apply_smoothing']:
+            self.field.amplitude = gaussian_filter(self.field.amplitude, sigma=(
+                self.settings['utils', 'smoothing', 'sigma_y'],
+                self.settings['utils', 'smoothing', 'sigma_x']
+            ))
+            self.field.phase = gaussian_filter(self.field.phase, sigma=(
+                self.settings['utils', 'smoothing', 'sigma_y'],
+                self.settings['utils', 'smoothing', 'sigma_x']
+            ))
 
         #print(self.field.shape)
 
