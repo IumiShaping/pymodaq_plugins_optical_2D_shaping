@@ -1,6 +1,7 @@
 import numpy as np
 from qtpy import QtWidgets, QtCore
 
+from pymodaq.utils.managers import PresetManager
 from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_utils.config import Config
@@ -53,6 +54,8 @@ class OpticalShaping(CustomExt):
         self._algorithm: AlgoApp = None
 
         self._corrections: Correction = None
+
+        self.preset_manager: PresetManager = None
 
         if self.modules_manager is not None and 'Shaper' in self.modules_manager.actuators_name:
             self._shaper = self.modules_manager.get_mod_from_name('Shaper', 'act')
@@ -158,6 +161,7 @@ class OpticalShaping(CustomExt):
         self._corrections_dockarea = gutils.DockArea()
         self._corrections = Correction(self._corrections_dockarea)
 
+
     def setup_menu(self):
         """
         to be subclassed
@@ -189,6 +193,9 @@ class OpticalShaping(CustomExt):
         """
         ...
 
+    def show_dashboard(self):
+        self.dashboard.mainwindow.setVisible(self.is_action_checked('show_dashboard'))
+
     def setup_actions(self):
         logger.debug('setting actions')
         self.add_action('quit', 'Quit', 'close2', "Quit program")
@@ -196,7 +203,14 @@ class OpticalShaping(CustomExt):
         self.add_action('settings', 'Plugin Settings', 'Settings',
                         'Open the plugin configuration file',
                         checkable=True)
+        self.add_action('show_dashboard', 'Show Dashboard', 'show',
+                        'Show/Hide the Dashboard window', checkable=True,
+                        icon_checked='unshow')
+
         self.toolbar.addSeparator()
+        self.preset_manager = PresetManager(self.dashboard, toolbar=self.toolbar)
+        self.toolbar.addSeparator()
+
         self.add_action('target', 'Target Selection', 'target',
                         'Open the Target FieldLoader window', checkable=True)
         self.add_action('input', 'Input Beam Selection', 'input',
@@ -233,6 +247,9 @@ class OpticalShaping(CustomExt):
         self.connect_action('quit', self.quit, )
 
         self.connect_action('settings', self.show_config)
+
+        self.connect_action('show_dashboard', self.show_dashboard)
+
         self.connect_action('target', self.show_target)
         self.connect_action('input', self.show_input)
         self.connect_action('algo', self.show_algo)
@@ -332,28 +349,24 @@ class OpticalShaping(CustomExt):
         self._input_field_dockarea.close()
         self._target_dockarea.close()
         self.dockarea.parent().close()
+        self.dashboard.quit_fun()
 
 
 def main():
-    from pathlib import Path
-    from pymodaq.utils.config import get_set_preset_path
     from pymodaq_gui.utils.utils import mkQApp
-    from pymodaq.utils.gui_utils.loader_utils import load_dashboard_with_preset
+    from pymodaq.utils.gui_utils.loader_utils import create_load_dashboard
     from pymodaq_gui.utils.dock import DockArea
 
     app = mkQApp('Optical Shaping')
 
-    preset_file_name = 'holography_mock'
+    win, dashboard = create_load_dashboard()
+    win.setVisible(False)
 
-    file = Path(get_set_preset_path()).joinpath(f"{preset_file_name}.xml")
-    if file.exists():
-        dashboard, extension, win = load_dashboard_with_preset(preset_file_name, 'Optical Shaping')
-    else:
-        win = QtWidgets.QMainWindow()
-        dockarea = DockArea()
-        win.setCentralWidget(dockarea)
-        extension = OpticalShaping(dockarea, None)
-        win.show()
+    win_optical = QtWidgets.QMainWindow()
+    dockarea = DockArea()
+    win_optical.setCentralWidget(dockarea)
+    extension = OpticalShaping(dockarea, dashboard)
+    win_optical.show()
 
     app.exec()
 
