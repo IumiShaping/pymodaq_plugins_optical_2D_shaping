@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractproperty
-
+from typing import Union
 import numpy as np
 from qtpy import QtWidgets, QtCore
 
@@ -44,9 +44,10 @@ class AlgoApp(CustomApp):
     object_field_signal = QtCore.Signal(Field)
     algo_changed = QtCore.Signal(AlgoBase)
 
-    def __init__(self, dockarea):
+    def __init__(self, dockarea, toolbar: Union[QtWidgets.QToolBar]=None):
         super().__init__(dockarea)
-
+        if toolbar is not None:
+            self.set_toolbar(toolbar)
         self.runner_thread: QtCore.QThread = None
 
         self._algorithm: AlgoBase = None

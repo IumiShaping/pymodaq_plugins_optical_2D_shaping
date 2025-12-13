@@ -138,6 +138,13 @@ class OpticalShaping(CustomExt):
         ########
         pyqtgraph.dockarea.Dock
         """
+        self.add_toolbar('dashboard', 'Settings Toolbar')
+        self.add_toolbar('algorithm', 'Algorithm Toolbar')
+
+        self.mainwindow.addToolBar(self.get_toolbar('dashboard'))
+        self.mainwindow.addToolBar(self.get_toolbar('algorithm'))
+
+
         self.docks['algo'] = gutils.Dock('Algo')
         self.dockarea.addDock(self.docks['algo'])
         algo_main_window = QtWidgets.QMainWindow()
@@ -145,7 +152,8 @@ class OpticalShaping(CustomExt):
         algo_main_window.setCentralWidget(self._algo_dockarea)
         self.docks['algo'].addWidget(algo_main_window)
 
-        self._algorithm = AlgoApp(self._algo_dockarea)
+        self._algorithm = AlgoApp(self._algo_dockarea,
+                                  toolbar=self.get_toolbar('algorithm'))
 
         self._target_dockarea = gutils.DockArea()
         self._target_loader = FieldLoaderApp(self._target_dockarea,
@@ -197,48 +205,51 @@ class OpticalShaping(CustomExt):
         self.dashboard.mainwindow.setVisible(self.is_action_checked('show_dashboard'))
 
     def setup_actions(self):
-        logger.debug('setting actions')
-        self.add_action('quit', 'Quit', 'close2', "Quit program")
 
+
+        logger.debug('Main actions')
+        self.add_action('quit', 'Quit', 'close2', "Quit program")
         self.add_action('settings', 'Plugin Settings', 'Settings',
                         'Open the plugin configuration file',
                         checkable=True)
-        self.add_action('show_dashboard', 'Show Dashboard', 'show',
-                        'Show/Hide the Dashboard window', checkable=True,
-                        icon_checked='unshow')
-
-        self.toolbar.addSeparator()
-        self.preset_manager = PresetManager(self.dashboard, toolbar=self.toolbar)
-        self.toolbar.addSeparator()
 
         self.add_action('target', 'Target Selection', 'target',
                         'Open the Target FieldLoader window', checkable=True)
         self.add_action('input', 'Input Beam Selection', 'input',
                         'Open the InputBeam FieldLoader window', checkable=True)
-        self.toolbar.addSeparator()
-        self.add_action('algo', 'Algo. Selection', 'algo', 'Open the Algorithm window', checkable=True)
-        self.set_action_checked('algo', True)
+        self.add_action('save_phase', 'Save', 'SaveAs_32',
+                        'Save Phases to a file',)
 
-        self.add_action('run', 'Run Optimisation', 'run2', checkable=True)
-        self.add_action('pause', 'Pause Optimisation', 'pause', checkable=True)
+        logger.debug('DashBoard related actions')
+        self.add_widget('dashboard_label', QtWidgets.QLabel('Dashboard:'),
+                        toolbar='dashboard')
+        self.add_action('show_dashboard', 'Show Dashboard', 'show',
+                        'Show/Hide the Dashboard window', checkable=True,
+                        icon_checked='unshow', toolbar='dashboard')
+        self.preset_manager = PresetManager(self.dashboard, toolbar=self.get_toolbar('dashboard'))
 
         self.add_action('send_algo_to_shaper', 'Algo to shaper', 'random',
                         'Send calculated phase to the control module called *Shaper*',
-                        checkable=True)
-        self.toolbar.addSeparator()
+                        checkable=True, toolbar='dashboard')
+
         self.add_action('corrections', 'Corrections', 'utility2',
                         tip='Open the Utility window with focal and Zernike correction',
-                        checkable=True)
+                        checkable=True, toolbar='dashboard')
         self.add_action('send_correc_to_shaper', 'Correction to shaper', 'random',
                         'Send correction phase to the control module called *Shaper*',
-                        checkable=True)
+                        checkable=True, toolbar='dashboard')
         if self.dashboard is not None:
             self.add_action('add_corrections', 'Add Corrections', 'Add_Step',
                             'Add Focal and Zernike polynomials as individual actuators in Dashboard',
+                        toolbar='dashboard'
                             )
-        self.toolbar.addSeparator()
-        self.add_action('save_phase', 'Save', 'SaveAs_32',
-                        'Save Phases to a file',)
+
+        logger.debug('Algorithm related actions')
+        self.add_action('algo', 'Algo. Selection', 'algo', 'Open the Algorithm window', checkable=True,
+                        toolbar='algorithm')
+        self.set_action_checked('algo', True)
+
+
 
     logger.debug('actions set')
 
@@ -254,8 +265,8 @@ class OpticalShaping(CustomExt):
         self.connect_action('input', self.show_input)
         self.connect_action('algo', self.show_algo)
 
-        self.connect_action('run', self._algorithm.compute_phase_loop)
-        self.connect_action('pause', self._algorithm.stop)
+        # self.connect_action('run', self._algorithm.compute_phase_loop)
+        # self.connect_action('pause', self._algorithm.stop)
 
         self._algorithm.object_field_signal.connect(self.update_object)
 
