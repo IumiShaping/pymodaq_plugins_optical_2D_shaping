@@ -17,7 +17,7 @@ from pymodaq_gui.utils.dock import DockArea, Dock
 from pymodaq_gui.utils import QLED
 from pymodaq_gui.utils.file_io import select_file
 from pymodaq_gui.parameter import ioxml
-
+from pymodaq_gui.utils.widget_sync import WidgetSync, SyncMode
 from pymodaq_gui.managers.roi_manager import ROI2D_TYPES, ROI
 from pymodaq_gui.plotting.utils.plot_utils import RoiInfo
 
@@ -27,10 +27,11 @@ from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 
 
+
 class AlgoApp(CustomApp):
     params = [
-        {'title': 'Algorithm', 'name': 'algorithm', 'type': 'list',
-         'limits': algo_factory.algorithms, 'value': plugin_config('algo', 'default_algo')},
+        # {'title': 'Algorithm', 'name': 'algorithm', 'type': 'list',
+        #  'limits': algo_factory.algorithms, 'value': plugin_config('algo', 'default_algo')},
         {'title': 'Target Phase', 'name': 'target_phase', 'type': 'list',
          'limits': TargetPhase.values(), 'value': TargetPhase.QUADRATIC.value, },
         {'title': 'Masking', 'name': 'masking', 'type': 'group', 'children': [
@@ -45,11 +46,11 @@ class AlgoApp(CustomApp):
     algo_changed = QtCore.Signal(AlgoBase)
     fields_to_plot = QtCore.Signal(DataToExport)
 
-    def __init__(self, dockarea, toolbar: Union[QtWidgets.QToolBar]=None):
+    def __init__(self, dockarea, toolbar: QtWidgets.QToolBar=None):
         super().__init__(dockarea)
+        self.runner_thread: QtCore.QThread = None
         if toolbar is not None:
             self.set_toolbar(toolbar)
-        self.runner_thread: QtCore.QThread = None
 
         self._algorithm: AlgoBase = None
         self._target_field: Field = None
@@ -59,21 +60,27 @@ class AlgoApp(CustomApp):
 
         self.setup_ui()
 
-        self.get_action('ini_algo').trigger()
+        #self.get_action('ini_algo').trigger()
+
+    @property
+    def algorithm_combo(self) -> QtWidgets.QComboBox:
+        return self.get_action('algorithms')
+
+    # @property
+    # def algorithm_param(self) -> Parameter:
+    #     return self.settings.child('algorithm')
 
     @property
     def algorithm(self):
+        if self._algorithm is None:
+            self.set_algorithm()
         return self._algorithm
 
     def set_target_field(self, field: Field):
         if self._algorithm is not None:
             field = self._algorithm.scale_target_with_geometry(field)
             self._algorithm.set_target_field(field)
-            self.target_viewers.show_data(DataToExport('Target', data=[
-                field.intensity_as_dwa(),
-                field.amplitude_as_dwa(),
-                field.phase_as_dwa(),
-            ]))
+
         self._target_field = field
 
     def set_input_field(self, field: Field):
@@ -89,7 +96,7 @@ class AlgoApp(CustomApp):
 
     def set_algorithm(self, algo_name: str = None):
         if algo_name is None:
-            algo_name = self.settings['algorithm']
+            algo_name = self.algorithm_name
         try:
             if self._algorithm is not None:
                 self._algorithm.quit()
@@ -123,33 +130,7 @@ class AlgoApp(CustomApp):
         self.algo_area = self.dockarea
 
         self.docks['algo_settings'] = Dock('Algorithm Settings')
-        self.docks['image_field'] = Dock('Image Plane')
-        self.docks['object_field'] = Dock('Object Plane')
-        self.docks['fitness'] = Dock('Fitness')
 
-        self.dockarea.addDock(self.docks['algo_settings'])
-        self.dockarea.addDock(self.docks['fitness'], 'right', self.docks['algo_settings'])
-        self.dockarea.addDock(self.docks['object_field'], 'bottom', self.docks['fitness'])
-        self.dockarea.addDock(self.docks['image_field'], 'bottom', self.docks['object_field'])
-
-        fitness_widget = QtWidgets.QWidget()
-        self.fitness_viewer = Viewer0D(fitness_widget)
-        self.docks['fitness'].addWidget(fitness_widget)
-
-        self.target_widget = QtWidgets.QWidget()
-        self.target_widget.setLayout(QtWidgets.QHBoxLayout())
-        target_area = DockArea()
-        self.target_viewers = ViewerDispatcher(target_area)
-        self.target_widget.layout().addWidget(target_area)
-        self.target_widget.setVisible(False)
-
-        object_area = DockArea()
-        self.object_viewers = ViewerDispatcher(object_area)
-        self.docks['object_field'].addWidget(object_area)
-
-        image_area = DockArea()
-        self.image_viewers = ViewerDispatcher(image_area)
-        self.docks['image_field'].addWidget(image_area)
 
         self.settings_widget = QtWidgets.QWidget()
         self.settings_widget.setLayout(QtWidgets.QVBoxLayout())
@@ -169,14 +150,16 @@ class AlgoApp(CustomApp):
         self.docks['algo_settings'].addWidget(self.settings_widget)
 
     def setup_actions(self):
+        self.add_widget('algorithms', QtWidgets.QComboBox,
+                        tip='select the algorithm to compute the phase')
+        self.get_action('algorithms').addItems(self.algorithms)
+        self.get_action('algorithms').setCurrentText(plugin_config('algo', 'default_algo'))
         self.add_action('ini_algo', 'Init Algo', 'ini', checkable=True)
-        self.add_widget('algo_led', QLED, toolbar=self.toolbar)
+        self.add_widget('algo_led', QLED)
         self.add_action('snap', 'Snap', 'snap', "Run a loop of the algorithm")
         self.add_action('grab', 'Grab', 'run2', "Run continuously the algorithm", checkable=True)
         self.add_action('stop', 'Stop', 'stop', "Stop the algorithm")
         self.add_action('reset_phase', 'Reset Phase', 'Refresh2', "Reset the SLM phase")
-        self.add_action('show_target', 'Show Target', 'target',
-                        "Show Target in real units", checkable=True)
         self.add_action('export', 'Export', 'SaveAs', 'Export data')
 
     def connect_things(self):
@@ -184,9 +167,19 @@ class AlgoApp(CustomApp):
         self.connect_action('grab', self.compute_phase_loop)
         self.connect_action('ini_algo', self.ini_algo)
         self.connect_action('stop', self.stop)
-        self.connect_action('show_target', lambda show: self.target_widget.setVisible(show))
         self.connect_action('export', self.export_data)
         self.connect_action('reset_phase', self.define_phase)
+        self.connect_action('algorithms', slot=self.set_algorithm,
+                            signal_name='currentTextChanged')
+
+    @property
+    def algorithms(self) -> list[str]:
+        return algo_factory.algorithms
+
+    @property
+    def algorithm_name(self) -> str:
+        """ get the current algorithm name """
+        return self.get_action('algorithms').currentText()
 
     def define_phase(self):
         if self._algorithm is not None:
@@ -206,9 +199,8 @@ class AlgoApp(CustomApp):
         self.command_runner.emit(ThreadCommand('snap'))
 
     def value_changed(self, param: Parameter):
-        if param.name() == 'algorithm':
-            self.set_algorithm()
-        elif param.name() in ('apply_mask', 'slices'):
+
+        if param.name() in ('apply_mask', 'slices'):
             if self.settings['masking', 'apply_mask']:
                 slices = eval(self.settings['masking', 'slices'])
                 if hasattr(slices, '__iter__'):

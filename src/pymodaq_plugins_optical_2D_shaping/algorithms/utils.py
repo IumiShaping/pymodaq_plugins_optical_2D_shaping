@@ -151,7 +151,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         raise NotImplementedError
 
     def get_fields_to_plot(self) -> DataToExport:
-        DataToExport('AlgoData', data=[
+        return DataToExport('AlgoData', data=[
             self.image_field.amplitude_as_dwa('image'),
             self.image_field.phase_as_dwa('image'),
             self.fitness_as_dwa(),
