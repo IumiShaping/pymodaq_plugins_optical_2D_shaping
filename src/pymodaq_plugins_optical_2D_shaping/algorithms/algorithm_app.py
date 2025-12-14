@@ -43,6 +43,7 @@ class AlgoApp(CustomApp):
     command_runner = QtCore.Signal(ThreadCommand)
     object_field_signal = QtCore.Signal(Field)
     algo_changed = QtCore.Signal(AlgoBase)
+    fields_to_plot = QtCore.Signal(DataToExport)
 
     def __init__(self, dockarea, toolbar: Union[QtWidgets.QToolBar]=None):
         super().__init__(dockarea)
@@ -231,18 +232,20 @@ class AlgoApp(CustomApp):
     def process_output(self, dte: DataToExport):
         self._current_data = dte.deepcopy()
 
-        fitness = dte.remove(dte.get_data_from_name('fitness'))
-        dte_image = dte.get_data_from_full_names(['image/amplitude', 'image/phase'])
-        dte_object = dte.get_data_from_full_names(['object/amplitude', 'object/phase'])
-        self.object_viewers.show_data(dte_object)
-        self.image_viewers.show_data(dte_image)
-        self.fitness_viewer.show_data(fitness)
+        # fitness = dte.remove(dte.get_data_from_name('fitness'))
+        # dte_image = dte.get_data_from_full_names(['image/amplitude', 'image/phase'])
+        # dte_object = dte.get_data_from_full_names(['object/amplitude', 'object/phase'])
+        # self.object_viewers.show_data(dte_object)
+        # self.image_viewers.show_data(dte_image)
+        # self.fitness_viewer.show_data(fitness)
 
         self.object_field_signal.emit(
             Field('object',
                   amplitude=dte.get_data_from_full_name('object/amplitude')[0],
                   phase=dte.get_data_from_full_name('object/phase')[0],
                   pixel_sizes=self._input_field.pixels_sizes))
+
+        self.fields_to_plot.emit(dte)
 
     def ini_algo(self):
         if self.is_action_checked('ini_algo'):
@@ -295,14 +298,8 @@ class AlgoRunner(QtCore.QObject):
 
     def snap_algo(self):
         self.algo.compute_phase()
-        self.algo_output_signal.emit(DataToExport('AlgoData', data=[
-            self.algo.image_field.amplitude_as_dwa('image'),
-            self.algo.image_field.phase_as_dwa('image'),
-            self.algo.fitness_as_dwa(),
-            self.algo.object_field.amplitude_as_dwa('object'),
-            self.algo.object_field.phase_as_dwa('object'),
+        self.algo_output_signal.emit(self.algo.get_fields_to_plot())
 
-        ]))
 
     def run_algo(self):
         self.running = True

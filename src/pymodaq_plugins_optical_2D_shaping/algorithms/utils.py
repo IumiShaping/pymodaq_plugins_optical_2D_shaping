@@ -8,7 +8,7 @@ from pymodaq_utils import math_utils as mutils
 from pymodaq_gui.managers.parameter_manager import ParameterManager, Parameter
 from pymodaq_utils.enums import BaseEnum
 from pymodaq_utils.logger import set_logger, get_module_name
-from pymodaq.utils.data import DataRaw
+from pymodaq.utils.data import DataRaw, DataToExport
 from pymodaq_utils.enums import StrEnum
 
 from pymodaq_plugins_optical_2D_shaping.field import Field, FieldLoader, Q_
@@ -149,6 +149,15 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         """
 
         raise NotImplementedError
+
+    def get_fields_to_plot(self) -> DataToExport:
+        DataToExport('AlgoData', data=[
+            self.image_field.amplitude_as_dwa('image'),
+            self.image_field.phase_as_dwa('image'),
+            self.fitness_as_dwa(),
+            self.object_field.amplitude_as_dwa('object'),
+            self.object_field.phase_as_dwa('object'),
+        ])
 
     def do_things_after_set_input(self):
         """ to reimplement if needed"""

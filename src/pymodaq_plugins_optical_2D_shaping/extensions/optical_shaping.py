@@ -15,12 +15,13 @@ from pymodaq_gui.utils.file_io import select_file
 from pymodaq_gui import utils as gutils
 from pymodaq_gui.utils.widgets.tree_toml import TreeFromToml
 
+from pymodaq.extensions.utils import CustomExt
+
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp, AlgoBase
 from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, Field, Q_
 from pymodaq_plugins_optical_2D_shaping.utilities.corrections import Correction
-
-from pymodaq.extensions.utils import CustomExt
+from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
 
 logger = set_logger(get_module_name(__file__))
 
@@ -145,15 +146,14 @@ class OpticalShaping(CustomExt):
         self.mainwindow.addToolBar(self.get_toolbar('algorithm'))
 
 
-        self.docks['algo'] = gutils.Dock('Algo')
-        self.dockarea.addDock(self.docks['algo'])
+        self.docks['show_algo'] = gutils.Dock('Algo')
+        self.dockarea.addDock(self.docks['show_algo'])
         algo_main_window = QtWidgets.QMainWindow()
         self._algo_dockarea = gutils.DockArea()
         algo_main_window.setCentralWidget(self._algo_dockarea)
-        self.docks['algo'].addWidget(algo_main_window)
+        self.docks['show_algo'].addWidget(algo_main_window)
 
-        self._algorithm = AlgoApp(self._algo_dockarea,
-                                  toolbar=self.get_toolbar('algorithm'))
+        self._algorithm = AlgoApp(self._algo_dockarea)
 
         self._target_dockarea = gutils.DockArea()
         self._target_loader = FieldLoaderApp(self._target_dockarea,
@@ -205,8 +205,6 @@ class OpticalShaping(CustomExt):
         self.dashboard.mainwindow.setVisible(self.is_action_checked('show_dashboard'))
 
     def setup_actions(self):
-
-
         logger.debug('Main actions')
         self.add_action('quit', 'Quit', 'close2', "Quit program")
         self.add_action('settings', 'Plugin Settings', 'Settings',
@@ -245,13 +243,22 @@ class OpticalShaping(CustomExt):
                             )
 
         logger.debug('Algorithm related actions')
-        self.add_action('algo', 'Algo. Selection', 'algo', 'Open the Algorithm window', checkable=True,
+        self.add_widget('algorithms', QtWidgets.QComboBox,
+                        tip='select the algorithm to compute the phase',
                         toolbar='algorithm')
-        self.set_action_checked('algo', True)
-
-
+        self.get_action('algorithms').addItems(self.algorithms)
+        self.add_action('show_algo', 'Algo. Selection', 'algo', 'Open the Algorithm window', checkable=True,
+                        toolbar='algorithm')
+        for action in self._algorithm.actions:
+            self.affect_to(action,
+                           self.get_toolbar('algorithm'))
+        self.set_action_checked('show_algo', True)
 
     logger.debug('actions set')
+
+    @property
+    def algorithms(self) -> list[str]:
+        return algo_factory.algorithms
 
     def connect_things(self):
         logger.debug('connecting things')
@@ -263,7 +270,9 @@ class OpticalShaping(CustomExt):
 
         self.connect_action('target', self.show_target)
         self.connect_action('input', self.show_input)
-        self.connect_action('algo', self.show_algo)
+        self.connect_action('show_algo', self.show_algo)
+        self.connect_action('algorithms', slot=self._algorithm.set_algorithm,
+                            signal_name='currentTextChanged')
 
         # self.connect_action('run', self._algorithm.compute_phase_loop)
         # self.connect_action('pause', self._algorithm.stop)
@@ -273,6 +282,7 @@ class OpticalShaping(CustomExt):
         self._input_field_loader.field_signal.connect(self._algorithm.set_input_field)
         self._target_loader.field_signal.connect(self._algorithm.set_target_field)
         self._algorithm.algo_changed.connect(self.update_target_loader_from_algo)
+        self._algorithm.fields_to_plot.connect(self.plot_fields)
 
         self.update_target_loader_from_algo(self._algorithm.algorithm)
 
@@ -282,6 +292,14 @@ class OpticalShaping(CustomExt):
             self.connect_action('add_corrections', self.add_corrections_actuators)
 
         self.connect_action('save_phase', self.save_phase)
+
+    def plot_fields(self, dte: DataToExport):
+        fitness = dte.remove(dte.get_data_from_name('fitness'))
+        dte_image = dte.get_data_from_full_names(['image/amplitude', 'image/phase'])
+        dte_object = dte.get_data_from_full_names(['object/amplitude', 'object/phase'])
+        self.object_viewers.show_data(dte_object)
+        self.image_viewers.show_data(dte_image)
+        self.fitness_viewer.show_data(fitness)
 
     def show_corrections(self, show=True):
         self._corrections_dockarea.setVisible(show)
@@ -354,7 +372,7 @@ class OpticalShaping(CustomExt):
         self._input_field_dockarea.closeEvent = lambda event: self.set_action_checked('input', False)
 
     def show_algo(self, show=True):
-        self.docks['algo'].setVisible(show)
+        self.docks['show_algo'].setVisible(show)
 
     def quit(self):
         self._input_field_dockarea.close()
