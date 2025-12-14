@@ -26,6 +26,7 @@ from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
 logger = set_logger(get_module_name(__file__))
 
 config = Config()
+plugin_config = PluginConfig()
 
 
 EXTENSION_NAME = 'Optical Shaping'
@@ -40,8 +41,6 @@ class OpticalShaping(CustomExt):
 
     def __init__(self, dockarea, dashboard):
         super().__init__(dockarea, dashboard)
-
-        self._plugin_config = PluginConfig()
 
         self.viewer_fitness: Viewer0D = None
         self.viewer_observable: ViewerDispatcher = None
@@ -145,30 +144,57 @@ class OpticalShaping(CustomExt):
         self.mainwindow.addToolBar(self.get_toolbar('dashboard'))
         self.mainwindow.addToolBar(self.get_toolbar('algorithm'))
 
-
-        self.docks['show_algo'] = gutils.Dock('Algo')
-        self.dockarea.addDock(self.docks['show_algo'])
-        algo_main_window = QtWidgets.QMainWindow()
-        self._algo_dockarea = gutils.DockArea()
-        algo_main_window.setCentralWidget(self._algo_dockarea)
-        self.docks['show_algo'].addWidget(algo_main_window)
-
-        self._algorithm = AlgoApp(self._algo_dockarea)
+        self._algorithm = AlgoApp(self.dockarea, toolbar=self.get_toolbar('algorithm'))
 
         self._target_dockarea = gutils.DockArea()
         self._target_loader = FieldLoaderApp(self._target_dockarea,
                                              modules_manager=self.modules_manager)
         self._target_loader.set_loader_in_settings(
-            self._plugin_config('target', 'default_loader'))
+            plugin_config('target', 'default_loader'))
 
         self._input_field_dockarea = gutils.DockArea()
         self._input_field_loader = FieldLoaderApp(self._input_field_dockarea)
         self._input_field_loader.set_loader_in_settings(
-            self._plugin_config('input', 'default_loader'))
+            plugin_config('input', 'default_loader'))
 
         self._corrections_dockarea = gutils.DockArea()
         self._corrections = Correction(self._corrections_dockarea)
 
+        self.docks['image_field'] = gutils.Dock('Image Plane')
+        self.docks['object_field'] = gutils.Dock('Object Plane')
+        self.docks['fitness'] = gutils.Dock('Fitness')
+
+        self.dockarea.addDock(self.docks['fitness'])
+        self.dockarea.addDock(self._algorithm.docks['algo_settings'], 'bottom',
+                              self.docks['fitness'])
+        self.dockarea.addDock(self.docks['object_field'], 'right')
+        self.dockarea.addDock(self.docks['image_field'], 'bottom', self.docks['object_field'])
+
+        fitness_widget = QtWidgets.QWidget()
+        self.fitness_viewer = Viewer0D(fitness_widget)
+        self.docks['fitness'].addWidget(fitness_widget)
+
+        self.target_widget = QtWidgets.QWidget()
+        self.target_widget.setLayout(QtWidgets.QHBoxLayout())
+        target_area = gutils.DockArea()
+        self.target_viewers = ViewerDispatcher(target_area)
+        self.target_widget.layout().addWidget(target_area)
+        self.target_widget.setVisible(False)
+
+        object_area = gutils.DockArea()
+        self.object_viewers = ViewerDispatcher(object_area)
+        self.docks['object_field'].addWidget(object_area)
+
+        image_area = gutils.DockArea()
+        self.image_viewers = ViewerDispatcher(image_area)
+        self.docks['image_field'].addWidget(image_area)
+
+    def plot_target(self, field: Field):
+        self.target_viewers.show_data(DataToExport('Target', data=[
+            field.intensity_as_dwa(),
+            field.amplitude_as_dwa(),
+            field.phase_as_dwa(),
+        ]))
 
     def setup_menu(self):
         """
@@ -241,24 +267,7 @@ class OpticalShaping(CustomExt):
                             'Add Focal and Zernike polynomials as individual actuators in Dashboard',
                         toolbar='dashboard'
                             )
-
-        logger.debug('Algorithm related actions')
-        self.add_widget('algorithms', QtWidgets.QComboBox,
-                        tip='select the algorithm to compute the phase',
-                        toolbar='algorithm')
-        self.get_action('algorithms').addItems(self.algorithms)
-        self.add_action('show_algo', 'Algo. Selection', 'algo', 'Open the Algorithm window', checkable=True,
-                        toolbar='algorithm')
-        for action in self._algorithm.actions:
-            self.affect_to(action,
-                           self.get_toolbar('algorithm'))
-        self.set_action_checked('show_algo', True)
-
     logger.debug('actions set')
-
-    @property
-    def algorithms(self) -> list[str]:
-        return algo_factory.algorithms
 
     def connect_things(self):
         logger.debug('connecting things')
@@ -270,20 +279,14 @@ class OpticalShaping(CustomExt):
 
         self.connect_action('target', self.show_target)
         self.connect_action('input', self.show_input)
-        self.connect_action('show_algo', self.show_algo)
-        self.connect_action('algorithms', slot=self._algorithm.set_algorithm,
-                            signal_name='currentTextChanged')
-
-        # self.connect_action('run', self._algorithm.compute_phase_loop)
-        # self.connect_action('pause', self._algorithm.stop)
 
         self._algorithm.object_field_signal.connect(self.update_object)
 
         self._input_field_loader.field_signal.connect(self._algorithm.set_input_field)
         self._target_loader.field_signal.connect(self._algorithm.set_target_field)
+        self._target_loader.field_signal.connect(self.plot_target)
         self._algorithm.algo_changed.connect(self.update_target_loader_from_algo)
         self._algorithm.fields_to_plot.connect(self.plot_fields)
-
         self.update_target_loader_from_algo(self._algorithm.algorithm)
 
         self.connect_action('corrections', self.show_corrections)
@@ -321,18 +324,18 @@ class OpticalShaping(CustomExt):
     @property
     def shape(self) -> tuple[int, int]:
         """ Get the shape of the configured SLM"""
-        return (self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'height'),
-                self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'width'),
+        return (plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'height'),
+                plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'width'),
                 )
 
     def add_corrections_actuators(self):
         try:
-            if self._plugin_config('corrections', 'actuators', 'focal_length'):
+            if plugin_config('corrections', 'actuators', 'focal_length'):
                 self.dashboard.add_move_from_extension(f'FocalLength', "FocalLength",
                                                        self._corrections,
                                                        ui_identifier='Simple')
-            for n in range(self._plugin_config('corrections', 'zernike', 'order_max')):
-                if self._plugin_config('corrections', 'zernike', 'actuators', f'n{n}'):
+            for n in range(plugin_config('corrections', 'zernike', 'order_max')):
+                if plugin_config('corrections', 'zernike', 'actuators', f'n{n}'):
                     for m in range(-n, n+2, 2):
                         self.dashboard.add_move_from_extension(f'Zernike {n}/{m}',
                                                                "Zernike",
@@ -345,23 +348,23 @@ class OpticalShaping(CustomExt):
             logger.exception('Could not create Corrections Actuators', exc_info=e)
 
     def update_target_loader_from_algo(self, algo: AlgoBase):
-        pixel_size = self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size')
-        height = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'height'), 'um')
-        width = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'width'), 'um')
+        pixel_size = plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'pixel_size')
+        height = Q_(plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'height'), 'um')
+        width = Q_(plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'width'), 'um')
         slm_size = (pixel_size * height, pixel_size * width)
         self._target_loader.update_pixels(algo.get_target_pixels_size(slm_size))
 
     def show_config(self, show=True):
         if show:
-            config_tree = TreeFromToml(self._plugin_config, capitalize=False)
+            config_tree = TreeFromToml(plugin_config, capitalize=False)
             res = config_tree.show_dialog()
             if res:
-                self._plugin_config = PluginConfig()
+                plugin_config = PluginConfig()
             self.set_action_checked('settings', False)
             self._target_loader.update_slm(
-                self._plugin_config('SLM', 'default_slm'))
+                plugin_config('SLM', 'default_slm'))
             self._input_field_loader.update_slm(
-                self._plugin_config('SLM', 'default_slm'))
+                plugin_config('SLM', 'default_slm'))
 
     def show_target(self, show=True):
         self._target_dockarea.setVisible(show)
@@ -370,9 +373,6 @@ class OpticalShaping(CustomExt):
     def show_input(self, show=True):
         self._input_field_dockarea.setVisible(show)
         self._input_field_dockarea.closeEvent = lambda event: self.set_action_checked('input', False)
-
-    def show_algo(self, show=True):
-        self.docks['show_algo'].setVisible(show)
 
     def quit(self):
         self._input_field_dockarea.close()
