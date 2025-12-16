@@ -10,6 +10,7 @@ from typing import Union, Tuple, List
 import numpy as np
 from copy import deepcopy
 from qtpy import QtWidgets
+from zernpy.calculations.calc_psfs_check import pixel_size
 
 from pymodaq_utils.logger import set_logger, get_module_name
 
@@ -37,13 +38,13 @@ class OL2014(AlgoBase):
     """
 
     ALGO_NAME = 'OL2014'
-    SETUP_TYPE = LensSetup.TwoF
+    SETUP_TYPE = LensSetup.FourF
     ITERATIVE = False
 
     params = [
         {'title': 'Mask block size (pxls)', 'name': 'block_size', 'type': 'int', 'value': 5, 'min': 1},
-        {'title': 'Circular Aperture', 'name': 'circ_aperture', 'type': 'str',
-         'value': ''},
+        {'title': 'Circular Aperture (um)', 'name': 'circ_aperture', 'type': 'float',
+         'value': 500},
         {'title': 'Intermediate plane:', 'name': 'show_inter_plane', 'type': 'bool_push',
          'label': 'Show Intermediate Plane', 'value': False, },
 
@@ -77,13 +78,10 @@ class OL2014(AlgoBase):
         length ratio
 
         """
-        if slm_size is None:
-            slm_size = [self._input_field.shape[ind] * self._input_field.pixels_sizes[ind]
-                        for ind in range(2)]
-
-        return [Q_(plugin_config('setup', 'wavelength_nm', ), 'nm') *
-                Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm') /
-                size for size in slm_size]
+        pixels_size = self._input_field.pixels_sizes
+        focal_ratio = (plugin_config('setup', self.SETUP_TYPE.value, 'focals')[1] /
+                       plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0])
+        return [size * focal_ratio for size in pixels_size]
 
     def quit(self):
         """ to reimplement if neccessary"""
@@ -125,7 +123,7 @@ class OL2014(AlgoBase):
 
         calculated_field: Field = deepcopy(self._target_field)
 
-        beta = np.arccos(mutils.normalize(calculated_field.amplitude))
+        beta = np.arccos(mutils.normalize(calculated_field.amplitude) / 2)
         theta_field = Field('theta', phase=calculated_field.phase + beta)
         alpha_field = Field('alpha', phase=calculated_field.phase - beta)
 
@@ -134,11 +132,10 @@ class OL2014(AlgoBase):
 
         slm_pixel_sizes = self._input_field.pixels_sizes
 
-        intermediate_pixel_sizes = ((Q_(plugin_config('wavelength_nm',), 'nm') *
-                                     Q_(self.settings['focal_length_1'], 'mm')) /
-                                    slm_pixel_sizes /
-                                    np.array(theta_field.shape)
-                                    ).to('um')
+        intermediate_pixel_sizes = [((Q_(plugin_config('setup', 'wavelength_nm',), 'nm') *
+                                     Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm')) /
+                                    (slm_pixel_sizes[ind] * theta_field.shape[ind])
+                                    ).to('um') for ind in range(2)]
 
         self.set_phase_in_object_plane(theta_field.phase + alpha_field.phase)
 
@@ -149,20 +146,20 @@ class OL2014(AlgoBase):
 
         circ_aperture = self.create_aperture(intermediate_pixel_sizes)
 
-        self.intermediate_viewer.show_data(intermediate_field.intensity_as_dwa().to_dB() *
-                                           circ_aperture)
-
-        if not self._is_roi_init:
-            self.init_roi()
-            self._is_roi_init = True
+        # self.intermediate_viewer.show_data(intermediate_field.intensity_as_dwa().to_dB() *
+        #                                    circ_aperture)
+        #
+        # if not self._is_roi_init:
+        #     self.init_roi()
+        #     self._is_roi_init = True
 
         self._image_field = (intermediate_field * circ_aperture).ifft2()
 
-        target_pixel_sizes = ((Q_(plugin_config('wavelength_nm',), 'nm') *
-                               Q_(self.settings['focal_length_2'], 'mm')) /
-                              intermediate_pixel_sizes /
-                              np.array(theta_field.shape)
-                              ).to('um')
+        #todo compare with direct calculation with ratio => that's done and OK
+        target_pixel_sizes = [((Q_(plugin_config('setup', 'wavelength_nm',), 'nm') *
+                               Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[1], 'mm')) /
+                               (intermediate_pixel_sizes[ind] * theta_field.shape[ind])
+                              ).to('um') for ind in range(2)]
 
         self.image_field.calibrate_axes(target_pixel_sizes)
         self.image_field.axes = self.image_field.get_axes()
