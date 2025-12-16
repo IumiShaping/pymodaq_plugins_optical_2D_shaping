@@ -292,8 +292,6 @@ class LaguerreGaussian(BaseFieldLoader):
         [
             {'title': 'Beam waist (mm):', 'name': 'waist', 'type': 'float',
              'value': plugin_config('input', 'laguerre', 'waist'), },
-            {'title': 'Wavelength (nm):', 'name': 'wavelength', 'type': 'float',
-             'value': plugin_config('wavelength_nm'), },
             {'title': 'Doughnut:', 'name': 'doughnut', 'type': 'bool', 'value': True, },
 
             {'title': 'Radial order :', 'name': 'radial_index', 'type': 'int',
@@ -312,7 +310,7 @@ class LaguerreGaussian(BaseFieldLoader):
         n_pixels_max = int(np.sqrt(2) * max(self.n_pixel_width, self.n_pixel_height))
         size_max = n_pixels_max * max(self.pixel_height,
                                       self.pixel_width) * 1e-6
-        return Begin(size_max, self.settings['wavelength'] * 1e-9, n_pixels_max)
+        return Begin(size_max, plugin_config('wavelength_nm',) * 1e-9, n_pixels_max)
 
     def compute_field(self):
         field_in = self.compute_field_in()
@@ -350,8 +348,6 @@ class FerrisWheel(LaguerreGaussian):
         [
             {'title': 'Beam waist (mm):', 'name': 'waist', 'type': 'float',
              'value': plugin_config('input', 'laguerre', 'waist'), },
-            {'title': 'Wavelength (nm):', 'name': 'wavelength', 'type': 'float',
-             'value': plugin_config('wavelength_nm'), },
             {'title': 'Doughnut:', 'name': 'doughnut', 'type': 'bool', 'value': True, },
             {'title': 'Azimutal order 1:', 'name': 'azimutal_index_1', 'type': 'int', 'value': 3, },
             {'title': 'Azimutal order 2:', 'name': 'azimutal_index_2', 'type': 'int', 'value': 11, },

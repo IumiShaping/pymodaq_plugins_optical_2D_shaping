@@ -20,8 +20,10 @@ from pymodaq_gui.plotting.data_viewers import ViewerDispatcher, Viewer2D
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field
+from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 
 logger = set_logger(get_module_name(__file__))
+plugin_config = PluginConfig()
 
 
 @AlgorithmFactory.register_algorithm()
@@ -38,7 +40,6 @@ class OL2014(AlgoBase):
     ITERATIVE = False
 
     params = [
-        {'title': 'Wavelength (nm)', 'name': 'wavelength', 'type': 'float', 'value': 515.,},
         {'title': 'Focal length 1 (mm)', 'name': 'focal_length_1', 'type': 'float', 'value': 300.,},
         {'title': 'Focal length 2 (mm)', 'name': 'focal_length_2', 'type': 'float',
          'value': 300., },
@@ -119,7 +120,7 @@ class OL2014(AlgoBase):
 
         slm_pixel_sizes = self._input_field.pixels_sizes
 
-        intermediate_pixel_sizes = ((Q_(self.settings['wavelength'], 'nm') *
+        intermediate_pixel_sizes = ((Q_(plugin_config('wavelength_nm',), 'nm') *
                                      Q_(self.settings['focal_length_1'], 'mm')) /
                                     slm_pixel_sizes /
                                     np.array(theta_field.shape)
@@ -143,7 +144,7 @@ class OL2014(AlgoBase):
 
         self._image_field = (intermediate_field * circ_aperture).ifft2()
 
-        target_pixel_sizes = ((Q_(self.settings['wavelength'], 'nm') *
+        target_pixel_sizes = ((Q_(plugin_config('wavelength_nm',), 'nm') *
                                Q_(self.settings['focal_length_2'], 'mm')) /
                               intermediate_pixel_sizes /
                               np.array(theta_field.shape)

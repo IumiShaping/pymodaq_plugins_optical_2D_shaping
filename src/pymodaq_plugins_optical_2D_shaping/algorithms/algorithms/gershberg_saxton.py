@@ -40,8 +40,6 @@ class GbSax(AlgoBase):
     ITERATIVE = True
 
     params = [
-        {'title': 'Wavelength (nm)', 'name': 'wavelength', 'type': 'float',
-         'value': plugin_config('wavelength_nm',)},
         {'title': 'Focal length (mm)', 'name': 'focal_length', 'type': 'float',
          'value': plugin_config('algo', 'gbsax', 'focal_length_mm')},
     ]
@@ -64,7 +62,7 @@ class GbSax(AlgoBase):
             slm_size = [self._input_field.shape[ind] * self._input_field.pixels_sizes[ind]
                          for ind in range(2)]
 
-        return [Q_(self.settings['wavelength'], 'nm') *
+        return [Q_(plugin_config('wavelength_nm',), 'nm') *
                 Q_(self.settings['focal_length'], 'mm') /
                 size for size in slm_size]
 
