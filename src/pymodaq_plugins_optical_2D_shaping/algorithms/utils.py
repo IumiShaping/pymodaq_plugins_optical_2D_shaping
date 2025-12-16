@@ -1,5 +1,5 @@
 
-from abc import ABCMeta, abstractproperty
+from abc import ABCMeta, abstractproperty, abstractmethod
 from typing import Tuple, TYPE_CHECKING, Union
 
 import numpy as np
@@ -28,6 +28,12 @@ class TargetPhase(StrEnum):
     QUADRATIC = 'quadratic'  # see https://doi.org/10.1364/OE.25.014323
 
 
+class LensSetup(StrEnum):
+    NoLens = 'no_lens'
+    TwoF = '2f'
+    FourF = '4f'
+
+
 class AlgoParameterManager(ParameterManager):
     settings_name = 'algo_settings'
 
@@ -46,9 +52,11 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     calculate amplitude/phase shaping
     """
 
-    ALGO_NAME = abstractproperty()
+    ALGO_NAME: str = None  # to be reimplemented
+    SETUP_TYPE: LensSetup = None # to be reimplemented
     ITERATIVE = False
     params = []
+
 
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__()

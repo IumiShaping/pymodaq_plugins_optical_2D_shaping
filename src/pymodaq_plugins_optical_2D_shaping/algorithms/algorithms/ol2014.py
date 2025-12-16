@@ -19,7 +19,7 @@ from pymodaq_data import Q_
 from pymodaq_gui.plotting.data_viewers import ViewerDispatcher, Viewer2D
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 
 logger = set_logger(get_module_name(__file__))
@@ -37,15 +37,13 @@ class OL2014(AlgoBase):
     """
 
     ALGO_NAME = 'OL2014'
+    SETUP_TYPE = LensSetup.TwoF
     ITERATIVE = False
 
     params = [
-        {'title': 'Focal length 1 (mm)', 'name': 'focal_length_1', 'type': 'float', 'value': 300.,},
-        {'title': 'Focal length 2 (mm)', 'name': 'focal_length_2', 'type': 'float',
-         'value': 300., },
-        {'title': 'Mask period', 'name': 'period', 'type': 'int', 'value': 1, 'min': 1},
-        {'title': 'Circular Aperture (um)', 'name': 'circ_aperture', 'type': 'float',
-         'value': 3000., },
+        {'title': 'Mask block size (pxls)', 'name': 'block_size', 'type': 'int', 'value': 5, 'min': 1},
+        {'title': 'Circular Aperture', 'name': 'circ_aperture', 'type': 'str',
+         'value': ''},
         {'title': 'Intermediate plane:', 'name': 'show_inter_plane', 'type': 'bool_push',
          'label': 'Show Intermediate Plane', 'value': False, },
 
@@ -70,6 +68,22 @@ class OL2014(AlgoBase):
             Q_(self.settings['circ_aperture'], 'um').m_as('m'))
         roi.setSize(size)
         self.intermediate_viewer.roi_manager.roi_changed.connect(self.update_circular_aperture)
+
+    def get_target_pixels_size(self, slm_size: Tuple[Q_, Q_] = None) -> list[Q_]:
+        """ Get the expected physical size of the pixels in the target plane given
+        the chosen algorithm and physical parameters: focal length, wavelength...
+
+        Here we use a 4f setup, so the image field has the same size as the SLM with a ratio given by the focal
+        length ratio
+
+        """
+        if slm_size is None:
+            slm_size = [self._input_field.shape[ind] * self._input_field.pixels_sizes[ind]
+                        for ind in range(2)]
+
+        return [Q_(plugin_config('setup', 'wavelength_nm', ), 'nm') *
+                Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm') /
+                size for size in slm_size]
 
     def quit(self):
         """ to reimplement if neccessary"""
@@ -106,8 +120,8 @@ class OL2014(AlgoBase):
             / np.prod(self._image_field.shape) / np.sum(self._target_field.intensity)
 
     def compute_phase(self):
-        odd_mask = self.create_mask_odd(period=self.settings['period'])
-        even_mask = self.create_mask_odd(False, period=self.settings['period'])
+        odd_mask = self.create_checker_board()
+        even_mask = 1 - odd_mask
 
         calculated_field: Field = deepcopy(self._target_field)
 
@@ -165,23 +179,11 @@ class OL2014(AlgoBase):
             Q_(self.settings['circ_aperture'], 'um') / 2] = 1
         return mask_field
 
-    def create_cell(self, odd=True, period=1):
-        zeros = np.zeros((period, period))
-        ones = np.ones((period, period))
-        if odd:
-            cell = np.concatenate((ones, zeros))
-        else:
-            cell = np.concatenate((zeros, ones))
-        cell = np.hstack((cell, cell[::-1, :])).astype(int)
-        return cell
+    def create_checker_board(self) -> np.ndarray:
 
-    def create_mask_odd(self, odd=True, period=1) -> np.ndarray:
-
-        cell = self.create_cell(odd, period)
-        mask = np.tile(cell, ((self._target_field.shape[0] // period) + 1,
-                              (self._target_field.shape[1] // period) + 1,))
-        mask = mask[0:self._target_field.shape[0], 0:self._target_field.shape[1]]
-
+        block_size = self.settings['block_size']
+        y, x = np.indices(self._image_field.shape)
+        mask = ((x // block_size) + (y // block_size)) % 2
         return mask
 
     def value_changed(self, param):

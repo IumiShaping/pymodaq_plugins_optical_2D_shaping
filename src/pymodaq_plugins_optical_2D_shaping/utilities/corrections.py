@@ -210,7 +210,7 @@ class Correction(CustomApp):
         return zernike_phase * 2 * np.pi
 
     def compute_zernike_base(self):
-        pixel_size = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size'), 'um')
+        pixel_size = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
         unity_radius = self.unit_radius_sb.value() * self.beam_fwhm
 
         xlin, ylin = self._get_xy()
@@ -252,7 +252,7 @@ class Correction(CustomApp):
             coeff = 0.
         else:
             focal_length = Q_(focal_value, 'cm')
-            pixel_size = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size'), 'um')
+            pixel_size = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
             wavelength = Q_(self._plugin_config('wavelength_nm'), 'nm')
 
             coeff =  float((pixel_size ** 2 / (wavelength * focal_length) * np.pi).to_reduced_units().magnitude)
@@ -266,13 +266,14 @@ class Correction(CustomApp):
 
     def compute_linear_phase(self, tiltx: float, tilty: float) -> np.ndarray[float, float]:
         xlin, ylin = self._get_xy()
-        #todo: specify the algorithm use because for now the linear shift will be done only for gbsax
+        #todo: specify the algorithm/setup use because for now the linear shift will be done only for 2f setups
 
         shift_x = Q_(tiltx, 'mm')
         shift_y = Q_(tilty, 'mm')
-        pixel_SLM = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'pixel_size'), 'um')
-        focal_postSLM = Q_(self._plugin_config('algo', 'gbsax', 'focal_length_mm'), 'mm')
-        wavelength = Q_(self._plugin_config('wavelength_nm'), 'nm')
+        pixel_SLM = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
+        setup_type = self._plugin_config('setup', 'setup_type')[0]
+        focal_postSLM = Q_(self._plugin_config('setup', setup_type, 'focals')[0], 'mm')
+        wavelength = Q_(self._plugin_config('setup', 'wavelength_nm'), 'nm')
 
         coeff = (2*np.pi / (wavelength * focal_postSLM))
         ylin *= (shift_y * coeff * pixel_SLM).to_reduced_units().magnitude
@@ -284,8 +285,8 @@ class Correction(CustomApp):
     @property
     def shape(self) -> tuple[int, int]:
         """ Get the shape of the configured SLM"""
-        return (self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'height'),
-                self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm'), 'width'),
+        return (self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm')[0], 'height'),
+                self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm')[0], 'width'),
                 )
 
 

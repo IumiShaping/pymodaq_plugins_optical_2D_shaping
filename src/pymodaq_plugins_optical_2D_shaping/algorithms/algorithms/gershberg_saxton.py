@@ -16,7 +16,7 @@ from pymodaq_data import Q_
 from pymodaq_gui.parameter import Parameter
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 
 
@@ -37,12 +37,10 @@ class GbSax(AlgoBase):
     """
 
     ALGO_NAME = 'Gerchberg-Saxton'
+    SETUP_TYPE = LensSetup.TwoF
     ITERATIVE = True
 
-    params = [
-        {'title': 'Focal length (mm)', 'name': 'focal_length', 'type': 'float',
-         'value': plugin_config('algo', 'gbsax', 'focal_length_mm')},
-    ]
+    params = []
 
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
@@ -62,8 +60,8 @@ class GbSax(AlgoBase):
             slm_size = [self._input_field.shape[ind] * self._input_field.pixels_sizes[ind]
                          for ind in range(2)]
 
-        return [Q_(plugin_config('wavelength_nm',), 'nm') *
-                Q_(self.settings['focal_length'], 'mm') /
+        return [Q_(plugin_config('setup', 'wavelength_nm',), 'nm') *
+                Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm') /
                 size for size in slm_size]
 
     def propagate_field(self):

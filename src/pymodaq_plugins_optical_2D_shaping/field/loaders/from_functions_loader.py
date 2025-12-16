@@ -310,7 +310,7 @@ class LaguerreGaussian(BaseFieldLoader):
         n_pixels_max = int(np.sqrt(2) * max(self.n_pixel_width, self.n_pixel_height))
         size_max = n_pixels_max * max(self.pixel_height,
                                       self.pixel_width) * 1e-6
-        return Begin(size_max, plugin_config('wavelength_nm',) * 1e-9, n_pixels_max)
+        return Begin(size_max, plugin_config('setup', 'wavelength_nm',) * 1e-9, n_pixels_max)
 
     def compute_field(self):
         field_in = self.compute_field_in()

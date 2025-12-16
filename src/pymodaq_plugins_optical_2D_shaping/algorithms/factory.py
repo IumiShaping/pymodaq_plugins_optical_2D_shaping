@@ -42,8 +42,13 @@ class AlgorithmFactory:
             the exporter class
         """
 
-        def inner_wrapper(wrapped_class) -> Callable:
+        def inner_wrapper(wrapped_class: AlgoBase) -> AlgoBase:
             algo_name = wrapped_class.ALGO_NAME
+            if algo_name is None:
+                raise NotImplementedError('The reimplemented algorithm must have a valid ALGO_NAME string attribute')
+            if wrapped_class.SETUP_TYPE is None:
+                raise NotImplementedError('The reimplemented algorithm must have a valid SETUP_TYPE LensSetup enum'
+                                          ' attribute')
 
             if algo_name not in cls.algorithms_registry:
                 cls.algorithms_registry[algo_name] = wrapped_class
