@@ -30,8 +30,6 @@ from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 
 class AlgoApp(CustomApp):
     params = [
-        # {'title': 'Algorithm', 'name': 'algorithm', 'type': 'list',
-        #  'limits': algo_factory.algorithms, 'value': plugin_config('algo', 'default_algo')},
         {'title': 'Target Phase', 'name': 'target_phase', 'type': 'list',
          'limits': TargetPhase.values(), 'value': TargetPhase.QUADRATIC.value, },
         {'title': 'Masking', 'name': 'masking', 'type': 'group', 'children': [
@@ -107,6 +105,12 @@ class AlgoApp(CustomApp):
             self._algorithm: AlgoBase = \
                 algo_factory.get_algorithm(algo_name)(self)
 
+            #change the chosen setup type (defined by the algo) in the config, to be used elsewhere
+            setup_types: list[str] = plugin_config['setup', 'setup_type']
+            setup_types.remove(self._algorithm.SETUP_TYPE.value)
+            plugin_config['setup', 'setup_type'] = [self._algorithm.SETUP_TYPE.value] + setup_types
+            plugin_config.save()
+
             while True:
                 child = self._algo_settings_widget.layout().takeAt(0)
                 if not child:
@@ -154,8 +158,8 @@ class AlgoApp(CustomApp):
     def setup_actions(self):
         self.add_widget('algorithms', QtWidgets.QComboBox,
                         tip='select the algorithm to compute the phase')
-        self.get_action('algorithms').addItems(self.algorithms)
-        self.get_action('algorithms').setCurrentText(plugin_config('algo', 'default_algo'))
+        self.get_action('algorithms').addItems(plugin_config('algo', 'default_algo'))
+        self.get_action('algorithms').setCurrentText(plugin_config('algo', 'default_algo')[0])
         self.add_action('ini_algo', 'Init Algo', 'ini', checkable=True)
         self.add_widget('algo_led', QLED)
         self.add_action('snap', 'Snap', 'snap', "Run a loop of the algorithm")
@@ -179,6 +183,7 @@ class AlgoApp(CustomApp):
         for action in ('snap', 'grab', 'stop', 'reset_phase', 'export'):
             if action not in exclude:
                 self.set_action_enabled(action, enable)
+        self.set_action_enabled('algorithms', not enable)
         self.settings_widget.setEnabled(enable)
 
     @property

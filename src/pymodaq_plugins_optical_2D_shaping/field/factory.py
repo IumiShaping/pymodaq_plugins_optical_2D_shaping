@@ -77,5 +77,5 @@ class LoaderFactory:
         return cls.loader_registry[loader_name]
 
     @property
-    def field_loaders(self):
+    def field_loaders(self) -> list[str]:
         return list(self.loader_registry.keys())

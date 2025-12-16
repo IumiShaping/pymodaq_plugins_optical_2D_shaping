@@ -150,12 +150,12 @@ class OpticalShaping(CustomExt):
         self._target_loader = FieldLoaderApp(self._target_dockarea,
                                              modules_manager=self.modules_manager)
         self._target_loader.set_loader_in_settings(
-            plugin_config('target', 'default_loader'))
+            plugin_config('target', 'default_loader')[0])
 
         self._input_field_dockarea = gutils.DockArea()
         self._input_field_loader = FieldLoaderApp(self._input_field_dockarea)
         self._input_field_loader.set_loader_in_settings(
-            plugin_config('input', 'default_loader'))
+            plugin_config('input', 'default_loader')[0])
 
         self._corrections_dockarea = gutils.DockArea()
         self._corrections = Correction(self._corrections_dockarea)
@@ -324,8 +324,8 @@ class OpticalShaping(CustomExt):
     @property
     def shape(self) -> tuple[int, int]:
         """ Get the shape of the configured SLM"""
-        return (plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'height'),
-                plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'width'),
+        return (plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
+                plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width'),
                 )
 
     def add_corrections_actuators(self):
@@ -348,23 +348,23 @@ class OpticalShaping(CustomExt):
             logger.exception('Could not create Corrections Actuators', exc_info=e)
 
     def update_target_loader_from_algo(self, algo: AlgoBase):
-        pixel_size = plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'pixel_size')
-        height = Q_(plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'height'), 'um')
-        width = Q_(plugin_config('SLM', plugin_config('SLM', 'default_slm'), 'width'), 'um')
+        pixel_size = Q_(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
+        height = plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height')
+        width = plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width')
         slm_size = (pixel_size * height, pixel_size * width)
         self._target_loader.update_pixels(algo.get_target_pixels_size(slm_size))
 
     def show_config(self, show=True):
         if show:
-            config_tree = TreeFromToml(plugin_config, capitalize=False)
+            config_tree = TreeFromToml(PluginConfig(), capitalize=False)
             res = config_tree.show_dialog()
             if res:
                 plugin_config = PluginConfig()
             self.set_action_checked('settings', False)
             self._target_loader.update_slm(
-                plugin_config('SLM', 'default_slm'))
+                plugin_config('SLM', 'default_slm')[0])
             self._input_field_loader.update_slm(
-                plugin_config('SLM', 'default_slm'))
+                plugin_config('SLM', 'default_slm')[0])
 
     def show_target(self, show=True):
         self._target_dockarea.setVisible(show)

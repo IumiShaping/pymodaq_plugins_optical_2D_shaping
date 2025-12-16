@@ -42,8 +42,6 @@ class Oe23001052(GbSax):
     ITERATIVE = True
 
     params = [
-        {'title': 'Focal length (mm)', 'name': 'focal_length', 'type': 'float',
-         'value': plugin_config('algo', 'gbsax', 'focal_length_mm')},
     ]
 
     def set_target_field(self, field: Field):
