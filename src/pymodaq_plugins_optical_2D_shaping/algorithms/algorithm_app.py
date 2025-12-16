@@ -60,6 +60,8 @@ class AlgoApp(CustomApp):
 
         self.setup_ui()
 
+        self.enable_things(False)
+
         #self.get_action('ini_algo').trigger()
 
     @property
@@ -123,7 +125,7 @@ class AlgoApp(CustomApp):
             self.algo_changed.emit(self._algorithm)
 
         except ValueError as e:
-            pass
+            self.enable_things(False)
 
     def setup_docks(self):
 
@@ -172,6 +174,13 @@ class AlgoApp(CustomApp):
         self.connect_action('algorithms', slot=self.set_algorithm,
                             signal_name='currentTextChanged')
 
+    def enable_things(self, enable=True, exclude: tuple[str]= ()):
+        """ Given the initialization state of the chosen algorithm enable or not some actions and settings"""
+        for action in ('snap', 'grab', 'stop', 'reset_phase', 'export'):
+            if action not in exclude:
+                self.set_action_enabled(action, enable)
+        self.settings_widget.setEnabled(enable)
+
     @property
     def algorithms(self) -> list[str]:
         return algo_factory.algorithms
@@ -197,6 +206,7 @@ class AlgoApp(CustomApp):
 
     def compute_phase(self):
         self.command_runner.emit(ThreadCommand('snap'))
+        self.set_action_enabled('grab', True)
 
     def value_changed(self, param: Parameter):
 
@@ -240,6 +250,7 @@ class AlgoApp(CustomApp):
         self.fields_to_plot.emit(dte)
 
     def ini_algo(self):
+        self.set_action_enabled('grab', False)
         if self.is_action_checked('ini_algo'):
             self.get_action('algo_led').set_as_true()
             #self.set_action_enabled('ini_algo', False)
@@ -255,6 +266,7 @@ class AlgoApp(CustomApp):
             runner.moveToThread(self.runner_thread)
 
             self.runner_thread.start()
+            self.enable_things(exclude=('grab',))
 
         else:
             if self.runner_thread is not None:
@@ -265,6 +277,7 @@ class AlgoApp(CustomApp):
                     while not self.runner_thread.isFinished():
                         QtCore.QThread.msleep(100)
                     self.runner_thread = None
+            self.enable_things(enable=False)
 
 
 class AlgoRunner(QtCore.QObject):
