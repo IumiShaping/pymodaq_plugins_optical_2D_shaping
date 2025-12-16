@@ -42,8 +42,6 @@ class Srep15426(GbSax):
     ITERATIVE = True
 
     params = [
-        {'title': 'Wavelength (nm)', 'name': 'wavelength', 'type': 'float',
-         'value': plugin_config('wavelength_nm',)},
         {'title': 'Focal length (mm)', 'name': 'focal_length', 'type': 'float',
          'value': plugin_config('algo', 'gbsax', 'focal_length_mm')},
     ]
