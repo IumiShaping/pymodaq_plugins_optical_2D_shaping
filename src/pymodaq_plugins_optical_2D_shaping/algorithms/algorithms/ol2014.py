@@ -16,7 +16,7 @@ from pymodaq_utils.logger import set_logger, get_module_name
 
 from pymodaq_utils import math_utils as mutils
 from pymodaq_gui import utils as gutils
-from pymodaq_data import Q_
+from pymodaq_data import Q_, DataToExport
 from pymodaq_gui.plotting.data_viewers import ViewerDispatcher, Viewer2D
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
@@ -45,30 +45,18 @@ class OL2014(AlgoBase):
         {'title': 'Mask block size (pxls)', 'name': 'block_size', 'type': 'int', 'value': 5, 'min': 1},
         {'title': 'Circular Aperture (um)', 'name': 'circ_aperture', 'type': 'float',
          'value': 500},
-        {'title': 'Intermediate plane:', 'name': 'show_inter_plane', 'type': 'bool_push',
-         'label': 'Show Intermediate Plane', 'value': False, },
-
     ]
 
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
 
-        self._is_roi_init = False
+        self.intermediate_field: Field = None
 
-        self.intermediate_widget = QtWidgets.QWidget()
-        self.intermediate_widget.closeEvent = \
-            lambda event: self.settings.child('show_inter_plane').setValue(False)
-        self.intermediate_viewer = Viewer2D(self.intermediate_widget)
-        self.intermediate_viewer.roi_manager.add_roi_programmatically('CircularROI')
-
-    def init_roi(self):
-        roi = self.intermediate_viewer.roi_manager.get_roi_from_index(0)
-        roi.set_center(np.array(self._input_field.shape)[::-1] / 2)
-        size = self.intermediate_viewer.view.unscale_axis(
-            Q_(self.settings['circ_aperture'], 'um').m_as('m'),
-            Q_(self.settings['circ_aperture'], 'um').m_as('m'))
-        roi.setSize(size)
-        self.intermediate_viewer.roi_manager.roi_changed.connect(self.update_circular_aperture)
+    def get_fields_to_plot(self) -> DataToExport:
+        dte = super().get_fields_to_plot()
+        if self.intermediate_field is not None:
+            dte.append(self.intermediate_field.intensity_as_dwa(name='Intensity', origin_name='Intermediate'))
+        return dte
 
     def get_target_pixels_size(self, slm_size: Tuple[Q_, Q_] = None) -> list[Q_]:
         """ Get the expected physical size of the pixels in the target plane given
@@ -83,16 +71,6 @@ class OL2014(AlgoBase):
                        plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0])
         return [size * focal_ratio for size in pixels_size]
 
-    def quit(self):
-        """ to reimplement if neccessary"""
-        self.intermediate_widget.close()
-
-    def update_circular_aperture(self):
-        diameter = Q_(max(self.intermediate_viewer.view.scale_axis(
-            *self.intermediate_viewer.roi_manager.get_roi_from_index(0).size())),
-            self.intermediate_viewer.view.get_axis('top').axis_units)
-        self.settings.child('circ_aperture').setValue(diameter.m_as('um'))
-
     def set_phase_in_object_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
         if phase.shape == self._object_field.shape:
             self._object_field.phase = phase.copy()
@@ -101,14 +79,6 @@ class OL2014(AlgoBase):
                     (induced_amplitude if induced_amplitude is not None else 1))
         else:
             raise ValueError('The phase shape is incoherent with the parameters')
-
-    def scale_target_with_geometry(self, field: Field):
-        """ Apply an axis scaling to have the target and its axes in correct units with respect to
-        a given algorithm implementation and experimental setup
-
-        to be reimplemented if needed
-        """
-        return field
 
     @property
     def fitness(self) -> float:
@@ -139,28 +109,19 @@ class OL2014(AlgoBase):
 
         self.set_phase_in_object_plane(theta_field.phase + alpha_field.phase)
 
-        intermediate_field = self.object_field.fft2()
 
-        intermediate_field.calibrate_axes(intermediate_pixel_sizes)
-        intermediate_field.axes = intermediate_field.get_axes()
 
         circ_aperture = self.create_aperture(intermediate_pixel_sizes)
+        self.intermediate_field = self.object_field.fft2() * circ_aperture
+        self.intermediate_field.calibrate_axes(intermediate_pixel_sizes)
+        self.intermediate_field.axes = self.intermediate_field.get_axes()
 
-        # self.intermediate_viewer.show_data(intermediate_field.intensity_as_dwa().to_dB() *
-        #                                    circ_aperture)
-        #
-        # if not self._is_roi_init:
-        #     self.init_roi()
-        #     self._is_roi_init = True
+        self._image_field = self.intermediate_field.ifft2()
 
-        self._image_field = (intermediate_field * circ_aperture).ifft2()
-
-        #todo compare with direct calculation with ratio => that's done and OK
         target_pixel_sizes = [((Q_(plugin_config('setup', 'wavelength_nm',), 'nm') *
                                Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[1], 'mm')) /
                                (intermediate_pixel_sizes[ind] * theta_field.shape[ind])
                               ).to('um') for ind in range(2)]
-
         self.image_field.calibrate_axes(target_pixel_sizes)
         self.image_field.axes = self.image_field.get_axes()
 
@@ -184,11 +145,7 @@ class OL2014(AlgoBase):
         return mask
 
     def value_changed(self, param):
-
-        if param.name() != 'show_inter_plane':
-            self.parent_app.compute_phase()
-        else:
-            self.intermediate_widget.setVisible(param.value())
+        self.parent_app.compute_phase()
 
 
 
