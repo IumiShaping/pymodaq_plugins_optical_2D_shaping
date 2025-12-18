@@ -239,13 +239,6 @@ class AlgoApp(CustomApp):
     def process_output(self, dte: DataToExport):
         self._current_data = dte.deepcopy()
 
-        # fitness = dte.remove(dte.get_data_from_name('fitness'))
-        # dte_image = dte.get_data_from_full_names(['image/amplitude', 'image/phase'])
-        # dte_object = dte.get_data_from_full_names(['object/amplitude', 'object/phase'])
-        # self.object_viewers.show_data(dte_object)
-        # self.image_viewers.show_data(dte_image)
-        # self.fitness_viewer.show_data(fitness)
-
         self.object_field_signal.emit(
             Field('object',
                   amplitude=dte.get_data_from_full_name('object/amplitude')[0],
