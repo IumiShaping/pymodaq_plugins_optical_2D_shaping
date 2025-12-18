@@ -189,6 +189,15 @@ class OpticalShaping(CustomExt):
         self.image_viewers = ViewerDispatcher(image_area)
         self.docks['image_field'].addWidget(image_area)
 
+        self.other_plots_widget = QtWidgets.QWidget()
+        self.other_plots_widget.setLayout(QtWidgets.QVBoxLayout())
+        other_area = gutils.DockArea()
+        self.other_plots_widget.layout().addWidget(other_area)
+        self.other_viewers = ViewerDispatcher(other_area)
+
+    def show_other_plots(self, show=True):
+        self.other_plots_widget.setVisible(show)
+
     def plot_target(self, field: Field):
         self.target_viewers.show_data(DataToExport('Target', data=[
             field.intensity_as_dwa(),
@@ -244,6 +253,9 @@ class OpticalShaping(CustomExt):
         self.add_action('save_phase', 'Save', 'SaveAs_32',
                         'Save Phases to a file',)
 
+        self.add_action('show_other_plots', 'Show Other Plots', 'visibility', checkable=True,
+                        icon_checked='visibility_off', toolbar='algorithm')
+
         logger.debug('DashBoard related actions')
         self.add_widget('dashboard_label', QtWidgets.QLabel('Dashboard:'),
                         toolbar='dashboard')
@@ -274,6 +286,7 @@ class OpticalShaping(CustomExt):
         self.connect_action('quit', self.quit, )
 
         self.connect_action('settings', self.show_config)
+        self.connect_action('show_other_plots', self.show_other_plots)
 
         self.connect_action('show_dashboard', self.show_dashboard)
 
@@ -298,11 +311,14 @@ class OpticalShaping(CustomExt):
 
     def plot_fields(self, dte: DataToExport):
         fitness = dte.remove(dte.get_data_from_name('fitness'))
-        dte_image = dte.get_data_from_full_names(['image/amplitude', 'image/phase'])
-        dte_object = dte.get_data_from_full_names(['object/amplitude', 'object/phase'])
+        dte_image = DataToExport('image', data=[
+            dte.remove(dte.get_data_from_full_name(full_name)) for full_name in ['image/amplitude', 'image/phase']])
+        dte_object = DataToExport('object', data=[
+            dte.remove(dte.get_data_from_full_name(full_name)) for full_name in ['object/amplitude', 'object/phase']])
         self.object_viewers.show_data(dte_object)
         self.image_viewers.show_data(dte_image)
         self.fitness_viewer.show_data(fitness)
+        self.other_viewers.show_data(dte)
 
     def show_corrections(self, show=True):
         self._corrections_dockarea.setVisible(show)
