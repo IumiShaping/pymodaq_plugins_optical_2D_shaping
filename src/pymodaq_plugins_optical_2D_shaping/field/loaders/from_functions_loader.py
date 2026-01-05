@@ -22,7 +22,9 @@ class BaseFieldLoader(FieldLoader):
 
     def value_changed(self, param: Parameter):
         if param.name() != 'progress':
+            self.progressbar = 0
             field = self.compute_field()
+            self.progressbar = 100
             self.notify_listeners(field)
 
     def compute_field(self):
@@ -54,90 +56,21 @@ class GaussianIntensity(BaseFieldLoader):
         y = Q_(np.arange(0, self.n_pixel_height, 1) * self.pixel_height,
                'micron')
 
+        self.progressbar = 30
+
         amplitude = mutils.gauss2D(
             x.m_as('mm'), np.mean(x.m_as('mm')),
             Q_(self.settings['beam_size_x'], 'mm').m_as('mm'),
             y.m_as('mm'), np.mean(y.m_as('mm')),
             Q_(self.settings['beam_size_y'], 'mm').m_as('mm'))
 
+        self.progressbar = 60
+
         field = Field('GaussianIntensity', amplitude=amplitude,
                       pixel_sizes=Q_(np.array((self.pixel_height,
                                                self.pixel_width)),
                                      'um'))
         return field
-
-
-@LoaderFactory.register_loader()
-class LaguerreGauss(GaussianIntensity):
-
-    LOADER_NAME = 'LaguerreGauss'
-
-    params = FieldLoader.params + GaussianIntensity.params + \
-             [{'title': 'Angular Momentum:', 'name': 'angular_momentum', 'type': 'int',
-               'value': 3, },
-              ]
-
-    def compute_field(self):
-
-        x = Q_(np.arange(0, self.n_pixel_width, 1) * self.pixel_width,
-               'micron')
-        y = Q_(np.arange(0, self.n_pixel_height, 1) * self.pixel_height,
-               'micron')
-
-        amplitude = np.sqrt(mutils.gauss2D(
-            x.m_as('mm'), np.mean(x.m_as('mm')),
-            Q_(self.settings['beam_size_x'], 'mm').m_as('mm'),
-            y.m_as('mm'), np.mean(y.m_as('mm')),
-            Q_(self.settings['beam_size_y'], 'mm').m_as('mm')))
-
-        xx, yy = np.meshgrid(x, y)
-
-        phase_array = np.arctan((yy - np.mean(y)).m_as('mm') /
-                                (xx - np.mean(x)).m_as('mm')) * \
-                      self.settings['angular_momentum']
-
-        field = Field('GaussianIntensity', amplitude=amplitude, phase=phase_array,
-                      pixel_sizes=Q_(np.array((self.pixel_height,
-                                               self.pixel_width)),
-                                     'um'))
-        return field
-
-
-@LoaderFactory.register_loader()
-class SinusRectangle(BaseFieldLoader):
-
-    LOADER_NAME = 'SinusRectangle'
-
-    params = BaseFieldLoader.params + \
-             [
-                 {'title': 'Rect width (um):', 'name': 'rect_width', 'type': 'float',
-                  'value': 500., },
-                 {'title': 'Rect height (um):', 'name': 'rect_height', 'type': 'float',
-                  'value': 300., },
-                 {'title': 'Sinus period (um):', 'name': 'sinus_period', 'type': 'float',
-                  'value': 250., },
-        ]
-
-    def compute_field(self):
-
-        x = Q_(np.arange(0, self.n_pixel_width, 1) * self.pixel_width,
-               'micron')
-        y = Q_(np.arange(0, self.n_pixel_height, 1) * self.pixel_height,
-               'micron')
-
-        xx, yy = np.meshgrid(x, y)
-        amplitude = np.sin(2 * np.pi * xx / Q_(self.settings['sinus_period'], 'um'))
-        amplitude[np.mean(x) - Q_(self.settings['rect_width'], 'um') / 2 > xx] = 0
-        amplitude[np.mean(x) + Q_(self.settings['rect_width'], 'um') / 2 <= xx] = 0
-        amplitude[np.mean(y) - Q_(self.settings['rect_height'], 'um') / 2 > yy] = 0
-        amplitude[np.mean(y) + Q_(self.settings['rect_height'], 'um') / 2 <= yy] = 0
-
-        field = Field('SinusRectangle', amplitude=amplitude.magnitude,
-                      pixel_sizes=Q_(np.array((self.pixel_height,
-                                               self.pixel_width)),
-                                     'um'))
-        return field
-
 
 
 @LoaderFactory.register_loader()
@@ -259,21 +192,30 @@ class DoubleGaussian(BaseFieldLoader):
         y = Q_(np.arange(-self.n_pixel_height / 2, self.n_pixel_height / 2, 1) * self.pixel_height,
                'micron')
 
+        self.progressbar = 15
+
         theta = np.radians(Q_(self.settings['rotation_around_center'], 'degree'))
         R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+
+        self.progressbar = 30
 
         # Gaussian 1
         beam_center_unrotated = [Q_(self.settings['x_from_center'], 'um'), Q_(0, 'um')]
         beam_center_unrotated_magn = [beam_center_unrotated[0].magnitude, beam_center_unrotated[1].magnitude]
 
+        self.progressbar = 45
+
         x1_rot, y1_rot = R @ beam_center_unrotated_magn
         amplitude = self.Gaussian_with_center(x, y, x1_rot, y1_rot, Q_(self.settings['sigma_x'], 'um').magnitude,
                                               Q_(self.settings['sigma_y'], 'um').magnitude)
+        self.progressbar = 60
 
         # Gaussian 2
         beam_center_unrotated_magn = [
             beam_center_unrotated[0].magnitude + Q_(self.settings['asymetry'], 'um').magnitude,
             beam_center_unrotated[1].magnitude]
+
+        self.progressbar = 80
         x2_rot, y2_rot = -R @ beam_center_unrotated_magn
         amplitude += self.Gaussian_with_center(x, y, x2_rot, y2_rot, Q_(self.settings['sigma_x'], 'um').magnitude,
                                                Q_(self.settings['sigma_y'], 'um').magnitude)
@@ -317,20 +259,31 @@ class LaguerreGaussian(BaseFieldLoader):
     def compute_field(self):
         field_in = self.compute_field_in()
 
-        laguerre_gaussian_field = GaussBeam(field_in, self.settings['waist'] * 1e-3,
-                                            LG=True,
-                                            n=self.settings['radial_index'],
-                                            m=self.settings['azimutal_index'],
-                                            doughnut=self.settings['doughnut'],)
+        self.progressbar = 20
 
-        amplitude = self.crop_center(np.sqrt(Intensity(laguerre_gaussian_field)),
+        lg_field = GaussBeam(field_in, self.settings['waist'] * 1e-3,
+                             LG=True,
+                             n=self.settings['radial_index'],
+                             m=self.settings['azimutal_index'],
+                             doughnut=self.settings['doughnut'],)
+
+        self.progressbar = 40
+        rescale_factor = (self.pixel_width / self.pixel_height, 1)
+        lg_rescaled = (rescale(np.abs(lg_field.field), rescale_factor, anti_aliasing=True), *
+                       np.exp(1j * rescale(np.angle(lg_field.field), rescale_factor, anti_aliasing=True)))
+
+
+        amplitude = self.crop_center(np.abs(lg_rescaled),
                                      self.n_pixel_width,
                                      self.n_pixel_height)
 
-        phase = self.crop_center(Phase(laguerre_gaussian_field),
-                                     self.n_pixel_width,
-                                     self.n_pixel_height)
+        self.progressbar = 60
 
+        phase = self.crop_center(np.angle(lg_rescaled),
+                                 self.n_pixel_width,
+                                 self.n_pixel_height)
+
+        self.progressbar = 80
 
         field = Field('LaguerreGaussian',
                       amplitude=amplitude,
@@ -374,19 +327,19 @@ class FerrisWheel(LaguerreGaussian):
 
         rescale_factor = (self.pixel_width / self.pixel_height, 1)
 
-        lg1_rescaled = (rescale(np.abs(lg1.field), rescale_factor) *
-                        np.exp(1j * rescale(np.angle(lg1.field), rescale_factor)))
+        lg1_rescaled = (rescale(np.abs(lg1.field), rescale_factor, anti_aliasing=True) *
+                        np.exp(1j * rescale(np.angle(lg1.field), rescale_factor, anti_aliasing=True)))
         self.progressbar = 60
 
-        lg2_rescaled = (rescale(np.abs(lg2.field), rescale_factor) *
-                        np.exp(1j * rescale(np.angle(lg2.field), rescale_factor)))
+        lg2_rescaled = (rescale(np.abs(lg2.field), rescale_factor, anti_aliasing=True) *
+                        np.exp(1j * rescale(np.angle(lg2.field), rescale_factor, anti_aliasing=True)))
         self.progressbar = 75
 
-        amplitude = self.crop_center(np.sqrt(np.abs(lg1_rescaled+self.settings['alpha']*lg2_rescaled)**2),
+        amplitude = self.crop_center(np.abs(lg1_rescaled + self.settings['alpha'] * lg2_rescaled),
                                      self.n_pixel_width,
                                      self.n_pixel_height)
         self.progressbar = 90
-        phase = self.crop_center(np.angle(lg1_rescaled+self.settings['alpha']*lg2_rescaled),
+        phase = self.crop_center(np.angle(lg1_rescaled + self.settings['alpha'] * lg2_rescaled),
                                      self.n_pixel_width,
                                      self.n_pixel_height)
         self.progressbar = 100
@@ -418,6 +371,8 @@ class RectangleIntensity(BaseFieldLoader):
 
         X, Y = np.meshgrid(x.magnitude, y.magnitude)
 
+        self.progressbar = 30
+
         # Rectangle parameters
         L = Q_(self.settings['length'], 'um').magnitude
         H = Q_(self.settings['height'], 'um').magnitude
@@ -433,11 +388,15 @@ class RectangleIntensity(BaseFieldLoader):
         # mask for the rectangle "internal borders to internal"
         inside_inner = (absX <= (L/2 - T)) & (absY <= (H/2 - T))
 
+        self.progressbar = 60
+
         # mask = external - internal
         border_mask = inside_outer & (~inside_inner)
 
         amplitude = np.zeros_like(X)
         amplitude[border_mask] = 255
+
+        self.progressbar = 90
 
         field = Field(
             'RectangleIntensity',
