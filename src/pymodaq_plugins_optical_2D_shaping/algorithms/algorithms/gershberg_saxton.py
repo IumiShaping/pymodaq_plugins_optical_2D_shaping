@@ -53,17 +53,6 @@ class GbSax(AlgoBase):
 
         pass
 
-    def get_target_pixels_size(self, slm_size: Tuple[Q_, Q_] = None) -> list[Q_]:
-        """ Get the expected physical size of the pixels in the target plane given
-        the chosen algorithm and physical parameters: focal length, wavelength..."""
-        if slm_size is None:
-            slm_size = [self._input_field.shape[ind] * self._input_field.pixels_sizes[ind]
-                         for ind in range(2)]
-
-        return [Q_(plugin_config('setup', 'wavelength_nm',), 'nm') *
-                Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm') /
-                size for size in slm_size]
-
     def propagate_field(self):
         self._image_field = self._object_field.fft2()
         self._image_field = self.scale_target_with_geometry(self._image_field)
@@ -78,13 +67,6 @@ class GbSax(AlgoBase):
         field_object_corrected = field_image_corrected.ifft2()
 
         self.set_phase_in_object_plane(field_object_corrected.phase)
-
-    @property
-    def fitness(self) -> float:
-        """ Compute fitness with respect to the image_field and target_field """
-        return 100 * np.sum(
-            np.abs(np.sqrt(self._target_field.intensity) - self._image_field.intensity)) ** 2 \
-            / np.prod(self._image_field.shape) / np.sum(self._target_field.intensity)
 
     def compute_phase(self):
         self.propagate_field()

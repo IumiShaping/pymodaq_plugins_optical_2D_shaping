@@ -37,7 +37,7 @@ class OL2014(AlgoBase):
     of the used lens
     """
 
-    ALGO_NAME = 'OL2014'
+    ALGO_NAME = 'OL2014 - Amplitude/Phase Checkerboard'
     SETUP_TYPE = LensSetup.FourF
     ITERATIVE = False
 
@@ -57,35 +57,6 @@ class OL2014(AlgoBase):
         if self.intermediate_field is not None:
             dte.append(self.intermediate_field.intensity_as_dwa(name='Intensity', origin_name='Intermediate'))
         return dte
-
-    def get_target_pixels_size(self, slm_size: Tuple[Q_, Q_] = None) -> list[Q_]:
-        """ Get the expected physical size of the pixels in the target plane given
-        the chosen algorithm and physical parameters: focal length, wavelength...
-
-        Here we use a 4f setup, so the image field has the same size as the SLM with a ratio given by the focal
-        length ratio
-
-        """
-        pixels_size = self._input_field.pixels_sizes
-        focal_ratio = (plugin_config('setup', self.SETUP_TYPE.value, 'focals')[1] /
-                       plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0])
-        return [size * focal_ratio for size in pixels_size]
-
-    def set_phase_in_object_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
-        if phase.shape == self._object_field.shape:
-            self._object_field.phase = phase.copy()
-            self._object_field.amplitude = (
-                    self._input_field.amplitude.copy() *
-                    (induced_amplitude if induced_amplitude is not None else 1))
-        else:
-            raise ValueError('The phase shape is incoherent with the parameters')
-
-    @property
-    def fitness(self) -> float:
-        """ Compute fitness with respect to the image_field and target_field """
-        return 100 * np.sum(
-            np.abs(np.sqrt(self._target_field.intensity) - self._image_field.intensity)) ** 2 \
-            / np.prod(self._image_field.shape) / np.sum(self._target_field.intensity)
 
     def compute_phase(self):
         odd_mask = self.create_checker_board()

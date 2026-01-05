@@ -38,7 +38,7 @@ class Srep15426(GbSax):
     of a lens)
     """
 
-    ALGO_NAME = 'srep15426'
+    ALGO_NAME = 'srep15426 - Mixed Constraints'
     ITERATIVE = True
 
     params = [

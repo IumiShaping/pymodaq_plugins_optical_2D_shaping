@@ -4,19 +4,18 @@ from typing import Tuple, TYPE_CHECKING, Union
 
 import numpy as np
 from qtpy import QtWidgets
-from pymodaq_utils import math_utils as mutils
 from pymodaq_gui.managers.parameter_manager import ParameterManager, Parameter
-from pymodaq_utils.enums import BaseEnum
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataRaw, DataToExport
 from pymodaq_utils.enums import StrEnum
-
-from pymodaq_plugins_optical_2D_shaping.field import Field, FieldLoader, Q_
+from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
+from pymodaq_plugins_optical_2D_shaping.field import Field, Q_
 
 if TYPE_CHECKING:
     from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
 
 logger = set_logger(get_module_name(__file__))
+plugin_config = PluginConfig()
 
 
 class MaskError(Exception):
@@ -144,8 +143,11 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     def fitness(self) -> float:
         """ Compute fitness with respect to the image_field and target_field
 
-        To be subclassed"""
-        raise NotImplementedError
+        To be subclassed if the given implementation below is not correct for your algorithm"""
+
+        return 100 * np.sum(
+            np.abs(np.sqrt(self._target_field.intensity) - self._image_field.intensity)) ** 2 \
+            / np.prod(self._image_field.shape) / np.sum(self._target_field.intensity)
 
     def fitness_as_dwa(self):
         return DataRaw('fitness', data=[np.array([self.fitness])])
@@ -182,9 +184,27 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         """ Get the expected physical size of the pixels in the target plane given
         the chosen algorithm and physical parameters: focal length, wavelength...
 
-        To be reimplemented by real Algorithm
+        Here we use either a 4f setup or a 2f setup, so the image field has the same size as the SLM with a ratio given by the focal
+        length ratio
+
         """
-        raise NotImplementedError
+        if slm_size is None:
+            slm_size = [self._input_field.shape[ind] * self._input_field.pixels_sizes[ind]
+                        for ind in range(2)]
+
+        if self.SETUP_TYPE == LensSetup.TwoF:
+            return [Q_(plugin_config('setup', 'wavelength_nm', ), 'nm') *
+                    Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm') /
+                    size for size in slm_size]
+
+        elif self.SETUP_TYPE == LensSetup.FourF:
+            pixels_size = self._input_field.pixels_sizes
+            focal_ratio = (plugin_config('setup', self.SETUP_TYPE.value, 'focals')[1] /
+                           plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0])
+            return [size * focal_ratio for size in pixels_size]
+
+        else:
+            raise NotImplementedError('The setup type is not recognized and cannot compute the pixels size')
 
     def get_npad_between_image_object(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
         """ Get the padding necessary to match object shape and image shape
