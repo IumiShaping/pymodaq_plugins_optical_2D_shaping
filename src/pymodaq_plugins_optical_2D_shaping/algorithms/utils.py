@@ -1,6 +1,6 @@
 
 from abc import ABCMeta, abstractproperty, abstractmethod
-from typing import Tuple, TYPE_CHECKING, Union
+from typing import Tuple, TYPE_CHECKING, Union, Optional
 
 import numpy as np
 from qtpy import QtWidgets
@@ -63,6 +63,8 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self.parent_app = parent
         self._target_field = Field()
         self._input_field = Field()
+        self.intermediate_field: Optional[Field] = None
+
         self._object_field = Field(amplitude=self._input_field.amplitude.copy())
         self._object_field.calibrate_axes(self._input_field.pixels_sizes)
         self._image_field = Field()
@@ -205,6 +207,19 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
         else:
             raise NotImplementedError('The setup type is not recognized and cannot compute the pixels size')
+
+    @property
+    def intermediate_pixel_sizes(self):
+        if self.SETUP_TYPE == LensSetup.FourF:
+            slm_pixel_sizes = self._input_field.pixels_sizes
+            intermediate_pixel_sizes = [((Q_(plugin_config('setup', 'wavelength_nm',), 'nm') *
+                                         Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm')) /
+                                        (slm_pixel_sizes[ind] * self._target_field.shape[ind])
+                                        ).to('um') for ind in range(2)]
+
+            return intermediate_pixel_sizes
+        else:
+            raise ValueError('Intermediate pixel size can only be computed for 4f setups')
 
     def get_npad_between_image_object(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
         """ Get the padding necessary to match object shape and image shape

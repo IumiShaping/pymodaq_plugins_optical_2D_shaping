@@ -50,8 +50,6 @@ class OL2014(AlgoBase):
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
 
-        self.intermediate_field: Field = None
-
     def get_fields_to_plot(self) -> DataToExport:
         dte = super().get_fields_to_plot()
         if self.intermediate_field is not None:
@@ -71,27 +69,18 @@ class OL2014(AlgoBase):
         theta_field.phase *= odd_mask
         alpha_field.phase *= even_mask
 
-        slm_pixel_sizes = self._input_field.pixels_sizes
-
-        intermediate_pixel_sizes = [((Q_(plugin_config('setup', 'wavelength_nm',), 'nm') *
-                                     Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm')) /
-                                    (slm_pixel_sizes[ind] * theta_field.shape[ind])
-                                    ).to('um') for ind in range(2)]
-
         self.set_phase_in_object_plane(theta_field.phase + alpha_field.phase)
 
-
-
-        circ_aperture = self.create_aperture(intermediate_pixel_sizes)
+        circ_aperture = self.create_aperture(self.intermediate_pixel_sizes)
         self.intermediate_field = self.object_field.fft2() * circ_aperture
-        self.intermediate_field.calibrate_axes(intermediate_pixel_sizes)
+        self.intermediate_field.calibrate_axes(self.intermediate_pixel_sizes)
         self.intermediate_field.axes = self.intermediate_field.get_axes()
 
         self._image_field = self.intermediate_field.ifft2()
 
         target_pixel_sizes = [((Q_(plugin_config('setup', 'wavelength_nm',), 'nm') *
                                Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[1], 'mm')) /
-                               (intermediate_pixel_sizes[ind] * theta_field.shape[ind])
+                               (self.intermediate_pixel_sizes[ind] * theta_field.shape[ind])
                               ).to('um') for ind in range(2)]
         self.image_field.calibrate_axes(target_pixel_sizes)
         self.image_field.axes = self.image_field.get_axes()
