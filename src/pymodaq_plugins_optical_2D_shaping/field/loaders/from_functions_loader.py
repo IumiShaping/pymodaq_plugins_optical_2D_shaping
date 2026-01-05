@@ -301,7 +301,7 @@ class FerrisWheel(LaguerreGaussian):
             {'title': 'Beam waist (mm):', 'name': 'waist', 'type': 'float',
              'value': plugin_config('input', 'ferris', 'waist'), },
             {'title': 'Azimutal order 1:', 'name': 'azimutal_index_1', 'type': 'int',
-             'value': plugin_config('input', 'ferris', 'waist'), },
+             'value': plugin_config('input', 'ferris', 'azimutal_index_1'), },
             {'title': 'Azimutal order 2:', 'name': 'azimutal_index_2', 'type': 'int',
              'value': plugin_config('input', 'ferris', 'azimutal_index_2'), },
             {'title': 'Alpha:', 'name': 'alpha', 'type': 'float',
