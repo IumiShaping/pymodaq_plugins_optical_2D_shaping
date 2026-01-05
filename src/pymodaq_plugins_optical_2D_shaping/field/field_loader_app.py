@@ -215,14 +215,21 @@ class FieldLoaderApp(CustomApp):
     def load_field(self, *args, **kwargs):
         notify = kwargs.pop('notify', True)
         self._ini_field = self._field_loader.load_field(*args, notify=notify, **kwargs)
-        if self._ini_field is not None:
-            self.threshold_phase(self._ini_field)
-            self.field = self._ini_field.deepcopy()
+        self.apply_modifications(self._ini_field)
+
+    def apply_modifications(self, field: Field):
+        if field is not None:
+            self.threshold_phase(field)
+            self.field = field.deepcopy()
             self.update_ini_size()
             self.update_final_size()
             self.update_viewers()
 
             self.field_signal.emit(self.field)
+
+    def update_field(self, field: Field):
+        self._ini_field = field
+        self.apply_modifications(field)
 
     def update_ini_size(self):
         self.settings.child('ini_size', 'height').setValue(self._ini_field.shape[0])
