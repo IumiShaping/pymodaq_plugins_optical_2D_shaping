@@ -213,7 +213,7 @@ class FieldLoaderApp(CustomApp):
         field.phase[np.abs(field.phase) < threshold] = 0
 
     def load_field(self, *args, **kwargs):
-        notify = kwargs.pop('notify', True)
+        notify = kwargs.pop('notify', False)
         self._ini_field = self._field_loader.load_field(*args, notify=notify, **kwargs)
         self.apply_modifications(self._ini_field)
 
