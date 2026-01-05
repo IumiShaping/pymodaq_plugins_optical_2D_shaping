@@ -3,6 +3,7 @@ from typing import Tuple, Union
 
 
 import numpy as np
+from skimage.transform import rescale
 
 from pymodaq_plugins_optical_2D_shaping.field import Field, LoaderFactory, FieldLoader
 from pymodaq_gui.parameter import Parameter
@@ -20,8 +21,9 @@ class BaseFieldLoader(FieldLoader):
     with_physical_pixels_size = True
 
     def value_changed(self, param: Parameter):
-        field = self.compute_field()
-        self.notify_listeners(field)
+        if param.name() != 'progress':
+            field = self.compute_field()
+            self.notify_listeners(field)
 
     def compute_field(self):
         raise NotImplementedError
@@ -357,24 +359,37 @@ class FerrisWheel(LaguerreGaussian):
          ]
 
     def compute_field(self):
+        self.progressbar = 0
         field_in = self.compute_field_in()
+        self.progressbar = 15
 
         lg1 = GaussBeam(field_in, self.settings['waist'] * 1e-3,
                         LG=True, n=0, m=self.settings['azimutal_index_1'],
                         doughnut=True,)
+        self.progressbar = 30
         lg2 = GaussBeam(field_in, self.settings['waist'] * 1e-3,
                         LG=True, n=0, m=self.settings['azimutal_index_2'],
                         doughnut=True,)
+        self.progressbar = 45
 
+        rescale_factor = (self.pixel_width / self.pixel_height, 1)
 
-        amplitude = self.crop_center(np.sqrt(np.abs(lg1.field+self.settings['alpha']*lg2.field)**2),
+        lg1_rescaled = (rescale(np.abs(lg1.field), rescale_factor) *
+                        np.exp(1j * rescale(np.angle(lg1.field), rescale_factor)))
+        self.progressbar = 60
+
+        lg2_rescaled = (rescale(np.abs(lg2.field), rescale_factor) *
+                        np.exp(1j * rescale(np.angle(lg2.field), rescale_factor)))
+        self.progressbar = 75
+
+        amplitude = self.crop_center(np.sqrt(np.abs(lg1_rescaled+self.settings['alpha']*lg2_rescaled)**2),
                                      self.n_pixel_width,
                                      self.n_pixel_height)
-
-        phase = self.crop_center(np.angle(lg1.field+self.settings['alpha']*lg2.field),
+        self.progressbar = 90
+        phase = self.crop_center(np.angle(lg1_rescaled+self.settings['alpha']*lg2_rescaled),
                                      self.n_pixel_width,
                                      self.n_pixel_height)
-
+        self.progressbar = 100
 
         field = Field('FerrisWheel',
                       amplitude=amplitude,

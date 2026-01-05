@@ -43,6 +43,20 @@ class FieldLoader(FieldLoaderParameterManager, metaclass=ABCMeta):
         self._listener = dict()
         self.field = Field()
 
+        progress_setting = {'title': 'Progress', 'name': 'progress', 'type': 'progress', 'value': 0}
+
+        self.settings.addChild(progress_setting)
+
+    @property
+    def progressbar(self) -> int:
+        """ Get/Set the progress bar in percent (integer)"""
+        return self.settings['progress']
+
+    @progressbar.setter
+    def progressbar(self, value: int):
+        self.settings.child('progress').setValue(value)
+        QtWidgets.QApplication.processEvents()
+
     @property
     def pixel_width(self):
         return self.parent_app.settings['needed_size', 'pixel_width']
