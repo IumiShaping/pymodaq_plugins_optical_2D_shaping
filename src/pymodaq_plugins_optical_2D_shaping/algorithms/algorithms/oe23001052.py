@@ -30,35 +30,25 @@ plugin_config = PluginConfig()
 
 
 @AlgorithmFactory.register_algorithm()
-class Srep15426(GbSax):
+class Oe23001052(GbSax):
     """ Implementation of an amplitude-phase algorithm based on the publication in scientific report
-    DOI: 10.1038/srep15426
+    DOI:10.1364/OE.23.001052
 
     There are mixed constraints in phase and in amplitude in the target plane (supposed to be in the Fourier Plane
     of a lens)
     """
 
-    ALGO_NAME = 'srep15426 - Mixed Constraints'
+    ALGO_NAME = 'oe23001052 Mixed Constraints'
     ITERATIVE = True
 
     params = [
-        {'title': 'Focal length (mm)', 'name': 'focal_length', 'type': 'float',
-         'value': plugin_config('algo', 'gbsax', 'focal_length_mm')},
     ]
 
     def set_target_field(self, field: Field):
         self._target_field = field
         self._image_field = Field.init_from_field(self._target_field)
 
-        self._target_mask = self.generate_even_mask()
-
-    def generate_even_mask(self):
-        shape = self._target_field.shape
-        mask = np.ones_like(self._target_field.amplitude)
-        for ind_line in range(shape[0]):
-            for ind_col in range(shape[1]):
-                mask[ind_line, ind_col] = 0 if mutils.odd_even(ind_line+ind_col) else 1
-        return mask
+        self._target_mask = self.generate_square_mask()
 
     def generate_random_target_mask(self):
         return np.random.randint(0, 2, self._target_field.shape)
@@ -72,8 +62,8 @@ class Srep15426(GbSax):
         shape = self._target_field.shape
         x = np.linspace(0, shape[1], shape[1])
         y = np.linspace(0, shape[0], shape[0])
-        top_hat = gauss2D(x, np.mean(x), int(np.max(x)/3),
-                       y, np.mean(y), int(np.max(y)/3),
+        top_hat = gauss2D(x, np.mean(x), int(np.max(x)/2.5),
+                       y, np.mean(y), int(np.max(y)/2.5),
                        4)
         mask = np.ones(shape)
         mask[top_hat <= 0.5] = 0
@@ -81,33 +71,19 @@ class Srep15426(GbSax):
 
     def evolve_field(self):
 
-        amplitude_alpha = (self._target_field.amplitude * self._target_mask +
+        amplitude = (self._target_field.amplitude * self._target_mask +
                            self._image_field.amplitude * (1 - self._target_mask))
-        phase_alpha = (self._target_field.phase * self._target_mask +
-                       self._image_field.phase * (1 - self._target_mask))
+        phase = (self._target_field.phase * (1- self._target_mask) +
+                 self._image_field.phase * self._target_mask)
 
-        field_alpha = Field(amplitude=amplitude_alpha,
-                            phase=phase_alpha,
-                            pixel_sizes=self._image_field.pixels_sizes)
+        field = Field(amplitude=amplitude,
+                      phase=phase,
+                      pixel_sizes=self._image_field.pixels_sizes)
 
-        amplitude_beta = (self._target_field.amplitude * (1 - self._target_mask) +
-                           self._image_field.amplitude * self._target_mask)
-        phase_beta = (self._target_field.phase * (1 - self._target_mask) +
-                       self._image_field.phase * self._target_mask)
-
-        field_beta = Field(amplitude=amplitude_beta,
-                            phase=phase_beta,
-                            pixel_sizes=self._image_field.pixels_sizes)
-
-        field_alpha_object = field_alpha.ifft2()
-        field_beta_object = field_beta.ifft2()
-
-        phase_corrected = np.angle(np.exp(1j * field_alpha_object.phase) +
-                                   np.exp(1j * field_beta_object.phase))
+        field_alpha_object = field.ifft2()
 
 
-        self.set_phase_in_object_plane(phase_corrected)
-
+        self.set_phase_in_object_plane(field_alpha_object.phase)
 
 
 
