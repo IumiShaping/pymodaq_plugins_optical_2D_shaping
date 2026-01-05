@@ -87,6 +87,18 @@ class FieldLoader(FieldLoaderParameterManager, metaclass=ABCMeta):
             listener.update_field(field)
 
     def value_changed(self, param: Parameter):
+        """ Called when a setting has been changed """
+        self.progressbar = 0
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.WaitCursor)
+
+        if param.name() != 'progress':
+            self.settings_changed(param)
+
+        self.progressbar = 100
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.ArrowCursor)
+
+    def settings_changed(self, param: Parameter):
+        """ To be reimplemented in child class """
         ...
 
     def load_field(self, *args, notify=True, **kwargs) -> Field:

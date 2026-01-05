@@ -20,12 +20,9 @@ SLM = plugin_config('SLM', 'default_slm')
 class BaseFieldLoader(FieldLoader):
     with_physical_pixels_size = True
 
-    def value_changed(self, param: Parameter):
-        if param.name() != 'progress':
-            self.progressbar = 0
-            field = self.compute_field()
-            self.progressbar = 100
-            self.notify_listeners(field)
+    def settings_changed(self, param: Parameter):
+        field = self.compute_field()
+        self.notify_listeners(field)
 
     def compute_field(self):
         raise NotImplementedError

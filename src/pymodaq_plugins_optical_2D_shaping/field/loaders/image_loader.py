@@ -35,9 +35,7 @@ class ImageFileLoader(FieldLoader):
           'value': '', 'filetype': True},
          ]
 
-    def value_changed(self, param: Parameter):
-        super().value_changed(param)
-
+    def settings_changed(self, param: Parameter):
         if param.name() == 'amp_target_file':
             if Path(param.value()).is_file():
                 self.load_image_from_name(fname=Path(param.value()),
