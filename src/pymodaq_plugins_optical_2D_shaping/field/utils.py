@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractproperty
 
 import numpy as np
-from qtpy import QtWidgets
+from qtpy import QtWidgets, QtCore
 
 from pymodaq_gui.managers.parameter_manager import ParameterManager, Parameter
 from pymodaq_utils.enums import BaseEnum
@@ -94,7 +94,12 @@ class FieldLoader(FieldLoaderParameterManager, metaclass=ABCMeta):
 
         This method should be used from external object
         """
+        self.progressbar = 0
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.WaitCursor)
         field = self.load(*args, **kwargs)
+
+        self.progressbar = 100
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.ArrowCursor)
         if notify:
             self.notify_listeners(field)
         return field
