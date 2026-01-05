@@ -48,6 +48,12 @@ default_loader = ["GaussianIntensityLoader"] #will be populated at startup from 
     radial_index = 3
     azimutal_index = 4
 
+    [input.ferris]
+    waist = 3.0  # mm
+    azimutal_index_1 = 3
+    azimutal_index_2 = 11
+    alpha = 5e-4
+
 
 [algo]
 default_algo = ['Weighted Gerchberg-Saxton']  #will be populated at startup from the reading of the factory

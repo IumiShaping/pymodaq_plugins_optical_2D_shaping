@@ -347,11 +347,13 @@ class FerrisWheel(LaguerreGaussian):
     params = BaseFieldLoader.params + \
         [
             {'title': 'Beam waist (mm):', 'name': 'waist', 'type': 'float',
-             'value': plugin_config('input', 'laguerre', 'waist'), },
-            {'title': 'Doughnut:', 'name': 'doughnut', 'type': 'bool', 'value': True, },
-            {'title': 'Azimutal order 1:', 'name': 'azimutal_index_1', 'type': 'int', 'value': 3, },
-            {'title': 'Azimutal order 2:', 'name': 'azimutal_index_2', 'type': 'int', 'value': 11, },
-            {'title': 'Alpha:', 'name': 'alpha', 'type': 'float', 'value': 5e-4, },
+             'value': plugin_config('input', 'ferris', 'waist'), },
+            {'title': 'Azimutal order 1:', 'name': 'azimutal_index_1', 'type': 'int',
+             'value': plugin_config('input', 'ferris', 'waist'), },
+            {'title': 'Azimutal order 2:', 'name': 'azimutal_index_2', 'type': 'int',
+             'value': plugin_config('input', 'ferris', 'azimutal_index_2'), },
+            {'title': 'Alpha:', 'name': 'alpha', 'type': 'float',
+             'value': plugin_config('input', 'ferris', 'alpha'), },
          ]
 
     def compute_field(self):
@@ -359,10 +361,10 @@ class FerrisWheel(LaguerreGaussian):
 
         lg1 = GaussBeam(field_in, self.settings['waist'] * 1e-3,
                         LG=True, n=0, m=self.settings['azimutal_index_1'],
-                        doughnut=self.settings['doughnut'],)
+                        doughnut=True,)
         lg2 = GaussBeam(field_in, self.settings['waist'] * 1e-3,
                         LG=True, n=0, m=self.settings['azimutal_index_2'],
-                        doughnut=self.settings['doughnut'],)
+                        doughnut=True,)
 
 
         amplitude = self.crop_center(np.sqrt(np.abs(lg1.field+self.settings['alpha']*lg2.field)**2),
