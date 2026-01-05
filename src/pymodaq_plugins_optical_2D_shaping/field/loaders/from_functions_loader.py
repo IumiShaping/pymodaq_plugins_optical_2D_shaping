@@ -269,7 +269,7 @@ class LaguerreGaussian(BaseFieldLoader):
 
         self.progressbar = 40
         rescale_factor = (self.pixel_width / self.pixel_height, 1)
-        lg_rescaled = (rescale(np.abs(lg_field.field), rescale_factor, anti_aliasing=True), *
+        lg_rescaled = (rescale(np.abs(lg_field.field), rescale_factor, anti_aliasing=True) *
                        np.exp(1j * rescale(np.angle(lg_field.field), rescale_factor, anti_aliasing=True)))
 
 
