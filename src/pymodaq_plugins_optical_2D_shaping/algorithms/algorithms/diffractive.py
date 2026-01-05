@@ -42,10 +42,12 @@ class OE2016(AlgoBase):
     ITERATIVE = False
 
     params = [
+        {'title': 'Gamma', 'name': 'gamma', 'type': 'int', 'value': 4,
+         'tip': 'Grating period of the modulation in pixels'},
         {'title': 'Circular Aperture', 'name': 'circ_aperture', 'type': 'group', 'children': [
-            {'title': 'Position X', 'name': 'posx', 'type': 'float', 'value': 100, 'suffix': 'um'},
+            {'title': 'Position X', 'name': 'posx', 'type': 'float', 'value': -1380, 'suffix': 'um'},
             {'title': 'Position Y', 'name': 'posy', 'type': 'float', 'value': 0, 'suffix': 'um'},
-            {'title': 'Diameter', 'name': 'diameter', 'type': 'float', 'value': 500, 'suffix': 'um'},
+            {'title': 'Diameter', 'name': 'diameter', 'type': 'float', 'value': 200, 'suffix': 'um'},
             ]},
     ]
 
@@ -60,47 +62,29 @@ class OE2016(AlgoBase):
             dte.append(self.intermediate_field.intensity_as_dwa(name='Intensity', origin_name='Intermediate'))
         return dte
 
-    def generate_grating_phase(self):
-        x_array = np.linspace(-self._input_field.shape[1]/2, self._input_field.shape[1]/2, self._input_field.shape[1])
-
-
+    def generate_grating_phase(self) -> np.ndarray:
+        x_array = np.linspace(0, self._input_field.shape[1], self._input_field.shape[1])
+        return (2 * np.pi * x_array / self.settings['gamma']) % 2*np.pi
 
     def compute_phase(self):
-        odd_mask = self.create_checker_board()
-        even_mask = 1 - odd_mask
 
-        calculated_field: Field = deepcopy(self._target_field)
+        relative_amplitude = ((self._target_field.amplitude / self._target_field.amplitude.max()) /
+                              (self._input_field.amplitude / self._input_field.amplitude.max()))
+        relative_amplitude = relative_amplitude / relative_amplitude.max()
 
-        beta = np.arccos(mutils.normalize(calculated_field.amplitude) / 2)
-        theta_field = Field('theta', phase=calculated_field.phase + beta)
-        alpha_field = Field('alpha', phase=calculated_field.phase - beta)
 
-        theta_field.phase *= odd_mask
-        alpha_field.phase *= even_mask
-
-        slm_pixel_sizes = self._input_field.pixels_sizes
-
-        intermediate_pixel_sizes = [((Q_(plugin_config('setup', 'wavelength_nm',), 'nm') *
-                                     Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm')) /
-                                    (slm_pixel_sizes[ind] * theta_field.shape[ind])
-                                    ).to('um') for ind in range(2)]
-
-        self.set_phase_in_object_plane(theta_field.phase + alpha_field.phase)
+        self.set_phase_in_object_plane(relative_amplitude * self.generate_grating_phase())
 
 
 
-        circ_aperture = self.create_aperture(intermediate_pixel_sizes)
+        circ_aperture = self.create_aperture(self.intermediate_pixel_sizes)
         self.intermediate_field = self.object_field.fft2() * circ_aperture
-        self.intermediate_field.calibrate_axes(intermediate_pixel_sizes)
+        self.intermediate_field.calibrate_axes(self.intermediate_pixel_sizes)
         self.intermediate_field.axes = self.intermediate_field.get_axes()
 
         self._image_field = self.intermediate_field.ifft2()
 
-        target_pixel_sizes = [((Q_(plugin_config('setup', 'wavelength_nm',), 'nm') *
-                               Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[1], 'mm')) /
-                               (intermediate_pixel_sizes[ind] * theta_field.shape[ind])
-                              ).to('um') for ind in range(2)]
-        self.image_field.calibrate_axes(target_pixel_sizes)
+        self.image_field.calibrate_axes(self._target_field.pixels_sizes)
         self.image_field.axes = self.image_field.get_axes()
 
     def create_aperture(self, intermediate_pixel_size: Q_) -> np.ndarray:
@@ -110,17 +94,12 @@ class OE2016(AlgoBase):
         xx, yy = np.meshgrid(x, y)
         mask_field = np.zeros(self._target_field.shape)
         mask_field[
-            np.sqrt((xx - np.mean(x)) ** 2 + (yy - np.mean(y)) ** 2)
+            np.sqrt(
+                (xx - np.mean(x) - Q_(self.settings['circ_aperture', 'posx'], 'um')) ** 2 +
+                (yy -np.mean(y) - Q_(self.settings['circ_aperture', 'posy'], 'um')) ** 2)
             <=
-            Q_(self.settings['circ_aperture'], 'um') / 2] = 1
+            Q_(self.settings['circ_aperture', 'diameter'], 'um') / 2] = 1
         return mask_field
-
-    def create_checker_board(self) -> np.ndarray:
-
-        block_size = self.settings['block_size']
-        y, x = np.indices(self._image_field.shape)
-        mask = ((x // block_size) + (y // block_size)) % 2
-        return mask
 
     def value_changed(self, param):
         self.parent_app.compute_phase()
