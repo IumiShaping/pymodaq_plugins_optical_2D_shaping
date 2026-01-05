@@ -95,7 +95,7 @@ class FieldLoader(FieldLoaderParameterManager, metaclass=ABCMeta):
             self.settings_changed(param)
 
         self.progressbar = 100
-        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.ArrowCursor)
+        QtWidgets.QApplication.restoreOverrideCursor()
 
     def settings_changed(self, param: Parameter):
         """ To be reimplemented in child class """
@@ -111,7 +111,7 @@ class FieldLoader(FieldLoaderParameterManager, metaclass=ABCMeta):
         field = self.load(*args, **kwargs)
 
         self.progressbar = 100
-        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.ArrowCursor)
+        QtWidgets.QApplication.restoreOverrideCursor()
         if notify:
             self.notify_listeners(field)
         return field

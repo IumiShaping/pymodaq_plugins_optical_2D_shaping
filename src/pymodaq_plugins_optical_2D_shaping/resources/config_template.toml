@@ -44,7 +44,7 @@ default_loader = ["GaussianIntensityLoader"] #will be populated at startup from 
     fwhm_y = 7.0  #mm
 
     [input.laguerre]
-    waist = 3.0  # mm
+    waist = 1.0  # mm
     radial_index = 3
     azimutal_index = 4
 

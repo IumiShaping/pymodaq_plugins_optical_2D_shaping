@@ -195,9 +195,6 @@ class OpticalShaping(CustomExt):
         self.other_plots_widget.layout().addWidget(other_area)
         self.other_viewers = ViewerDispatcher(other_area)
 
-    def show_other_plots(self, show=True):
-        self.other_plots_widget.setVisible(show)
-
     def plot_target(self, field: Field):
         self.target_viewers.show_data(DataToExport('Target', data=[
             field.intensity_as_dwa(),
@@ -390,9 +387,13 @@ class OpticalShaping(CustomExt):
         self._input_field_dockarea.setVisible(show)
         self._input_field_dockarea.closeEvent = lambda event: self.set_action_checked('input', False)
 
+    def show_other_plots(self, show=True):
+        self.other_plots_widget.setVisible(show)
+
     def quit(self):
         self._input_field_dockarea.close()
         self._target_dockarea.close()
+        self.other_plots_widget.close()
         self.dockarea.parent().close()
         self.dashboard.quit_fun()
 
