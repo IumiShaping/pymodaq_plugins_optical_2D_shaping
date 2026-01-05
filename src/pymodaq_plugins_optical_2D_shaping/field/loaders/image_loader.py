@@ -29,24 +29,21 @@ class ImageFileLoader(FieldLoader):
     LOADER_NAME = 'ImageFileLoader'
 
     params = FieldLoader.params + \
-        [{'title': 'Amplitude File path:', 'name': 'amp_target_file',
-          'type': 'browsepath', 'value': str(cheshire_cat_path), 'filetype': True},
-         {'title': 'Phase File path:', 'name': 'phase_target_file', 'type': 'browsepath',
-          'value': '', 'filetype': True},
+        [{'title': 'Amplitude:', 'name': 'amplitude', 'type': 'group', 'children': [
+            {'title': 'Load it:', 'name': 'load', 'type': 'bool', 'value': True},
+            {'title': 'File path:', 'name': 'file', 'type': 'browsepath',
+             'value': str(cheshire_cat_path), 'filetype': True},
+        ]},
+         {'title': 'Phase:', 'name': 'phase', 'type': 'group', 'children': [
+             {'title': 'Load it:', 'name': 'load', 'type': 'bool', 'value': False},
+             {'title': 'File path:', 'name': 'file', 'type': 'browsepath',
+              'value': '', 'filetype': True}]},
          ]
 
     def settings_changed(self, param: Parameter):
-        if param.name() == 'amp_target_file':
-            if Path(param.value()).is_file():
-                self.load_image_from_name(fname=Path(param.value()),
-                                          load_type=LoadTypeEnum.AMPLITUDE)
-                logger.info(f'Amplitude Image loaded from {param.value()}')
-
-        elif param.name() == 'phase_target_file':
-            if Path(param.value()).is_file():
-                self.load_image_from_name(fname=Path(param.value()),
-                                          load_type=LoadTypeEnum.PHASE)
-                logger.info(f'Phase Image loaded from {param.value()}')
+        """ Don't do anything but only use the reload button otherwise it is too complex to load both phase/amplitude
+         images or only one... """
+        ...
 
     def load_image(self, load_type=LoadTypeEnum.AMPLITUDE):
         file_name = select_file(resources_path, save=False, filter="Images (*.png *.tiff *.jpg)")
@@ -56,7 +53,7 @@ class ImageFileLoader(FieldLoader):
 
     def load_image_from_name(self, fname: Union[str, Path] = cheshire_cat_path,
                              load_type: LoadTypeEnum = LoadTypeEnum.AMPLITUDE,
-                             notify=True):
+                             ) -> np.ndarray:
 
         load_type = enum_checker(LoadTypeEnum, load_type)
 
@@ -70,11 +67,10 @@ class ImageFileLoader(FieldLoader):
                     img_array = rgb2gray(img_array[..., 0:3])
 
                 if load_type == LoadTypeEnum.AMPLITUDE:
-                    self.field.amplitude = mutils.normalize_to(np.flipud(img_array), 1)
+                    img_array = mutils.normalize_to(np.flipud(img_array), 1)
                 else:
-                    self.field.phase = mutils.normalize_to(np.flipud(img_array), 2 * np.pi)
-                if notify:
-                    self.notify_listeners(self.field)
+                    img_array = mutils.normalize_to(np.flipud(img_array), 2 * np.pi)
+                return img_array
 
             except Exception as e:
                 logger.exception(str(e))
@@ -82,12 +78,20 @@ class ImageFileLoader(FieldLoader):
     def load(self, *args, load_type: LoadTypeEnum = None, **kwargs) -> Field:
         """ Mandatory reimplemented method. Used to load a target to populate the field attribute"""
         if 'fname' in kwargs and load_type is not None:
-            self.load_image_from_name(kwargs['fname'], load_type=load_type)
+            img_array = self.load_image_from_name(kwargs['fname'], load_type=load_type)
+            if load_type == LoadTypeEnum.AMPLITUDE:
+                self.field = Field('Image', amplitude=img_array)
+            else:
+                self.field = Field('Image', phase=img_array)
         else:
-            self.load_image_from_name(self.settings['amp_target_file'],
-                                      load_type=LoadTypeEnum.AMPLITUDE, notify=False)
-            self.load_image_from_name(self.settings['phase_target_file'],
-                                      load_type=LoadTypeEnum.PHASE)
+            amplitude= self.load_image_from_name(self.settings['amplitude', 'file'],
+                                                 load_type=LoadTypeEnum.AMPLITUDE)
+            phase = self.load_image_from_name(self.settings['phase', 'file'],
+                                              load_type=LoadTypeEnum.PHASE)
+            self.field = Field(
+                'Image',
+                amplitude=amplitude if amplitude is not None and self.settings['amplitude', 'load'] else None,
+                phase=phase if phase is not None and self.settings['phase', 'load'] else None)
 
         return self.field
 

@@ -88,14 +88,12 @@ class FieldLoader(FieldLoaderParameterManager, metaclass=ABCMeta):
 
     def value_changed(self, param: Parameter):
         """ Called when a setting has been changed """
-        self.progressbar = 0
-        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.WaitCursor)
-
         if param.name() != 'progress':
+            self.progressbar = 0
+            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.WaitCursor)
             self.settings_changed(param)
-
-        self.progressbar = 100
-        QtWidgets.QApplication.restoreOverrideCursor()
+            self.progressbar = 100
+            QtWidgets.QApplication.restoreOverrideCursor()
 
     def settings_changed(self, param: Parameter):
         """ To be reimplemented in child class """
