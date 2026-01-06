@@ -356,9 +356,9 @@ class RectangleIntensity(BaseFieldLoader):
     LOADER_NAME = 'RectangleIntensityLoader'
 
     params = BaseFieldLoader.params + [
-        {'title': 'Longueur du rectangle (um):', 'name': 'length', 'type': 'float', 'value': 1000.},
-        {'title': 'Hauteur du rectangle (um):', 'name': 'height', 'type': 'float', 'value': 1000.},
-        {'title': 'Épaisseur du bord (um):', 'name': 'thickness', 'type': 'float', 'value': 200.},
+        {'title': 'Width (um):', 'name': 'length', 'type': 'float', 'value': 1000., 'suffix': 'um'},
+        {'title': 'Height (um):', 'name': 'height', 'type': 'float', 'value': 1000., 'suffix': 'um'},
+        {'title': 'Edge Thickness (um):', 'name': 'thickness', 'type': 'float', 'value': 200., 'suffix': 'um'},
     ]
 
     def compute_field(self):
