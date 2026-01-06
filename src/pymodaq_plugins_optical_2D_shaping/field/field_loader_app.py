@@ -89,8 +89,8 @@ class FieldLoaderApp(CustomApp):
 
     field_signal = QtCore.Signal(Field)
 
-    def __init__(self, dockarea, **kwargs):
-        super().__init__(dockarea)
+    def __init__(self, dockarea: DockArea, title: str = None, **kwargs):
+        super().__init__(parent=dockarea, title=title)
         self._main_widget: QtWidgets.QWidget = None
         self.field_widget: QtWidgets.QWidget = None
         self.settings_widget: QtWidgets.QWidget = None

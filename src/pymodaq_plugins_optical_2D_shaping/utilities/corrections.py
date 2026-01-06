@@ -44,8 +44,8 @@ class Correction(CustomApp):
 
     _plugin_config = plugin_config
 
-    def __init__(self, parent: DockArea, beam_fwhm=beam_fwhm):
-        super().__init__(parent)
+    def __init__(self, parent: DockArea, beam_fwhm=beam_fwhm, **kwargs):
+        super().__init__(parent, **kwargs)
 
         self._zernike_ui: ZernikeUI = None
         self._zernike_coeffs = ZernikeCoeffs()

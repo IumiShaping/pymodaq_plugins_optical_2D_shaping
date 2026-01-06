@@ -154,21 +154,21 @@ class OpticalShaping(CustomExt):
         self._algorithm = AlgoApp(self.dockarea, toolbar=self.get_toolbar('algorithm'))
 
         self._target_dockarea = gutils.DockArea()
-        self._target_dockarea.setWindowTitle('Target Field Loader')
         self._target_loader = FieldLoaderApp(self._target_dockarea,
-                                             modules_manager=self.modules_manager)
+                                             modules_manager=self.modules_manager,
+                                             title='Target Field Loader')
         self._target_loader.set_loader_in_settings(
             plugin_config('target', 'default_loader')[0])
 
         self._input_field_dockarea = gutils.DockArea()
-        self._input_field_dockarea.setWindowTitle('Input Field Loader')
-        self._input_field_loader = FieldLoaderApp(self._input_field_dockarea)
+        self._input_field_loader = FieldLoaderApp(self._input_field_dockarea,
+                                                  title='Input Field Loader')
         self._input_field_loader.set_loader_in_settings(
             plugin_config('input', 'default_loader')[0])
 
         self._corrections_dockarea = gutils.DockArea()
-        self._corrections_dockarea.setWindowTitle('Phase Corrections')
-        self._corrections = Correction(self._corrections_dockarea)
+        self._corrections = Correction(self._corrections_dockarea,
+                                       title='Phase Corrections')
 
         self.docks['image_field'] = gutils.Dock('Image Plane')
         self.docks['object_field'] = gutils.Dock('Object Plane')
@@ -181,7 +181,7 @@ class OpticalShaping(CustomExt):
         self.dockarea.addDock(self.docks['image_field'], 'bottom', self.docks['object_field'])
 
         fitness_widget = QtWidgets.QWidget()
-        self.fitness_viewer = Viewer0D(fitness_widget)
+        self.fitness_viewer = Viewer0D(fitness_widget, title='Fitness')
         self.docks['fitness'].addWidget(fitness_widget)
 
         self.target_widget = QtWidgets.QWidget()
@@ -200,15 +200,13 @@ class OpticalShaping(CustomExt):
         self.docks['image_field'].addWidget(image_area)
 
         self.intermediate_widget = QtWidgets.QWidget()
-        self.intermediate_widget.setWindowTitle('Intermediate Field Intensity')
-        self.intermediate_viewer = Viewer2D(self.intermediate_widget)
+        self.intermediate_viewer = Viewer2D(self.intermediate_widget, title='Intermediate Field Intensity')
 
         self.other_plots_widget = QtWidgets.QWidget()
-        self.other_plots_widget.setWindowTitle('Other Plots')
         self.other_plots_widget.setLayout(QtWidgets.QVBoxLayout())
         other_area = gutils.DockArea()
         self.other_plots_widget.layout().addWidget(other_area)
-        self.other_viewers = ViewerDispatcher(other_area)
+        self.other_viewers = ViewerDispatcher(other_area, title='Other Plots')
 
     def plot_target(self, field: Field):
         self.target_viewers.show_data(DataToExport('Target', data=[
