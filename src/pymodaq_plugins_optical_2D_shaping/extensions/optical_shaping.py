@@ -324,7 +324,9 @@ class OpticalShaping(CustomExt):
 
         self.connect_action('save_phase', self.save_phase)
 
-        self.intermediate_viewer.roi_select_signal.connect(self._algorithm.update_intermediate_slice)
+        self.intermediate_viewer.roi_select_signal.connect(self._algorithm.update_intermediate_slices)
+        for viewer in (self._target_loader.amp_viewer, self._target_loader.phase_viewer):
+            viewer.roi_select_signal.connect(self._algorithm.update_target_slices)
 
     def plot_fields(self, dte: DataToExport):
         fitness = dte.remove(dte.get_data_from_name('fitness'))
@@ -332,13 +334,14 @@ class OpticalShaping(CustomExt):
             dte.remove(dte.get_data_from_full_name(full_name)) for full_name in ['image/amplitude', 'image/phase']])
         dte_object = DataToExport('object', data=[
             dte.remove(dte.get_data_from_full_name(full_name)) for full_name in ['object/amplitude', 'object/phase']])
-        dwa_intermediate = dte.remove(dte.get_data_from_full_name('intermediate/intensity'))
-
+        try:
+            dwa_intermediate = dte.remove(dte.get_data_from_full_name('intermediate/intensity'))
+            self.intermediate_viewer.show_data(dwa_intermediate)
+        except ValueError:  # means no intermediate data to plot
+            pass
         self.object_viewers.show_data(dte_object)
         self.image_viewers.show_data(dte_image)
         self.fitness_viewer.show_data(fitness)
-        if dwa_intermediate is not None:
-            self.intermediate_viewer.show_data(dwa_intermediate)
         self.other_viewers.show_data(dte)
 
     def show_corrections(self, show=True):

@@ -16,7 +16,7 @@ from pymodaq_data import Q_, DataToExport
 
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 
 
@@ -140,11 +140,6 @@ class OE2016(AlgoBase):
          'tip': 'Grating period of the modulation in pixels'},
         {'title': 'Diffractive Models', 'name': 'diff_model', 'type': 'list', 'value': diff_factory.keys[0],
          'limits': diff_factory.keys},
-        {'title': 'Circular Aperture', 'name': 'circ_aperture', 'type': 'group', 'children': [
-            {'title': 'Position X', 'name': 'posx', 'type': 'float', 'value': -1380, 'suffix': 'um'},
-            {'title': 'Position Y', 'name': 'posy', 'type': 'float', 'value': 0, 'suffix': 'um'},
-            {'title': 'Diameter', 'name': 'diameter', 'type': 'float', 'value': 200, 'suffix': 'um'},
-            ]},
     ]
 
     def __init__(self, parent: 'AlgoApp' = None):
@@ -159,8 +154,8 @@ class OE2016(AlgoBase):
 
         self.set_phase_in_object_plane(diff_phase)
 
-        circ_aperture = self.create_aperture(self.intermediate_pixel_sizes)
-        self.intermediate_field = self.object_field.fft2() * circ_aperture
+        circ_aperture = self.get_mask_field(apply_to=ApplyMaskTo.INTERMEDIATE, inner_value=1, outer_value=0)
+        self.intermediate_field = self.object_field.fft2() * circ_aperture.amplitude
         self.intermediate_field.calibrate_axes(self.intermediate_pixel_sizes)
         self.intermediate_field.axes = self.intermediate_field.get_axes()
 
@@ -168,20 +163,6 @@ class OE2016(AlgoBase):
 
         self.image_field.calibrate_axes(self._target_field.pixels_sizes)
         self.image_field.axes = self.image_field.get_axes()
-
-    def create_aperture(self, intermediate_pixel_size: Q_) -> np.ndarray:
-        x = np.arange(0, self._target_field.shape[1], 1) * intermediate_pixel_size[1]
-        y = np.arange(0, self._target_field.shape[0], 1) * intermediate_pixel_size[0]
-
-        xx, yy = np.meshgrid(x, y)
-        mask_field = np.zeros(self._target_field.shape)
-        mask_field[
-            np.sqrt(
-                (xx - np.mean(x) - Q_(self.settings['circ_aperture', 'posx'], 'um')) ** 2 +
-                (yy -np.mean(y) - Q_(self.settings['circ_aperture', 'posy'], 'um')) ** 2)
-            <=
-            Q_(self.settings['circ_aperture', 'diameter'], 'um') / 2] = 1
-        return mask_field
 
     def value_changed(self, param):
         self.parent_app.compute_phase()

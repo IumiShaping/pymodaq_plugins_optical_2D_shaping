@@ -240,8 +240,11 @@ class AlgoApp(CustomApp):
     def get_mask_type(self, apply_to: ApplyMaskTo) -> MaskType:
         return MaskType[self.settings[str(apply_to), 'mask_type']]
 
-    def update_intermediate_slice(self, roi_info: RoiInfo):
+    def update_intermediate_slices(self, roi_info: RoiInfo):
         self.settings.child(str(ApplyMaskTo.INTERMEDIATE), 'slices').setValue(str(roi_info.to_slices()))
+
+    def update_target_slices(self, roi_info: RoiInfo):
+        self.settings.child(str(ApplyMaskTo.TARGET), 'slices').setValue(str(roi_info.to_slices()))
 
     def value_changed(self, param: Parameter):
         for applied in ApplyMaskTo.values():

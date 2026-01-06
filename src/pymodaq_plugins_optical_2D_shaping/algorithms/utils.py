@@ -99,7 +99,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         """
         mask = Field.init_from_field(self._target_field).amplitude * outer_value
 
-        if self.apply_mask(apply_to) is not None:
+        if self.apply_mask(apply_to):
             slices = self.get_mask_slices(apply_to)
             if self.get_mask_type(apply_to) == MaskType.SQUARE:
                 mask[*slices] = inner_value
