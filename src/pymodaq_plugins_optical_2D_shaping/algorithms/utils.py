@@ -97,9 +97,10 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
         To be reimplemented if needed
         """
-        mask = Field.init_from_field(self._target_field).amplitude * outer_value
+
 
         if self.apply_mask(apply_to):
+            mask = Field.init_from_field(self._target_field).amplitude * outer_value
             slices = self.get_mask_slices(apply_to)
             if self.get_mask_type(apply_to) == MaskType.SQUARE:
                 mask[*slices] = inner_value
@@ -114,6 +115,8 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
                 xx, yy = np.meshgrid(x, y)
                 mask[
                     (xx - x0) ** 2 / rx **2 + (yy - y0) ** 2 / ry **2 <= 1] = inner_value
+        else:
+            mask = Field.init_from_field(self._target_field).amplitude
         return Field(amplitude=mask)
 
     def get_mask_type(self, apply_to: Union[ApplyMaskTo, str]) -> MaskType:
