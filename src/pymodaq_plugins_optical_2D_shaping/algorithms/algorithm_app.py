@@ -3,6 +3,7 @@ from typing import Union
 import numpy as np
 from qtpy import QtWidgets, QtCore
 
+from pymodaq_gui.plotting.utils.plot_utils import RoiInfo
 from pymodaq_utils.utils import ThreadCommand
 
 
@@ -238,6 +239,9 @@ class AlgoApp(CustomApp):
 
     def get_mask_type(self, apply_to: ApplyMaskTo) -> MaskType:
         return MaskType[self.settings[str(apply_to), 'mask_type']]
+
+    def update_intermediate_slice(self, roi_info: RoiInfo):
+        self.settings.child(str(ApplyMaskTo.INTERMEDIATE), 'slices').setValue(str(roi_info.to_slices()))
 
     def value_changed(self, param: Parameter):
         for applied in ApplyMaskTo.values():

@@ -10,6 +10,7 @@ from pymodaq.utils.data import DataToExport, DataCalculated
 from pymodaq_data.h5modules.data_saving import DataToExportSaver
 
 from pymodaq_gui.plotting.data_viewers.viewer0D import Viewer0D
+from pymodaq_gui.plotting.data_viewers.viewer2D import Viewer2D
 from pymodaq_gui.plotting.data_viewers.viewer import ViewerDispatcher
 from pymodaq_gui.utils.file_io import select_file
 from pymodaq_gui import utils as gutils
@@ -50,6 +51,12 @@ class OpticalShaping(CustomExt):
 
         self._object_field: Field = None
         self._correction_phase: DataCalculated = None
+
+        self.object_viewers: ViewerDispatcher = None
+        self.image_viewers: ViewerDispatcher = None
+        self.intermediate_viewer: Viewer2D = None
+        self.other_viewers: ViewerDispatcher = None
+
 
         self._algorithm: AlgoApp = None
 
@@ -147,17 +154,20 @@ class OpticalShaping(CustomExt):
         self._algorithm = AlgoApp(self.dockarea, toolbar=self.get_toolbar('algorithm'))
 
         self._target_dockarea = gutils.DockArea()
+        self._target_dockarea.setWindowTitle('Target Field Loader')
         self._target_loader = FieldLoaderApp(self._target_dockarea,
                                              modules_manager=self.modules_manager)
         self._target_loader.set_loader_in_settings(
             plugin_config('target', 'default_loader')[0])
 
         self._input_field_dockarea = gutils.DockArea()
+        self._input_field_dockarea.setWindowTitle('Input Field Loader')
         self._input_field_loader = FieldLoaderApp(self._input_field_dockarea)
         self._input_field_loader.set_loader_in_settings(
             plugin_config('input', 'default_loader')[0])
 
         self._corrections_dockarea = gutils.DockArea()
+        self._corrections_dockarea.setWindowTitle('Phase Corrections')
         self._corrections = Correction(self._corrections_dockarea)
 
         self.docks['image_field'] = gutils.Dock('Image Plane')
@@ -189,7 +199,12 @@ class OpticalShaping(CustomExt):
         self.image_viewers = ViewerDispatcher(image_area)
         self.docks['image_field'].addWidget(image_area)
 
+        self.intermediate_widget = QtWidgets.QWidget()
+        self.intermediate_widget.setWindowTitle('Intermediate Field Intensity')
+        self.intermediate_viewer = Viewer2D(self.intermediate_widget)
+
         self.other_plots_widget = QtWidgets.QWidget()
+        self.other_plots_widget.setWindowTitle('Other Plots')
         self.other_plots_widget.setLayout(QtWidgets.QVBoxLayout())
         other_area = gutils.DockArea()
         self.other_plots_widget.layout().addWidget(other_area)
@@ -251,7 +266,9 @@ class OpticalShaping(CustomExt):
                         'Save Phases to a file',)
 
         self.add_action('show_other_plots', 'Show Other Plots', 'visibility', checkable=True,
-                        icon_checked='visibility_off', toolbar='algorithm')
+                        icon_checked='visibility_off')
+        self.add_action('show_intermediate', 'Show Intermediate', 'visibility', checkable=True,
+                        icon_checked='visibility_off', tip='Show Field intensity in intermediate plane')
 
         logger.debug('DashBoard related actions')
         self.add_widget('dashboard_label', QtWidgets.QLabel('Dashboard:'),
@@ -284,6 +301,7 @@ class OpticalShaping(CustomExt):
 
         self.connect_action('settings', self.show_config)
         self.connect_action('show_other_plots', self.show_other_plots)
+        self.connect_action('show_intermediate', self.show_intermediate_field)
 
         self.connect_action('show_dashboard', self.show_dashboard)
 
@@ -306,15 +324,21 @@ class OpticalShaping(CustomExt):
 
         self.connect_action('save_phase', self.save_phase)
 
+        self.intermediate_viewer.roi_select_signal.connect(self._algorithm.update_intermediate_slice)
+
     def plot_fields(self, dte: DataToExport):
         fitness = dte.remove(dte.get_data_from_name('fitness'))
         dte_image = DataToExport('image', data=[
             dte.remove(dte.get_data_from_full_name(full_name)) for full_name in ['image/amplitude', 'image/phase']])
         dte_object = DataToExport('object', data=[
             dte.remove(dte.get_data_from_full_name(full_name)) for full_name in ['object/amplitude', 'object/phase']])
+        dwa_intermediate = dte.remove(dte.get_data_from_full_name('intermediate/intensity'))
+
         self.object_viewers.show_data(dte_object)
         self.image_viewers.show_data(dte_image)
         self.fitness_viewer.show_data(fitness)
+        if dwa_intermediate is not None:
+            self.intermediate_viewer.show_data(dwa_intermediate)
         self.other_viewers.show_data(dte)
 
     def show_corrections(self, show=True):
@@ -381,18 +405,24 @@ class OpticalShaping(CustomExt):
 
     def show_target(self, show=True):
         self._target_dockarea.setVisible(show)
-        self._target_dockarea.closeEvent = lambda event: self.set_action_checked('target', False)
+        self._target_dockarea.closeEvent = lambda event: self.get_action('target').trigger()
 
     def show_input(self, show=True):
         self._input_field_dockarea.setVisible(show)
-        self._input_field_dockarea.closeEvent = lambda event: self.set_action_checked('input', False)
+        self._input_field_dockarea.closeEvent = lambda event: self.get_action('input').trigger()
 
     def show_other_plots(self, show=True):
         self.other_plots_widget.setVisible(show)
+        self.other_plots_widget.closeEvent = lambda event: self.get_action('show_other_plots').trigger()
+
+    def show_intermediate_field(self, show=True):
+        self.intermediate_widget.setVisible(show)
+        self.intermediate_widget.closeEvent = lambda event: self.get_action('show_intermediate').trigger()
 
     def quit(self):
         self._input_field_dockarea.close()
         self._target_dockarea.close()
+        self.intermediate_widget.close()
         self.other_plots_widget.close()
         self.dockarea.parent().close()
         self.dashboard.quit_fun()

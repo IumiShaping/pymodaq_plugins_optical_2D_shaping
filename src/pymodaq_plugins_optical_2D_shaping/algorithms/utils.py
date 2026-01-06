@@ -191,13 +191,16 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         raise NotImplementedError
 
     def get_fields_to_plot(self) -> DataToExport:
-        return DataToExport('AlgoData', data=[
+        dte =  DataToExport('AlgoData', data=[
             self.image_field.amplitude_as_dwa('image'),
             self.image_field.phase_as_dwa('image'),
             self.fitness_as_dwa(),
             self.object_field.amplitude_as_dwa('object'),
             self.object_field.phase_as_dwa('object'),
         ])
+        if self.intermediate_field is not None:
+            dte.append(self.intermediate_field.intensity_as_dwa('intermediate'))
+        return dte
 
     def do_things_after_set_input(self):
         """ to reimplement if needed"""

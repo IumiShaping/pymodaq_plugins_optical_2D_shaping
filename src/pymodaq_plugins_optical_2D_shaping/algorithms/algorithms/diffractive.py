@@ -150,14 +150,6 @@ class OE2016(AlgoBase):
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
 
-        self.intermediate_field: Field = None
-
-    def get_fields_to_plot(self) -> DataToExport:
-        dte = super().get_fields_to_plot()
-        if self.intermediate_field is not None:
-            dte.append(self.intermediate_field.intensity_as_dwa(name='Intensity', origin_name='Intermediate'))
-        return dte
-
     def compute_phase(self):
 
         diff_phase = diff_factory.get_phase(self.settings['diff_model'],

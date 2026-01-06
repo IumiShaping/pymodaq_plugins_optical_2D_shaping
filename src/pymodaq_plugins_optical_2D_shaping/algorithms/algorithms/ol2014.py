@@ -48,12 +48,6 @@ class OL2014(AlgoBase):
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
 
-    def get_fields_to_plot(self) -> DataToExport:
-        dte = super().get_fields_to_plot()
-        if self.intermediate_field is not None:
-            dte.append(self.intermediate_field.intensity_as_dwa(name='Intensity', origin_name='Intermediate'))
-        return dte
-
     def compute_phase(self):
         odd_mask = self.create_checker_board()
         even_mask = 1 - odd_mask
