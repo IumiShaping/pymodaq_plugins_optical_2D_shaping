@@ -1,11 +1,26 @@
 from pathlib import Path
-from pymodaq_utils.logger import set_logger  # to be imported by other modules.
+from pymodaq_utils.logger import set_logger, get_module_name  # to be imported by other modules.
 from .utils import Config
+
+
 config = Config()  # before field loader factory otherwise it will generate an error
 
-from .field import field_loader_factory, LoaderFactory
-from .algorithms.factory import AlgorithmFactory
+from .field import LoaderFactory, register_loaders
+from .algorithms.factory import AlgorithmFactory, register_algorithms
 from .algorithms.utils import LensSetup
+
+logger = set_logger(get_module_name(__file__))
+
+
+logger.info('****************************************')
+logger.info('Registering Optical Shaping algorithms')
+register_algorithms()
+logger.info('****************************************')
+logger.info('****************************************')
+logger.info('Registering Optical Shaping Field loaders')
+register_loaders()
+logger.info('****************************************')
+logger.info('****************************************')
 
 algo_factory = AlgorithmFactory()
 loader_factory = LoaderFactory()

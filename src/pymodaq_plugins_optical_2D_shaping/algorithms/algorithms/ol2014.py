@@ -20,7 +20,7 @@ from pymodaq_data import Q_, DataToExport
 from pymodaq_gui.plotting.data_viewers import ViewerDispatcher, Viewer2D
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 
 logger = set_logger(get_module_name(__file__))
@@ -43,8 +43,6 @@ class OL2014(AlgoBase):
 
     params = [
         {'title': 'Mask block size (pxls)', 'name': 'block_size', 'type': 'int', 'value': 5, 'min': 1},
-        {'title': 'Circular Aperture (um)', 'name': 'circ_aperture', 'type': 'float',
-         'value': 500},
     ]
 
     def __init__(self, parent: 'AlgoApp' = None):
@@ -71,31 +69,22 @@ class OL2014(AlgoBase):
 
         self.set_phase_in_object_plane(theta_field.phase + alpha_field.phase)
 
-        circ_aperture = self.create_aperture(self.intermediate_pixel_sizes)
-        self.intermediate_field = self.object_field.fft2() * circ_aperture
+        if self.apply_mask(apply_to=ApplyMaskTo.INTERMEDIATE):
+            circ_aperture = self.get_mask_field(apply_to=ApplyMaskTo.INTERMEDIATE)
+            self.intermediate_field = self.object_field.fft2() * circ_aperture.amplitude
+        else:
+            self.intermediate_field = self.object_field.fft2()
         self.intermediate_field.calibrate_axes(self.intermediate_pixel_sizes)
         self.intermediate_field.axes = self.intermediate_field.get_axes()
 
         self._image_field = self.intermediate_field.ifft2()
 
         target_pixel_sizes = [((Q_(plugin_config('setup', 'wavelength_nm',), 'nm') *
-                               Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[1], 'mm')) /
+                               Q_(plugin_config('setup', str(self.SETUP_TYPE), 'focals')[1], 'mm')) /
                                (self.intermediate_pixel_sizes[ind] * theta_field.shape[ind])
                               ).to('um') for ind in range(2)]
         self.image_field.calibrate_axes(target_pixel_sizes)
         self.image_field.axes = self.image_field.get_axes()
-
-    def create_aperture(self, intermediate_pixel_size: Q_) -> np.ndarray:
-        x = np.arange(0, self._target_field.shape[1], 1) * intermediate_pixel_size[1]
-        y = np.arange(0, self._target_field.shape[0], 1) * intermediate_pixel_size[0]
-
-        xx, yy = np.meshgrid(x, y)
-        mask_field = np.zeros(self._target_field.shape)
-        mask_field[
-            np.sqrt((xx - np.mean(x)) ** 2 + (yy - np.mean(y)) ** 2)
-            <=
-            Q_(self.settings['circ_aperture'], 'um') / 2] = 1
-        return mask_field
 
     def create_checker_board(self) -> np.ndarray:
 

@@ -21,9 +21,9 @@ def register_loaders(parent_module_name: str = 'pymodaq_plugins_optical_2D_shapi
                 try:
                     loaders.append(import_module(f'.{file.stem}', loader_module.__name__))
                 except Exception as e:
-                    logger.exception(str(e))
-    except ModuleNotFoundError:
-        pass
+                    logger.warning(str(e))
+    except ModuleNotFoundError as e:
+        logger.exception(str(e))
     finally:
         return loaders
 

@@ -33,6 +33,16 @@ class LensSetup(StrEnum):
     FourF = '4f'
 
 
+class MaskType(StrEnum):
+    SQUARE = 'square'
+    ELLIPTICAL = 'elliptical'
+
+
+class ApplyMaskTo(StrEnum):
+    TARGET = 'target_mask'
+    INTERMEDIATE = 'intermediate_mask'
+
+
 class AlgoParameterManager(ParameterManager):
     settings_name = 'algo_settings'
 
@@ -68,28 +78,46 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self._object_field = Field(amplitude=self._input_field.amplitude.copy())
         self._object_field.calibrate_axes(self._input_field.pixels_sizes)
         self._image_field = Field()
-        self.mask: tuple[slice, slice] = None
+
+        self.update_mask = True
 
     def quit(self):
-        """ to reimplement if neccessary"""
+        """ to reimplement if necessary"""
         pass
 
-    def set_mask(self, slices: Union[tuple[slice, slice], None] = None):
-        """ Get a mask object from which one can compute image_field constraints (or not)"""
-        self.mask = slices
+    def apply_mask(self, apply_to: Union[ApplyMaskTo, str]) -> bool:
+        return self.parent_app.apply_mask(apply_to)
 
-    def mask_from_slices(self) -> Field:
-        """ Return a Field to be used to mask within the algorithm
+    def get_mask_slices(self, apply_to: Union[ApplyMaskTo, str]) -> tuple[slice, slice]:
+        """ Get the slices defined in the settings depending on the field it should apply to"""
+        return self.parent_app.get_mask_as_slices(apply_to)
+
+    def get_mask_field(self, apply_to: Union[ApplyMaskTo, str], inner_value=1, outer_value=0) -> Field:
+        """ Return a Field to be used to mask fields within the algorithm
 
         To be reimplemented if needed
-
-        Examples
-        --------
-        mask = Field.init_from_field(self._target_field).amplitude * 0
-        mask[*self.mask] = 1
-        return Field(amplitude=mask)
         """
-        raise MaskError
+        mask = Field.init_from_field(self._target_field).amplitude * outer_value
+
+        if self.apply_mask(apply_to) is not None:
+            slices = self.get_mask_slices(apply_to)
+            if self.get_mask_type(apply_to) == MaskType.SQUARE:
+                mask[*slices] = inner_value
+            else:
+
+                y0, x0 = tuple([(_slice.stop + _slice.start) / 2 for _slice in slices])
+                ry, rx = tuple([(_slice.stop - _slice.start) / 2 for _slice in slices])
+
+                x = np.arange(0, self._target_field.shape[1], 1)
+                y = np.arange(0, self._target_field.shape[0], 1)
+
+                xx, yy = np.meshgrid(x, y)
+                mask[
+                    (xx - x0) ** 2 / rx **2 + (yy - y0) ** 2 / ry **2 <= 1] = inner_value
+        return Field(amplitude=mask)
+
+    def get_mask_type(self, apply_to: Union[ApplyMaskTo, str]) -> MaskType:
+        return self.parent_app.get_mask_type(apply_to)
 
     @property
     def image_field(self) -> Field:

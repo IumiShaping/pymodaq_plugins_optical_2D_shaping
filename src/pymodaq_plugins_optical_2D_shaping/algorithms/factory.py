@@ -3,7 +3,12 @@ from pathlib import Path
 
 from typing import Callable
 
+
+from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase
+
+
+logger = set_logger(get_module_name(__file__))
 
 
 def register_algorithms(parent_module_name: str = 'pymodaq_plugins_optical_2D_shaping'):
@@ -18,10 +23,10 @@ def register_algorithms(parent_module_name: str = 'pymodaq_plugins_optical_2D_sh
             if file.is_file() and 'py' in file.suffix and file.stem != '__init__':
                 try:
                     algorithms.append(import_module(f'.{file.stem}', algorithm_module.__name__))
-                except ModuleNotFoundError:
-                    pass
-    except ModuleNotFoundError:
-        pass
+                except (ModuleNotFoundError, NotImplementedError) as e:
+                    logger.warning(str(e))
+    except ModuleNotFoundError as e:
+        logger.warning(str(e))
     finally:
         return algorithms
 
@@ -42,7 +47,7 @@ class AlgorithmFactory:
             the exporter class
         """
 
-        def inner_wrapper(wrapped_class: AlgoBase) -> AlgoBase:
+        def inner_wrapper(wrapped_class: type[AlgoBase]) -> type[AlgoBase]:
             algo_name = wrapped_class.ALGO_NAME
             if algo_name is None:
                 raise NotImplementedError('The reimplemented algorithm must have a valid ALGO_NAME string attribute')
@@ -59,7 +64,7 @@ class AlgorithmFactory:
         return inner_wrapper
 
     @classmethod
-    def get_algorithm(cls, algo_name: str) -> AlgoBase:
+    def get_algorithm(cls, algo_name: str) -> type[AlgoBase]:
         """Factory command to get registered algorithms
         .
         This method gets the appropriate executor class from the registry

@@ -21,13 +21,13 @@ from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp, AlgoBase
 from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, Field, Q_
 from pymodaq_plugins_optical_2D_shaping.utilities.corrections import Correction
-from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
+from pymodaq_plugins_optical_2D_shaping.algorithms import AlgorithmFactory, AlgoBase
 
 logger = set_logger(get_module_name(__file__))
 
 config = Config()
 plugin_config = PluginConfig()
-
+algo_factory = AlgorithmFactory
 
 EXTENSION_NAME = 'Optical Shaping'
 CLASS_NAME = 'OpticalShaping'

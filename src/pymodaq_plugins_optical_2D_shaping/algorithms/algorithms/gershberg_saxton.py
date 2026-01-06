@@ -16,7 +16,7 @@ from pymodaq_data import Q_
 from pymodaq_gui.parameter import Parameter
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 
 
@@ -94,15 +94,14 @@ class GbSaxAdaptiveWeighted(GbSax):
 
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
-
         self.amplitude_mask: Field = None
 
     def evolve_field(self):
-        if self.mask is not None and (
-                self.amplitude_mask is None or self._target_field.shape != self.amplitude_mask.shape):
-            self.amplitude_mask = self.mask_from_slices()
+        if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
+            if self.update_mask:
+                self.amplitude_mask = self.get_mask_field(ApplyMaskTo.TARGET, inner_value=1, outer_value=0)
+                self.update_mask = False
 
-        if self.mask is not None and self.amplitude_mask is not None:
             mask_target = self.amplitude_mask.amplitude
             mask_noise = np.ones_like(mask_target) - mask_target
             amplitude = (self._target_field.amplitude * mask_target  *
@@ -117,11 +116,6 @@ class GbSaxAdaptiveWeighted(GbSax):
         field_object_corrected = field_image_corrected.ifft2()
 
         self.set_phase_in_object_plane(field_object_corrected.phase)
-
-    def mask_from_slices(self) -> Field:
-        mask = Field.init_from_field(self._target_field).amplitude * 0
-        mask[*self.mask] = 1
-        return Field(amplitude=mask)
 
 
     @property

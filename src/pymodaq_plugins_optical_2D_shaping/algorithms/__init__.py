@@ -1,6 +1,1 @@
-from .factory import AlgorithmFactory, register_algorithms, AlgoBase
-
-register_algorithms()
-
-
-algo_factory = AlgorithmFactory()
+from .factory import AlgorithmFactory, AlgoBase  # leave it here as it is used elsewhere

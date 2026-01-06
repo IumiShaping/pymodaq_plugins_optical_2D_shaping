@@ -18,14 +18,15 @@ from pymodaq_gui.utils.dock import DockArea, Dock
 from pymodaq_gui.utils.file_io import select_file
 
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
-from pymodaq_plugins_optical_2D_shaping.field import Field, field_loader_factory, Q_
-from pymodaq_plugins_optical_2D_shaping.field.factory import LoaderFactory, FieldLoader
+from pymodaq_plugins_optical_2D_shaping.field import Field, Q_, LoaderFactory, FieldLoader
 
 from pymodaq_gui.managers.roi_manager import ROI2D_TYPES, ROI
 
 
 config_utils = Config()
+field_loader_factory = LoaderFactory(
 
+)
 
 class FieldLoaderApp(CustomApp):
 

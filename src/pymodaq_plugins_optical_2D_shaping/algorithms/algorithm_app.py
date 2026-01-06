@@ -11,29 +11,41 @@ from pymodaq_data.h5modules.data_saving import DataToExportSaver
 from pymodaq_data.h5modules.saving import SaveType
 
 from pymodaq_gui.managers.parameter_manager import Parameter
-from pymodaq_gui.plotting.data_viewers import ViewerDispatcher, Viewer0D
 from pymodaq_gui.utils.custom_app import CustomApp
+from pymodaq_utils.enums import StrEnum
 from pymodaq_gui.utils.dock import DockArea, Dock
 from pymodaq_gui.utils import QLED
 from pymodaq_gui.utils.file_io import select_file
 from pymodaq_gui.parameter import ioxml
-from pymodaq_gui.utils.widget_sync import WidgetSync, SyncMode
-from pymodaq_gui.managers.roi_manager import ROI2D_TYPES, ROI
-from pymodaq_gui.plotting.utils.plot_utils import RoiInfo
+from pymodaq_gui.parameter import utils as putils
 
-from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import TargetPhase
+from pymodaq_plugins_optical_2D_shaping.algorithms import AlgorithmFactory, AlgoBase
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import TargetPhase, ApplyMaskTo, MaskType, LensSetup
 from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
+
+
+algo_factory = AlgorithmFactory()
+
 
 
 
 class AlgoApp(CustomApp):
     params = [
         {'title': 'Target Phase', 'name': 'target_phase', 'type': 'list',
-         'limits': TargetPhase.values(), 'value': TargetPhase.QUADRATIC.value, },
-        {'title': 'Masking', 'name': 'masking', 'type': 'group', 'children': [
+         'limits': TargetPhase.values(), 'value': str(TargetPhase.QUADRATIC), },
+        {'title': 'Target Masking', 'name': str(ApplyMaskTo.TARGET), 'type': 'group', 'children': [
             {'title': 'Apply Mask', 'name': 'apply_mask', 'type': 'bool', 'value': False},
+            {'title': 'Mask Type', 'name': 'mask_type', 'type': 'list', 'value': str(MaskType.SQUARE),
+             'limits': MaskType.names()},
+            {'title': 'Slices', 'name': 'slices', 'type': 'str',
+             'value': '(slice(162, 882, None), slice(545, 1825, None))'},
+        ]},
+        {'title': 'Intermediate Masking', 'name': str(ApplyMaskTo.INTERMEDIATE), 'type': 'group',
+         'visible': False, 'children': [
+            {'title': 'Apply Mask', 'name': 'apply_mask', 'type': 'bool', 'value': False},
+            {'title': 'Mask Type', 'name': 'mask_type', 'type': 'list', 'value': str(MaskType.ELLIPTICAL),
+             'limits': MaskType.names()},
             {'title': 'Slices', 'name': 'slices', 'type': 'str',
              'value': '(slice(162, 882, None), slice(545, 1825, None))'},
         ]}
@@ -60,15 +72,9 @@ class AlgoApp(CustomApp):
 
         self.enable_things(False)
 
-        #self.get_action('ini_algo').trigger()
-
     @property
     def algorithm_combo(self) -> QtWidgets.QComboBox:
         return self.get_action('algorithms')
-
-    # @property
-    # def algorithm_param(self) -> Parameter:
-    #     return self.settings.child('algorithm')
 
     @property
     def algorithm(self):
@@ -110,6 +116,9 @@ class AlgoApp(CustomApp):
             setup_types.remove(self._algorithm.SETUP_TYPE.value)
             plugin_config['setup', 'setup_type'] = [self._algorithm.SETUP_TYPE.value] + setup_types
             plugin_config.save()
+
+            self.settings.child(str(ApplyMaskTo.INTERMEDIATE)).setOpts(
+                visible=self._algorithm.SETUP_TYPE == LensSetup.FourF)
 
             while True:
                 child = self._algo_settings_widget.layout().takeAt(0)
@@ -213,18 +222,27 @@ class AlgoApp(CustomApp):
         self.command_runner.emit(ThreadCommand('snap'))
         self.set_action_enabled('grab', True)
 
-    def value_changed(self, param: Parameter):
+    def apply_mask(self, apply_to: ApplyMaskTo) -> bool:
+        return self.settings[str(apply_to), 'apply_mask']
 
-        if param.name() in ('apply_mask', 'slices'):
-            if self.settings['masking', 'apply_mask']:
-                slices = eval(self.settings['masking', 'slices'])
-                if hasattr(slices, '__iter__'):
-                    for _slice in slices:
-                        if not isinstance(_slice, slice):
-                            return
-                    self.algorithm.set_mask(slices)
-            else:
-                self.algorithm.set_mask(None)
+    def get_mask_as_slices(self, apply_to: ApplyMaskTo) -> Union[None, tuple[slice, slice]]:
+        if self.apply_mask(apply_to):
+            slices = eval(self.settings[str(apply_to), 'slices'])
+            if hasattr(slices, '__iter__'):
+                for _slice in slices:
+                    if not isinstance(_slice, slice):
+                        return None
+            return slices
+        else:
+            return None
+
+    def get_mask_type(self, apply_to: ApplyMaskTo) -> MaskType:
+        return MaskType[self.settings[str(apply_to), 'mask_type']]
+
+    def value_changed(self, param: Parameter):
+        for applied in ApplyMaskTo.values():
+            if applied in putils.get_param_path(param):
+               self._algorithm.update_mask = True
 
     def algo_settings_changed(self):
         self.algo_changed.emit(self.algorithm)
