@@ -151,10 +151,12 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
     def set_object_field(self, field: Field):
         self._object_field = field
+        self.do_things_after_set_object()
 
     def set_target_field(self, field: Field):
         self._target_field = field
         self._image_field = Field.init_from_field(self._target_field)
+        self.do_things_after_set_target()
 
     def set_target_intensity(self, intensity: np.ndarray):
         self._target_field.amplitude = np.sqrt(intensity)
@@ -205,9 +207,22 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
             dte.append(self.intermediate_field.intensity_as_dwa('intermediate'))
         return dte
 
+    def do_things_after_init(self):
+        """ to reimplement if needed"""
+        pass
+
     def do_things_after_set_input(self):
         """ to reimplement if needed"""
         pass
+
+    def do_things_after_set_target(self):
+        """ to reimplement if needed"""
+        pass
+
+    def do_things_after_set_object(self):
+        """ to reimplement if needed"""
+        pass
+
 
     def scale_target_with_geometry(self, field: Field):
         """ Apply an axis scaling to have the target and its axes in correct units with respect to

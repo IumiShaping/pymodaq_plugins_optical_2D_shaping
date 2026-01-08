@@ -310,6 +310,7 @@ class AlgoRunner(QtCore.QObject):
         super().__init__()
 
         self.algo: AlgoBase = algo
+        self.algo.do_things_after_init()
         self.running = False
 
     def queue_command(self, command: ThreadCommand):
