@@ -6,13 +6,11 @@ Created the 20/07/2023
 """
 from pathlib import Path
 from typing import Union, Tuple, List, TYPE_CHECKING, Any
+from qtpy import QtWidgets, QtCore
 
 import numpy as np
-from pymodaq_utils.enums import StrEnum
+
 from pymodaq_utils.logger import set_logger, get_module_name
-from pymodaq.utils.data import DataFromPlugins, DataToExport, DataRaw
-from pymodaq_utils import math_utils as mutils
-from pymodaq_data import Q_
 from pymodaq_gui.parameter import Parameter
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
@@ -53,52 +51,40 @@ class ConjugateGradient(AlgoBase):
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
         self._slices: tuple[slice, slice] = None
-        self._loss_function:  nn.MSELoss = None
+
         self.phase_distribution: torch.nn.Parameter = None
         self._calculated_fitness = 0.
+        self._loss: torch.Tensor = None
+        self.target_torch: torch.Tensor = None
+        self.image_torch: torch.Tensor = None
+
+        self._loss_function:  nn.MSELoss = None
 
     def value_changed(self, param: Parameter):
         self.parent_app.algo_settings_changed()
 
-    def do_things_after_set_input(self):
-        """ to reimplement if needed"""
-        pass
+    def do_things_after_init(self):
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.WaitCursor)
 
-    def do_things_after_set_target(self):
-        """ to reimplement if needed"""
-        self.target_torch = torch.asarray(self._target_field.field)
-
-    def do_things_after_set_object(self):
-        """ to reimplement if needed"""
         # Initialize phase distribution as trainable parameter
         self.phase_distribution = torch.nn.Parameter(torch.asarray(self.object_field.phase))
-        self.object_torch = (torch.Tensor(torch.asarray(self.object_field.amplitude)) *
-                             torch.exp(1j * self.phase_distribution))
-
-    def do_things_after_init(self):
-
+        self.target_torch = torch.asarray(self._target_field.field)
+        self._loss_function = nn.MSELoss()
         self.optimizer = optim_ncg.BASIC([self.phase_distribution], method='LS',
                                          line_search='Armijo', c1=1e-4, c2=0.9, lr=1,
                                          rho=0.5)  # OK
-        self._loss_function = nn.MSELoss()
+        QtWidgets.QApplication.restoreOverrideCursor()
+
+    @property
+    def object_torch(self) -> torch.Tensor:
+        return torch.Tensor(torch.asarray(self.object_field.amplitude)) * torch.exp(1j * self.phase_distribution)
 
     def propagate_field(self):
         self.image_torch = torch.fft.fft2(self.object_torch)
+        img_array = self.image_torch.numpy(force=True)
+        self._image_field = self.scale_target_with_geometry(
+            Field('image', np.abs(img_array), np.angle(img_array)))
 
-    def compute_loss(self):
-        d=2
-        if self._slices is None:
-            slices = (Ellipsis, Ellipsis)
-        else:
-            slices = self._slices
-        max_amplitude = torch.max(torch.abs(self.image_torch[*slices])**2 * torch.abs(self.target_torch[*slices])**2)
-
-        loss = 10 ** d * (
-                1 - torch.sum(
-            torch.sqrt(
-                1/ max_amplitude * torch.abs(self.image_torch[*slices])**2 * torch.abs(self.target_torch[*slices])**2)
-            * torch.cos(torch.angle(self.image_torch[*slices]) - torch.angle(self.target_torch[*slices]))))**2
-        return loss
 
     def closure(self):
         self.optimizer.zero_grad()
@@ -109,15 +95,33 @@ class ConjugateGradient(AlgoBase):
                 self._slices = self.get_mask_slices(ApplyMaskTo.TARGET)
                 self.update_mask = False
         else:
-            self._slices = None
-        loss = self.compute_loss(self.image_torch, self.target_torch, self._slices)
+            self._slices = (Ellipsis, Ellipsis)
+
+        d=2
+        # max_amplitude = torch.max(torch.abs(self.image_torch[*self._slices])**2 *
+        #                           torch.abs(self.target_torch[*self._slices])**2)
+
+        # loss = 10 ** d * (
+        #         1 - torch.sum(
+        #     torch.sqrt(
+        #         1/ max_amplitude *
+        #         torch.abs(self.image_torch[*self._slices])**2 *
+        #         torch.abs(self.target_torch[*self._slices])**2) *
+        #     torch.cos(torch.angle(self.image_torch[*self._slices]) -
+        #               torch.angle(self.target_torch[*self._slices]))))**2
+
+        loss = self._loss_function(torch.abs(self.image_torch[*self._slices]),
+                                   torch.abs(self.target_torch[*self._slices]))
+        loss.backward(retain_graph=True)
+        self._calculated_fitness = loss.numpy(force=True)
+
         return loss
 
     def evolve_field(self):
 
-        self._calculated_fitness = self.optimizer.step(self.closure)
+        self.optimizer.step(self.closure)
 
-        self.set_phase_in_object_plane(self.phase_distribution.data)
+        self.set_phase_in_object_plane(self.phase_distribution.data.numpy(force=True))
 
     def compute_phase(self):
         self.propagate_field()
@@ -126,7 +130,7 @@ class ConjugateGradient(AlgoBase):
     @property
     def fitness(self) -> float:
         """ Compute fitness with respect to the image_field and target_field """
-        self._calculated_fitness
+        return float(self._calculated_fitness)
 
 
 
