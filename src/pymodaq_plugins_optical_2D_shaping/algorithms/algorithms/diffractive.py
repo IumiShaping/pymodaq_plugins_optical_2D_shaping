@@ -10,8 +10,6 @@ from pathlib import Path
 from typing import Union, Tuple, List, Callable, TYPE_CHECKING
 
 import numpy as np
-
-
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_data import Q_, DataToExport
 
@@ -190,8 +188,7 @@ class Arrizon(PhasePattern):
     METHOD = 'E'
 
     def generate_phase(self) -> np.ndarray:
-        Mfactor = (1 - 1 / np.pi * approx_inverse_sinc(self.relative_amplitude()))
-        return Mfactor * (self.relative_phase() - np.pi * Mfactor)
+        raise NotImplementedError
 
 
 
