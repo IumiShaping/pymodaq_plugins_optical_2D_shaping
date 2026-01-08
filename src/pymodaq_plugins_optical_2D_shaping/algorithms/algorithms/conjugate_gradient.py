@@ -55,20 +55,27 @@ class ConjugateGradient(AlgoBase):
         self._slices: tuple[slice, slice] = None
         self._loss_function:  nn.MSELoss = None
         self.phase_distribution: torch.nn.Parameter = None
+        self._calculated_fitness = 0.
 
     def value_changed(self, param: Parameter):
         self.parent_app.algo_settings_changed()
 
     def do_things_after_set_input(self):
-        """ Apply the initial phase to the object field """
+        """ to reimplement if needed"""
+        pass
 
-        # Initialize phase distribution as trainable parameter
-        self.phase_distribution = torch.nn.Parameter(torch.asarray(self.object_field.phase))
-
+    def do_things_after_set_target(self):
+        """ to reimplement if needed"""
         self.target_torch = torch.asarray(self._target_field.field)
 
+    def do_things_after_set_object(self):
+        """ to reimplement if needed"""
+        # Initialize phase distribution as trainable parameter
+        self.phase_distribution = torch.nn.Parameter(torch.asarray(self.object_field.phase))
         self.object_torch = (torch.Tensor(torch.asarray(self.object_field.amplitude)) *
                              torch.exp(1j * self.phase_distribution))
+
+    def do_things_after_init(self):
 
         self.optimizer = optim_ncg.BASIC([self.phase_distribution], method='LS',
                                          line_search='Armijo', c1=1e-4, c2=0.9, lr=1,
@@ -78,10 +85,12 @@ class ConjugateGradient(AlgoBase):
     def propagate_field(self):
         self.image_torch = torch.fft.fft2(self.object_torch)
 
-    def compute_loss(self, image_field: torch.Tensor, target_field: torch.Tensor, slices: tuple[slice, slice] = None):
+    def compute_loss(self):
         d=2
-        if slices is None:
+        if self._slices is None:
             slices = (Ellipsis, Ellipsis)
+        else:
+            slices = self._slices
         max_amplitude = torch.max(torch.abs(self.image_torch[*slices])**2 * torch.abs(self.target_torch[*slices])**2)
 
         loss = 10 ** d * (
@@ -99,25 +108,16 @@ class ConjugateGradient(AlgoBase):
 
                 self._slices = self.get_mask_slices(ApplyMaskTo.TARGET)
                 self.update_mask = False
-
-            d = 2
-            loss = self._loss_function(,
-                                 torch.zeros(target_amplitude[imin:imax, jmin: jmax].shape))
-
         else:
-            amplitude = self._target_field.amplitude
+            self._slices = None
+        loss = self.compute_loss(self.image_torch, self.target_torch, self._slices)
+        return loss
 
+    def evolve_field(self):
 
-        def evolve_field(self):
+        self._calculated_fitness = self.optimizer.step(self.closure)
 
-        amplitude = self._target_field.amplitude
-
-        field_image_corrected = Field(amplitude=amplitude,
-                                      phase=self._image_field.phase,
-                                      pixel_sizes=self._image_field.pixels_sizes)
-        field_object_corrected = field_image_corrected.ifft2()
-
-        self.set_phase_in_object_plane(field_object_corrected.phase)
+        self.set_phase_in_object_plane(self.phase_distribution.data)
 
     def compute_phase(self):
         self.propagate_field()
@@ -126,13 +126,7 @@ class ConjugateGradient(AlgoBase):
     @property
     def fitness(self) -> float:
         """ Compute fitness with respect to the image_field and target_field """
-        if self.amplitude_mask is not None:
-            return 100 * np.sum(
-                np.abs(np.sqrt(self._target_field.intensity)
-                       - self._image_field.intensity) * self.amplitude_mask.amplitude) ** 2 \
-                / np.prod(self._image_field.shape) / np.sum(self._target_field.intensity * self.amplitude_mask.amplitude)
-        else:
-            return super().fitness
+        self._calculated_fitness
 
 
 
