@@ -38,7 +38,7 @@ class FieldLoader(FieldLoaderParameterManager, metaclass=ABCMeta):
 
     def __init__(self, *args, **kwargs):
         super().__init__()
-        self.parent_app = kwargs.pop('parent')
+        self.parent_app = kwargs.pop('parent', None)
 
         self._listener = dict()
         self.field = Field()

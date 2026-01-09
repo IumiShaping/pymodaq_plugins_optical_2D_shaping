@@ -209,6 +209,17 @@ class Field(DataRaw):
 
         self.data = [amp_array, phase_array]
 
+    @property
+    def real_field(self) -> np.ndarray:
+        """ return the real part of the field as a 2D array"""
+        return self.amplitude * np.cos(self.phase)
+
+    @property
+    def imag_field(self):
+        """ return the imaginary part of the field as a 2D array"""
+        return self.amplitude * np.sin(self.phase)
+
+
     def amplitude_as_dwa(self, origin_name: str = '', name: str = None):
         if not (name is None or isinstance(name, str)):
             name = 'amplitude'
