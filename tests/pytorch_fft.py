@@ -4,6 +4,9 @@ from pymodaq_plugins_optical_2D_shaping.field import Field
 from time import perf_counter
 
 import torch
+device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
+print(f"Using {device} device")
+torch.set_default_device(device)
 
 from pymodaq_gui.utils.utils import mkQApp
 
