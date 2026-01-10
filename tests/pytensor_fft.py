@@ -46,7 +46,7 @@ compiled = perf_counter() - start
 print(f'Compilation time: {compiled}')
 
 calculated = perf_counter()
-for ind in range(100):
+for ind in range(10):
     out = f_rfft2()
 
     calculated = perf_counter() - calculated
