@@ -18,7 +18,7 @@ from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_gui.parameter import Parameter
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo, TargetPhase
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 
 import torch
@@ -59,22 +59,51 @@ class ConjugateGradient(AlgoBase):
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
         self._slices: tuple[slice, slice] = None
-
+        self.iter = 0
         self._phase_tensor: torch.tensor = None
+
+        self._module: Union[torch, np] = torch
+        self.module = torch
 
         self._calculated_fitness: float = 0.
 
         self._loss_function = MSELoss()
 
+    @property
+    def module(self):
+        return self.module
+
+    @module.setter
+    def module(self, mod: Union[torch, np]) -> None:
+        self._module = mod
+        self.abs = getattr(mod, 'abs')
+        self.sum = getattr(mod, 'sum')
+        self.exp = getattr(mod, 'exp')
+
+        if mod is torch:
+            self.fft2 = torch.fft.fft2
+            self.fftshift = torch.fft.fftshift
+        else:
+            self.fft2 = np.fft.fft2
+            self.fftshift = np.fft.fftshift
+
+
     def value_changed(self, param: Parameter):
         self.parent_app.algo_settings_changed()
 
+
     def do_things_after_init(self):
         # Initialize phase distribution as trainable parameter
-        self.phase_distribution = self.object_field.phase
+        self.phase_distribution = self.define_input_phase()
         self._amplitude_tensor = torch.tensor(self.object_field.amplitude)
+        self._target_tensor = torch.tensor(self._target_field.field)
         #self.compute_loss()
 
+        self.compute_image_field(self._phase_tensor)
+        self.update_plots(self._phase_tensor.reshape(np.prod(self._phase_tensor.shape)))
+
+        QtWidgets.QApplication.processEvents()
+        QtWidgets.QApplication.processEvents()
     @property
     def phase_distribution(self):
         return self._phase_tensor.detach().numpy()
@@ -83,25 +112,55 @@ class ConjugateGradient(AlgoBase):
     def phase_distribution(self, value: np.ndarray):
         self._phase_tensor = torch.tensor(value, requires_grad=True)
 
-    def compute_loss(self, phase_input: torch.tensor) -> torch.tensor:
-        self.fft2_field = torch.fft.fftshift(
-            torch.fft.fft(
-                torch.fft.fftshift(
-                    self._amplitude_tensor * torch.exp(1j * phase_input)
+    def compute_image_field(self, phase_input: Union[torch.tensor, np.ndarray]) -> Union[torch.tensor, np.ndarray]:
+        self.image_tensor = self.fftshift(
+            self.fft2(
+                self.fftshift(
+                    self._amplitude_tensor * self.exp(1j * phase_input)
                 )
             )
         )
 
-        loss = self._loss_function(torch.abs(self.fft2_field), torch.tensor(self._target_field.amplitude))
 
+    def loss_function(self,
+                      field_tested: Union[torch.tensor, np.ndarray],
+                      field_target: Union[torch.tensor, np.ndarray]) -> Union[torch.tensor, np.ndarray]:
+        if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
+            slices = self.get_mask_slices(ApplyMaskTo.TARGET)
+        else:
+            slices = (Ellipsis, Ellipsis)
+        return self.sum((self.abs(field_tested[*slices]) ** 2 - self.abs(field_target[*slices]) ** 2) ** 2)
+
+    def compute_loss(self, phase) -> torch.tensor:
+        self.compute_image_field(phase)
+        loss = self.loss_function(self.image_tensor, self._target_tensor)
         self._calculated_fitness = loss.item()
         return loss
 
     def evolve_field(self):
         pass
 
+    def update_plots(self, phase):
+        self.iter += 1
+
+        image_array = self.image_tensor.detach().numpy()
+
+        self._image_field = Field('image',
+                                  np.abs(image_array),
+                                  np.angle(image_array))
+        phase = phase.detach().numpy().reshape(self.object_field.shape)
+        phase = (phase + np.pi) % (2 * np.pi) - np.pi
+        self.set_phase_in_object_plane(phase)
+        print(f'{self.iter}')
+        self.parent_app.fields_to_plot.emit(self.get_fields_to_plot())
+
+
     def compute_phase(self):
-        result = minimize(self.compute_loss, self.phase_distribution, method='newton-cg')
+        self.iter = 0
+        self.phase_distribution = self.define_input_phase()
+
+        result = minimize(self.compute_loss, self._phase_tensor, method='cg', max_iter=200,
+                          callback=self.update_plots)
 
         print(result)
         # loss = self.compute_loss()
@@ -117,7 +176,7 @@ class ConjugateGradient(AlgoBase):
 
 
         self.set_phase_in_object_plane(result.x.detach().numpy())
-        img_array = self.fft2_field.detach().numpy()
+        img_array = self.image_tensor.detach().numpy()
         self._image_field = self.scale_target_with_geometry(
             Field('image', np.abs(img_array), np.angle(img_array)))
 

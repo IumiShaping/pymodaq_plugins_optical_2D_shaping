@@ -134,7 +134,12 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self._input_field = field
         self.do_things_after_set_input()
 
-    def define_input_phase(self, phase_type: 'TargetPhase'):
+    def get_phase_type(self) -> TargetPhase:
+        return TargetPhase(self.parent_app.settings['target_phase'])
+
+    def define_input_phase(self, phase_type: TargetPhase = None):
+        if phase_type is None:
+            phase_type = self.get_phase_type()
         shape = self._object_field.shape
         if phase_type == TargetPhase.RANDOM:
             phase = np.random.random_sample(shape) * 2 *np.pi
@@ -148,6 +153,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
             raise ValueError('Unknown phase type')
 
         self.set_phase_in_object_plane(phase)
+        return phase
 
     def set_object_field(self, field: Field):
         self._object_field = field

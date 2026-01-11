@@ -12,8 +12,8 @@ from pymodaq_plugins_optical_2D_shaping.field.utils import (FieldLoader, LoadTyp
 from pymodaq_plugins_optical_2D_shaping.field.factory import LoaderFactory
 
 resources_path = Path(__file__).parent.parent.parent.joinpath('resources')
-ferris_wheel = resources_path.joinpath('ferris_wheel_3_11_pluto.h5')
-
+#ferris_wheel = resources_path.joinpath('ferris_wheel_3_11_pluto_setup_4f.h5')
+ferris_wheel = resources_path.joinpath('ferris_wheel_3_11_pluto_setup_2f.h5')
 
 logger = set_logger(get_module_name(__file__))
 
