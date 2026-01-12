@@ -44,9 +44,23 @@ class GbSax(AlgoBase):
 
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
+        self._algo_init = False
 
     def value_changed(self, param: Parameter):
         self.parent_app.algo_settings_changed()
+
+    def do_things_after_set_target(self):
+        if self._algo_init:  #make sure target and object have same shape
+
+            #normalize target_intensity wrt input amplitude
+            self._target_field = self._target_field / np.max(np.abs(self._target_field.field))
+            self._target_field = self._target_field * (np.sum(self._object_field.amplitude ** 2) /
+                                   np.sum(self._target_field.amplitude ** 2))
+
+    def do_things_after_init(self):
+        if not self._algo_init:
+            self._algo_init = True
+            self.do_things_after_set_target()
 
     def do_things_after_set_input(self):
         """ Apply the initial phase to the object field """
@@ -54,7 +68,7 @@ class GbSax(AlgoBase):
         pass
 
     def propagate_field(self):
-        self._image_field = self._object_field.fft2()
+        self._image_field = self._object_field.fft2(norm='forward')
         self._image_field = self.scale_target_with_geometry(self._image_field)
 
     def evolve_field(self):
@@ -64,7 +78,7 @@ class GbSax(AlgoBase):
         field_image_corrected = Field(amplitude=amplitude,
                                       phase=self._image_field.phase,
                                       pixel_sizes=self._image_field.pixels_sizes)
-        field_object_corrected = field_image_corrected.ifft2()
+        field_object_corrected = field_image_corrected.ifft2(norm='forward')
 
         self.set_phase_in_object_plane(field_object_corrected.phase)
 
@@ -113,7 +127,7 @@ class GbSaxAdaptiveWeighted(GbSax):
         field_image_corrected = Field(amplitude=amplitude,
                                       phase=self._image_field.phase,
                                       pixel_sizes=self._image_field.pixels_sizes)
-        field_object_corrected = field_image_corrected.ifft2()
+        field_object_corrected = field_image_corrected.ifft2(norm='forward')
 
         self.set_phase_in_object_plane(field_object_corrected.phase)
 
