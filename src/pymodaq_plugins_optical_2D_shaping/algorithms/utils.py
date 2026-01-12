@@ -166,6 +166,23 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         wavelength = Q_(plugin_config('setup', 'wavelength_nm', ), 'nm')
         return pixel_sizes ** 2 / (wavelength * self.focal_quad()) * np.pi
 
+    def _compute_linear_factor(self):
+        if self.apply_mask(ApplyMaskTo.TARGET):
+            _slices = self.get_mask_slices(ApplyMaskTo.TARGET)
+            shift_y, shift_x = tuple([(_slice.stop + _slice.start) / 2 - self.object_field.shape[ind] / 2
+                                      for ind, _slice in enumerate(_slices)])
+        else:
+            shift_y, shift_x = (0., 0.)
+
+        pixel_SLM = Q_(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
+        setup_type = plugin_config('setup', 'setup_type')[0]
+        focal_postSLM = Q_(plugin_config('setup', setup_type, 'focals')[0], 'mm')
+        wavelength = Q_(plugin_config('setup', 'wavelength_nm'), 'nm')
+
+        coeff = (2*np.pi / (wavelength * focal_postSLM))
+
+        return  ((shift_y * coeff * pixel_SLM).to_reduced_units().magnitude,
+                 (shift_x * coeff * pixel_SLM).to_reduced_units().magnitude)
 
     def define_input_phase(self, phase_type: TargetPhase = None) -> np.ndarray:
         if phase_type is None:
@@ -179,16 +196,19 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
             xlin = np.linspace(-nx//2, nx//2 , nx , endpoint=True)
             ylin = np.linspace(-ny//2, ny//2 , ny , endpoint=True )
 
-            r = (self._compute_quadratic_factor().to_reduced_units().magnitude *
-                 self.parent_app.settings['target_phase_group', 'params', 'R']) * 1.5  # addhoc coefficent to match target size
+            r = ((self._compute_quadratic_factor().to_reduced_units().magnitude *  # approximated from two lens computation
+                 self.parent_app.settings['target_phase_group', 'params', 'quad_amp'])  # manual coefficient to move the shift
+                 * 1.75)  # adhoc coefficient to match target size
             xx_quad, yy_quad = np.meshgrid( r[1] * xlin ** 2,
                                             r[0] * ylin ** 2)
             phase = xx_quad + yy_quad
 
             if phase_type == TargetPhase.QUADRATIC_SHIFT:
-                theta = self.parent_app.settings['target_phase_group', 'params', 'theta']
-                d = self.parent_app.settings['target_phase_group', 'params', 'D'] * np.pi
-                xxlin, yylin = np.meshgrid(d * xlin * np.cos(theta * np.pi), d * ylin * np.sin(theta * np.pi))
+                coeff = self._compute_linear_factor()  # approximated from lens computation
+                d = (self.parent_app.settings['target_phase_group', 'params', 'shift_amp']  # manual coefficient to move the shift
+                     * 3) # adhoc coefficient to correctly match target roi position
+                xxlin, yylin = np.meshgrid(d * coeff[1] * xlin,
+                                           d * coeff[0] * ylin)
                 phase += xxlin + yylin
 
         else:

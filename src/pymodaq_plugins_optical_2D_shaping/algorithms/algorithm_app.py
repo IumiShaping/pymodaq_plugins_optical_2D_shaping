@@ -41,10 +41,8 @@ class AlgoApp(CustomApp):
               'tip': 'The phase is built from this expression: R (p**2 + q**2) + D (p cos θ + q sin θ) where p and q are'
                      'the normalized pixel indexes',
               'children': [
-                  {'title': 'Quadratic amp (R)', 'name': 'R', 'type': 'float', 'value': 1., 'suffix': 'np.pi rad'},
-                  {'title': 'Shift Amplitude(D)', 'name': 'D', 'type': 'float', 'value': -0.0, 'suffix': 'np.pi rad'},
-                  {'title': 'Shift direction (Theta)', 'name': 'theta', 'type': 'float', 'value': 0.25,
-                   'suffix': 'np.pi rad'},
+                  {'title': 'Quadratic Amplitude ', 'name': 'quad_amp', 'type': 'float', 'value': 1.},
+                  {'title': 'Shift Amplitude', 'name': 'shift_amp', 'type': 'float', 'value': 1.},
               ]},
          ]},
         {'title': 'Target Masking', 'name': str(ApplyMaskTo.TARGET), 'type': 'group', 'children': [

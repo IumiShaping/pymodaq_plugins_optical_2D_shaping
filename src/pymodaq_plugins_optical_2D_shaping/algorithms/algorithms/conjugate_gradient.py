@@ -55,8 +55,8 @@ class ConjugateGradient(AlgoBase):
     ITERATIVE = True
 
     params = [
-        {'title': 'Max Iterations', 'name': 'max_iter', 'type': 'int', 'value': 100, 'min': 1},
-        {'title': 'Loss exponent', 'name': 'exponent', 'type': 'int', 'value': 2, 'min': 2},
+        {'title': 'Max Iterations', 'name': 'max_iter', 'type': 'int', 'value': 20, 'min': 1},
+        {'title': 'Loss exponent', 'name': 'exponent', 'type': 'int', 'value': 4, 'min': 2},
     ]
 
     def __init__(self, parent: 'AlgoApp' = None):
@@ -101,9 +101,9 @@ class ConjugateGradient(AlgoBase):
             self._target_tensor = torch.tensor(self._target_field.field)
 
             #normalize target_intensity wrt input amplitude
-            self._target_tensor = (self._target_tensor / self.abs(self._target_tensor).max() *
-                                   self.sum(self._amplitude_tensor ** 2) /
-                                   self.sum(self.abs(self._target_tensor)**2))
+            self._target_tensor = self._target_tensor / self.abs(self._target_tensor).max()
+            self._target_tensor *= (self.sum(self._amplitude_tensor ** 2) /
+                                    self.sum(self.abs(self._target_tensor)**2))
 
 
     def do_things_after_init(self):
@@ -145,10 +145,13 @@ class ConjugateGradient(AlgoBase):
             slices = self.get_mask_slices(ApplyMaskTo.TARGET)
         else:
             slices = (Ellipsis, Ellipsis)
-        return (self.sum(
-                    (self.abs(field_tested[*slices]) ** 2 -
+
+        field_tested = field_tested[*slices]
+
+        return ((self.sum(
+                    (self.abs(field_tested) ** 2 -
                      self.abs(field_target[*slices]) ** 2)
-                    ** self.settings['exponent']))
+                    ** self.settings['exponent'])))
 
     def compute_loss(self, phase) -> torch.Tensor:
         self.compute_image_field(phase)
@@ -163,10 +166,8 @@ class ConjugateGradient(AlgoBase):
         self.iter += 1
 
         image_array = self.image_tensor.detach().numpy()
-
-        self._image_field = Field('image',
-                                  np.abs(image_array),
-                                  np.angle(image_array))
+        self._image_field = self.scale_target_with_geometry(
+            Field('image', np.abs(image_array), np.angle(image_array)))
         phase = phase.detach().numpy().reshape(self.object_field.shape)
         phase = (phase + np.pi) % (2 * np.pi) - np.pi
         self.set_phase_in_object_plane(phase)
