@@ -25,6 +25,7 @@ class MaskError(Exception):
 class TargetPhase(StrEnum):
     RANDOM = 'random'
     QUADRATIC = 'quadratic'  # see https://doi.org/10.1364/OE.25.014323
+    QUADRATIC_SHIFT = 'quadratic_shift'  # see https://doi.org/10.1364/OE.25.011692
 
 
 class LensSetup(StrEnum):
@@ -135,25 +136,75 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self.do_things_after_set_input()
 
     def get_phase_type(self) -> TargetPhase:
-        return TargetPhase(self.parent_app.settings['target_phase'])
+        return TargetPhase(self.parent_app.settings['target_phase_group', 'target_phase'])
 
-    def define_input_phase(self, phase_type: TargetPhase = None):
+
+    def focal_quad(self) -> np.ndarray:
+        """ Compute focal to add in order to have all light on the size of the target """
+        focal = Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm')
+        object_size = Q_(np.array([self.object_field.pixels_sizes[ind].magnitude *
+                                   self.object_field.shape[ind] for ind in range(2)]),
+                         self.object_field.pixels_sizes[0].units)
+        if self.apply_mask(ApplyMaskTo.TARGET):
+            _slices = self.get_mask_slices(ApplyMaskTo.TARGET)
+            size = [(_slice.stop - _slice.start)
+                     // (_slice.step if _slice.step is not None else 1) + 1 for _slice in _slices]
+        else:
+            size = self._target_field.shape
+
+        target_size = Q_(np.array([self._target_field.pixels_sizes[ind].magnitude *
+                                   size[ind] for ind in range(2)]),
+                         self._target_field.pixels_sizes[0].units)
+
+        focal_quad = focal * (object_size / target_size + 1)
+        return focal_quad
+
+    def _compute_quadratic_factor(self):
+        pixel_sizes = Q_(np.array([self.object_field.pixels_sizes[ind].magnitude for ind in range(2)]),
+                         self.object_field.pixels_sizes[0].units)
+
+        wavelength = Q_(plugin_config('setup', 'wavelength_nm', ), 'nm')
+        return pixel_sizes ** 2 / (wavelength * self.focal_quad()) * np.pi
+
+
+    def define_input_phase(self, phase_type: TargetPhase = None) -> np.ndarray:
         if phase_type is None:
             phase_type = self.get_phase_type()
         shape = self._object_field.shape
         if phase_type == TargetPhase.RANDOM:
             phase = np.random.random_sample(shape) * 2 *np.pi
-        elif phase_type == TargetPhase.QUADRATIC:
+
+        elif phase_type == TargetPhase.QUADRATIC or phase_type == TargetPhase.QUADRATIC_SHIFT:
             ny, nx = shape
-            x = np.pi / nx * np.linspace(-nx/2, nx/2 , nx , endpoint=False)**2
-            y = np.pi / ny * np.linspace(-ny/2, ny/2 , ny , endpoint=False)**2
-            xv, yv = np.meshgrid(x, y)
-            phase = xv + yv
+            xlin = np.linspace(-nx//2, nx//2 , nx , endpoint=True)
+            ylin = np.linspace(-ny//2, ny//2 , ny , endpoint=True )
+
+            r = (self._compute_quadratic_factor().to_reduced_units().magnitude *
+                 self.parent_app.settings['target_phase_group', 'params', 'R']) * 1.5  # addhoc coefficent to match target size
+            xx_quad, yy_quad = np.meshgrid( r[1] * xlin ** 2,
+                                            r[0] * ylin ** 2)
+            phase = xx_quad + yy_quad
+
+            if phase_type == TargetPhase.QUADRATIC_SHIFT:
+                theta = self.parent_app.settings['target_phase_group', 'params', 'theta']
+                d = self.parent_app.settings['target_phase_group', 'params', 'D'] * np.pi
+                xxlin, yylin = np.meshgrid(d * xlin * np.cos(theta * np.pi), d * ylin * np.sin(theta * np.pi))
+                phase += xxlin + yylin
+
         else:
             raise ValueError('Unknown phase type')
 
+        phase = (phase + np.pi) % (2 * np.pi) - np.pi
+
         self.set_phase_in_object_plane(phase)
         return phase
+
+    def compute_fft(self):
+        self._image_field = self._object_field.fft2()
+        self._image_field = self.scale_target_with_geometry(self._image_field)
+
+        if self.parent_app is not None:
+            self.parent_app.fields_to_plot.emit(self.get_fields_to_plot())
 
     def set_object_field(self, field: Field):
         self._object_field = field

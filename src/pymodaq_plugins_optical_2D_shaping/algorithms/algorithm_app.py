@@ -32,9 +32,21 @@ algo_factory = AlgorithmFactory()
 
 
 class AlgoApp(CustomApp):
-    params = [
-        {'title': 'Target Phase', 'name': 'target_phase', 'type': 'list',
-         'limits': TargetPhase.values(), 'value': str(TargetPhase.QUADRATIC), },
+    params = [{'title': 'Target Phase', 'name': 'target_phase_group', 'type': 'group',
+         'children': [
+             {'title': 'Target Phase', 'name': 'target_phase', 'type': 'list',
+              'limits': TargetPhase.values(), 'value': str(TargetPhase.QUADRATIC_SHIFT),
+              },
+             {'title': 'Target Phase', 'name': 'params', 'type': 'group',
+              'tip': 'The phase is built from this expression: R (p**2 + q**2) + D (p cos θ + q sin θ) where p and q are'
+                     'the normalized pixel indexes',
+              'children': [
+                  {'title': 'Quadratic amp (R)', 'name': 'R', 'type': 'float', 'value': 1., 'suffix': 'np.pi rad'},
+                  {'title': 'Shift Amplitude(D)', 'name': 'D', 'type': 'float', 'value': -0.0, 'suffix': 'np.pi rad'},
+                  {'title': 'Shift direction (Theta)', 'name': 'theta', 'type': 'float', 'value': 0.25,
+                   'suffix': 'np.pi rad'},
+              ]},
+         ]},
         {'title': 'Target Masking', 'name': str(ApplyMaskTo.TARGET), 'type': 'group', 'children': [
             {'title': 'Apply Mask', 'name': 'apply_mask', 'type': 'bool', 'value': False},
             {'title': 'Mask Type', 'name': 'mask_type', 'type': 'list', 'value': str(MaskType.SQUARE),
@@ -97,7 +109,7 @@ class AlgoApp(CustomApp):
         if self._algorithm is not None:
             self._algorithm.set_object_field(object_field)
             self._algorithm.set_input_field(field)
-            self._algorithm.define_input_phase(self.settings['target_phase'])
+            self._algorithm.define_input_phase(self.settings['target_phase_group', 'target_phase'])
 
         self._input_field = field
 
@@ -172,6 +184,8 @@ class AlgoApp(CustomApp):
         self.get_action('algorithms').setCurrentText(plugin_config('algo', 'default_algo')[0])
         self.add_action('ini_algo', 'Init Algo', 'ini', checkable=True)
         self.add_widget('algo_led', QLED)
+        self.add_action('compute_fft', 'Compute FFT', 'snap', "Run a fft of the input phase")
+
         self.add_action('snap', 'Snap', 'snap', "Run a loop of the algorithm")
         self.add_action('grab', 'Grab', 'run2', "Run continuously the algorithm", checkable=True)
         self.add_action('stop', 'Stop', 'stop', "Stop the algorithm")
@@ -180,6 +194,7 @@ class AlgoApp(CustomApp):
 
     def connect_things(self):
         self.connect_action('snap', self.compute_phase)
+        self.connect_action('compute_fft', self.compute_fft)
         self.connect_action('grab', self.compute_phase_loop)
         self.connect_action('ini_algo', self.ini_algo)
         self.connect_action('stop', self.stop)
@@ -207,7 +222,11 @@ class AlgoApp(CustomApp):
 
     def define_phase(self):
         if self._algorithm is not None:
-            self._algorithm.define_input_phase(self.settings['target_phase'])
+            self._algorithm.define_input_phase(self.settings['target_phase_group', 'target_phase'])
+
+    def compute_fft(self):
+        if self._algorithm is not None:
+            self._algorithm.compute_fft()
 
     def stop(self):
         self.command_runner.emit(ThreadCommand('stop'))

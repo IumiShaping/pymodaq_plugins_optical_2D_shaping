@@ -54,14 +54,18 @@ class ConjugateGradient(AlgoBase):
     SETUP_TYPE = LensSetup.TwoF
     ITERATIVE = True
 
-    params = []
+    params = [
+        {'title': 'Max Iterations', 'name': 'max_iter', 'type': 'int', 'value': 100, 'min': 1},
+        {'title': 'Loss exponent', 'name': 'exponent', 'type': 'int', 'value': 2, 'min': 2},
+    ]
 
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
         self._slices: tuple[slice, slice] = None
         self.iter = 0
-        self._phase_tensor: torch.tensor = None
-
+        self._algo_init = False
+        self._phase_tensor: torch.Tensor = None
+        self.image_tensor: torch.Tensor = None
         self._module: Union[torch, np] = torch
         self.module = torch
 
@@ -79,25 +83,37 @@ class ConjugateGradient(AlgoBase):
         self.abs = getattr(mod, 'abs')
         self.sum = getattr(mod, 'sum')
         self.exp = getattr(mod, 'exp')
+        self.prod = getattr(mod, 'prod')
 
         if mod is torch:
-            self.fft2 = torch.fft.fft2
+            self.fft2 = lambda x: torch.fft.fft2(x, norm='forward')
             self.fftshift = torch.fft.fftshift
         else:
-            self.fft2 = np.fft.fft2
+            self.fft2 = lambda x: np.fft.fft2(x, norm='forward')
             self.fftshift = np.fft.fftshift
 
 
     def value_changed(self, param: Parameter):
         self.parent_app.algo_settings_changed()
 
+    def do_things_after_set_target(self):
+        if self._algo_init:  #make sure target and object have same shape
+            self._target_tensor = torch.tensor(self._target_field.field)
+
+            #normalize target_intensity wrt input amplitude
+            self._target_tensor = (self._target_tensor / self.abs(self._target_tensor).max() *
+                                   self.sum(self._amplitude_tensor ** 2) /
+                                   self.sum(self.abs(self._target_tensor)**2))
+
 
     def do_things_after_init(self):
         # Initialize phase distribution as trainable parameter
         self.phase_distribution = self.define_input_phase()
         self._amplitude_tensor = torch.tensor(self.object_field.amplitude)
-        self._target_tensor = torch.tensor(self._target_field.field)
-        #self.compute_loss()
+
+        if not self._algo_init:
+            self._algo_init = True
+            self.do_things_after_set_target()
 
         self.compute_image_field(self._phase_tensor)
         self.update_plots(self._phase_tensor.reshape(np.prod(self._phase_tensor.shape)))
@@ -112,26 +128,29 @@ class ConjugateGradient(AlgoBase):
     def phase_distribution(self, value: np.ndarray):
         self._phase_tensor = torch.tensor(value, requires_grad=True)
 
-    def compute_image_field(self, phase_input: Union[torch.tensor, np.ndarray]) -> Union[torch.tensor, np.ndarray]:
-        self.image_tensor = self.fftshift(
+    def compute_image_field(self, phase_input: Union[torch.Tensor, np.ndarray]) -> Union[torch.Tensor, np.ndarray]:
+        image_tensor = self.fftshift(
             self.fft2(
                 self.fftshift(
                     self._amplitude_tensor * self.exp(1j * phase_input)
                 )
             )
         )
-
+        self.image_tensor = image_tensor
 
     def loss_function(self,
-                      field_tested: Union[torch.tensor, np.ndarray],
-                      field_target: Union[torch.tensor, np.ndarray]) -> Union[torch.tensor, np.ndarray]:
+                      field_tested: Union[torch.Tensor, np.ndarray],
+                      field_target: Union[torch.Tensor, np.ndarray]) -> Union[torch.Tensor, np.ndarray]:
         if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
             slices = self.get_mask_slices(ApplyMaskTo.TARGET)
         else:
             slices = (Ellipsis, Ellipsis)
-        return self.sum((self.abs(field_tested[*slices]) ** 2 - self.abs(field_target[*slices]) ** 2) ** 2)
+        return (self.sum(
+                    (self.abs(field_tested[*slices]) ** 2 -
+                     self.abs(field_target[*slices]) ** 2)
+                    ** self.settings['exponent']))
 
-    def compute_loss(self, phase) -> torch.tensor:
+    def compute_loss(self, phase) -> torch.Tensor:
         self.compute_image_field(phase)
         loss = self.loss_function(self.image_tensor, self._target_tensor)
         self._calculated_fitness = loss.item()
@@ -159,7 +178,7 @@ class ConjugateGradient(AlgoBase):
         self.iter = 0
         self.phase_distribution = self.define_input_phase()
 
-        result = minimize(self.compute_loss, self._phase_tensor, method='cg', max_iter=200,
+        result = minimize(self.compute_loss, self._phase_tensor, method='cg', max_iter=self.settings['max_iter'],
                           callback=self.update_plots)
 
         print(result)

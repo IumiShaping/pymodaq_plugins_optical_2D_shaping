@@ -236,8 +236,8 @@ class Correction(CustomApp):
         y: np.ndarray
         """
         shape = self.shape
-        return  (np.linspace(-shape[1] / 2, shape[1] / 2, shape[1], endpoint=True),
-                 np.linspace(-shape[0] / 2, shape[0] / 2, shape[0], endpoint=True),
+        return  (np.linspace(-shape[1] // 2, shape[1] // 2, shape[1], endpoint=True),
+                 np.linspace(-shape[0] // 2, shape[0] // 2, shape[0], endpoint=True),
                  )
 
     def compute_focal_phase(self, focal_value: float) -> np.ndarray[float, float]:
