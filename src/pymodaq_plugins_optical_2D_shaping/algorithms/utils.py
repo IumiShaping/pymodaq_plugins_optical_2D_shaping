@@ -219,11 +219,11 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self.set_phase_in_object_plane(phase)
         return phase
 
-    def compute_fft(self):
-        self._image_field = self._object_field.fft2()
+    def compute_forward_fft(self, update_plots = True):
+        self._image_field = self._object_field.fft2(norm='forward')
         self._image_field = self.scale_target_with_geometry(self._image_field)
 
-        if self.parent_app is not None:
+        if update_plots and self.parent_app is not None:
             self.parent_app.fields_to_plot.emit(self.get_fields_to_plot())
 
     def set_object_field(self, field: Field):

@@ -224,7 +224,7 @@ class AlgoApp(CustomApp):
 
     def compute_fft(self):
         if self._algorithm is not None:
-            self._algorithm.compute_fft()
+            self._algorithm.compute_forward_fft()
 
     def stop(self):
         self.command_runner.emit(ThreadCommand('stop'))

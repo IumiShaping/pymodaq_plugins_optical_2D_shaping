@@ -68,8 +68,7 @@ class GbSax(AlgoBase):
         pass
 
     def propagate_field(self):
-        self._image_field = self._object_field.fft2(norm='forward')
-        self._image_field = self.scale_target_with_geometry(self._image_field)
+        self.compute_forward_fft(update_plots=False)
 
     def evolve_field(self):
 
