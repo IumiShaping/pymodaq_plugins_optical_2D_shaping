@@ -16,7 +16,7 @@ from pymodaq_gui.plotting.data_viewers.viewer2D import Viewer2D
 from pymodaq_gui.utils.custom_app import CustomApp
 from pymodaq_gui.utils.dock import DockArea, Dock
 from pymodaq_gui.utils.file_io import select_file
-
+from pymodaq_gui.parameter.ioxml import parameter_to_xml_string
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 from pymodaq_plugins_optical_2D_shaping.field import Field, Q_, LoaderFactory, FieldLoader
 
@@ -167,13 +167,25 @@ class FieldLoaderApp(CustomApp):
         if file_name != '':
             dwa = DataCalculated('Field',
                                  data=[
-                                     self.field.amplitude_as_dwa().data[0],
-                                     self.field.phase_as_dwa().data[0]
+                                     self.field.amplitude,
+                                     self.field.phase
                                  ],
                                  labels=['Amplitude', 'Phase'],
-                                 axes = self.field.axes.copy())
+                                 axes = self.field.get_axes())
 
-            with DataSaverLoader(file_name) as saver:
+            settings_all = [parameter_to_xml_string(self.settings),
+                            parameter_to_xml_string(self._field_loader.settings)]
+            settings_str = b'<All_settings title="All Settings" type="group">'
+            for set in settings_all:
+                if len(settings_str + set) < 60000:
+                    # size limit for any object header (including all the other attributes) is 64kb
+                    settings_str += set
+                else:
+                    break
+            settings_str += b'</All_settings>'
+
+            with DataSaverLoader(file_name, new_file=True,
+                                 metadata={'settings': settings_str}) as saver:
                 saver.add_data('/RawData/', dwa)
 
 

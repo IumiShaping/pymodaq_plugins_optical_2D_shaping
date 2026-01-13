@@ -22,6 +22,7 @@ logger = set_logger(get_module_name(__file__))
 class SavedFieldLoader(FieldLoader):
 
     LOADER_NAME = 'SavedFieldLoader'
+    with_physical_pixels_size = True
 
     params = FieldLoader.params + \
             [{'title': 'File path:', 'name': 'file', 'type': 'browsepath',
@@ -39,12 +40,14 @@ class SavedFieldLoader(FieldLoader):
 
         with DataLoader(self.settings['file']) as loader:
             dwa = loader.load_data('/RawData/Data00', load_all=True)
+            xaxis = dwa.get_axis_from_index(1)[0]
+            yaxis = dwa.get_axis_from_index(0)[0]
             self.field = Field(
                 'Image',
                 amplitude=dwa[0],
                 phase=dwa[1],
-                pixel_sizes=(Q_(dwa.axes[1].scaling, dwa.axes[1].units),
-                             Q_(dwa.axes[0].scaling, dwa.axes[0].units))
+                pixel_sizes=(Q_(yaxis.scaling, yaxis.units),
+                             Q_(xaxis.scaling, xaxis.units))
             )
 
         return self.field
