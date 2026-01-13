@@ -344,8 +344,10 @@ class AlgoRunner(QtCore.QObject):
 
         elif command.command == "stop":
             self.running = False
+            self.algo.stop()
 
     def snap_algo(self):
+        self.algo.start()
         self.algo.compute_phase()
         self.algo_output_signal.emit(self.algo.get_fields_to_plot())
 
@@ -353,8 +355,10 @@ class AlgoRunner(QtCore.QObject):
     def run_algo(self):
         self.running = True
         while self.running:
+            self.algo.start()
             self.snap_algo()
             QtWidgets.QApplication.processEvents()
+        self.algo.stop()
 
 def main():
     from pathlib import Path

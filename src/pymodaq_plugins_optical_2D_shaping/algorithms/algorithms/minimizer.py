@@ -128,7 +128,7 @@ class Minimize(AlgoBase):
             self.do_things_after_set_target()
 
         self.compute_image_field(self._phase_tensor)
-        self.update_plots(self._phase_tensor.reshape(np.prod(self._phase_tensor.shape)))
+        self.callback(self._phase_tensor.reshape(np.prod(self._phase_tensor.shape)))
 
         QtWidgets.QApplication.processEvents()
         QtWidgets.QApplication.processEvents()
@@ -174,7 +174,7 @@ class Minimize(AlgoBase):
     def evolve_field(self):
         pass
 
-    def update_plots(self, phase):
+    def callback(self, phase):
         self.iter += 1
 
         image_array = self.image_tensor.detach().numpy()
@@ -185,6 +185,11 @@ class Minimize(AlgoBase):
         self.set_phase_in_object_plane(phase)
         print(f'{self.iter}')
         self.parent_app.fields_to_plot.emit(self.get_fields_to_plot())
+        QtWidgets.QApplication.processEvents()
+        if not self._running:
+            ### todo could use that call to stop the inner minimize loop
+            # PR in pytorch-minimize in that direction submitted
+            return True
 
 
     def compute_phase(self):
@@ -194,7 +199,7 @@ class Minimize(AlgoBase):
         result = minimize(self.compute_loss, self._phase_tensor,
                           method=self.settings['method'],
                           max_iter=self.settings['max_iter'],
-                          callback=self.update_plots)
+                          callback=self.callback)
 
         print(result)
 
@@ -202,7 +207,6 @@ class Minimize(AlgoBase):
         img_array = self.image_tensor.detach().numpy()
         self._image_field = self.scale_target_with_geometry(
             Field('image', np.abs(img_array), np.angle(img_array)))
-
 
     @property
     def fitness(self) -> float:

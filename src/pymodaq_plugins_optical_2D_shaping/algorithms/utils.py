@@ -71,6 +71,8 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__()
 
+        self._running = False
+
         self.parent_app = parent
         self._target_field = Field()
         self._input_field = Field()
@@ -225,6 +227,12 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
         if update_plots and self.parent_app is not None:
             self.parent_app.fields_to_plot.emit(self.get_fields_to_plot())
+
+    def stop(self):
+        self._running = False
+
+    def start(self):
+        self._running = True
 
     def set_object_field(self, field: Field):
         self._object_field = field
