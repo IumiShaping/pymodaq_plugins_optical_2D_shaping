@@ -291,7 +291,9 @@ class AlgoApp(CustomApp):
 
     def ini_algo(self):
         self.set_action_enabled('grab', False)
+
         if self.is_action_checked('ini_algo'):
+            self.get_action('algorithms').widget.setEnabled(False)
             self.get_action('algo_led').set_as_true()
             #self.set_action_enabled('ini_algo', False)
             self.set_algorithm()
@@ -309,6 +311,7 @@ class AlgoApp(CustomApp):
             self.enable_things(exclude=('grab',))
 
         else:
+            self.get_action('algorithms').widget.setEnabled(True)
             if self.runner_thread is not None:
                 self.get_action('algo_led').set_as_false()
                 self.command_runner.disconnect()
