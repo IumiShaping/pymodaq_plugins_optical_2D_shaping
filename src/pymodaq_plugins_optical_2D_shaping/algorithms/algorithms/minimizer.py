@@ -191,21 +191,12 @@ class Minimize(AlgoBase):
         self.iter = 0
         self.phase_distribution = self.define_input_phase()
 
-        result = minimize(self.compute_loss, self._phase_tensor, method='cg', max_iter=self.settings['max_iter'],
+        result = minimize(self.compute_loss, self._phase_tensor,
+                          method=self.settings['method'],
+                          max_iter=self.settings['max_iter'],
                           callback=self.update_plots)
 
         print(result)
-        # loss = self.compute_loss()
-        # loss.backward()
-        #
-        # self._grad = self._phase_tensor.grad
-        #
-        # with torch.no_grad():
-        #     self._phase_tensor = None
-        #
-        #     # Manually zero the gradients after updating weights
-        #     self._phase_tensor.grad = None
-
 
         self.set_phase_in_object_plane(result.x.detach().numpy())
         img_array = self.image_tensor.detach().numpy()
