@@ -22,7 +22,7 @@ from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field,
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 
 import torch
-from torch.nn import MSELoss
+from torch.nn import MSELoss, Module
 from torchmin import minimize
 
 
@@ -38,23 +38,35 @@ logger = set_logger(get_module_name(__file__))
 plugin_config = PluginConfig()
 
 
+methods = ['bfgs',
+           'l-bfgs',
+           'cg',
+           'newton-cg',
+           'newton-exact',
+           'dogleg',
+           'trust-ncg',
+           'trust-exact',
+           'trust-krylov']
+
 
 @AlgorithmFactory.register_algorithm()
-class ConjugateGradient(AlgoBase):
-    """ Implementation of the ConjugateGradient iterative algorithm to create amplitude and phase modulated
+class Minimize(AlgoBase):
+    """ Implementation of minimization iterative algorithms to create amplitude and phase modulated
     image with phase only spatial light modulators in the Fourier plane of a converging lens
 
     Based on Vol. 25, No. 10 | 15 May 2017 | OPTICS EXPRESS 11695 and implemented here with pytorch
+    and the pytorch-minimize package
 
     The corresponding experimental setup should define a working light wavelength and a focal length
     of the used lens
     """
 
-    ALGO_NAME = 'ConjugateGradient'
+    ALGO_NAME = 'Minimize'
     SETUP_TYPE = LensSetup.TwoF
     ITERATIVE = True
 
     params = [
+        {'title': 'Method', 'name': 'method', 'type': 'list', 'value': 'cg', 'limits': methods},
         {'title': 'Max Iterations', 'name': 'max_iter', 'type': 'int', 'value': 20, 'min': 1},
         {'title': 'Loss exponent', 'name': 'exponent', 'type': 'int', 'value': 4, 'min': 2},
     ]
