@@ -6,8 +6,10 @@ see https://gregorygundersen.com/blog/2022/03/20/conjugate-gradient-descent/
 
 @author: Sebastien Weber
 """
+from abc import ABC, abstractmethod
+
 from pathlib import Path
-from typing import Union, Tuple, List, TYPE_CHECKING, Any
+from typing import Union, Tuple, List, TYPE_CHECKING, Any, Callable
 from qtpy import QtWidgets, QtCore
 
 import numpy as np
@@ -49,6 +51,109 @@ methods = ['bfgs',
            'trust-krylov']
 
 
+class LossBase(ABC):
+
+    params: list[dict[str, str]] = []  # definition of the specific parameters needed to compute the loss
+
+    def __init__(self, settings: Parameter):
+        self.settings = settings  # attribute used to access specific parameters changed by the user
+
+    @abstractmethod
+    def compute_loss(self,
+                     field_tested: torch.Tensor,
+                     field_target: torch.Tensor) -> torch.Tensor:
+        """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
+
+        To be reimplemented
+        """
+        ...
+
+
+class LossFactory:
+    """The factory class for creating Algorithm"""
+
+    _registry = {}
+
+    @classmethod
+    def register_loss(cls) -> Callable:
+        """Class decorator method to register Loss class to the internal registry. Must be used as
+        decorator above the definition of a LossBase inherited class.
+
+        The Loss class must implement specific class attributes and methods
+        """
+
+        def inner_wrapper(wrapped_class: type[LossBase]) -> type[LossBase]:
+            name = wrapped_class.__name__
+            
+            if name not in cls._registry:
+                cls._registry[name] = wrapped_class
+            # Return wrapped_class
+            return wrapped_class
+
+        # Return decorated function
+        return inner_wrapper
+
+    @classmethod
+    def get_loss(cls, name: str) -> type[LossBase]:
+        """Factory command to get registered loss class
+        .
+        This method gets the appropriate executor class from the registry
+
+        Parameters
+        ----------
+        name: str
+            The name of the class as specified during registration
+
+        Returns
+        -------
+        an instance of the executor created
+        """
+
+        if name not in cls._registry:
+            raise ValueError(f".{name} is not a supported Loss.")
+
+        return cls._registry[name]
+
+    @property
+    def losses(self):
+        return list(self._registry.keys())
+
+
+@LossFactory.register_loss()
+class LeastSquares(LossBase):
+    params = []
+
+    def compute_loss(self,
+                     field_tested: torch.Tensor,
+                     field_target: torch.Tensor,) -> torch.Tensor:
+        """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
+        """
+        return ((torch.sum(
+                    (torch.abs(field_tested) ** 2 -
+                     torch.abs(field_target) ** 2)
+                    ** 2)))
+
+
+@LossFactory.register_loss()
+class LeastExponent(LossBase):
+    params = [
+        {'title': 'Loss exponent', 'name': 'exponent', 'type': 'int', 'value': 4, 'min': 2},
+    ]
+
+    def compute_loss(self,
+                     field_tested: torch.Tensor,
+                     field_target: torch.Tensor,) -> torch.Tensor:
+        """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
+        """
+        return ((torch.sum(
+                    (torch.abs(field_tested) ** 2 -
+                     torch.abs(field_target) ** 2)
+                    ** self.settings['exponent'])))
+
+
+loss_factory = LossFactory()
+
+
 @AlgorithmFactory.register_algorithm()
 class Minimize(AlgoBase):
     """ Implementation of minimization iterative algorithms to create amplitude and phase modulated
@@ -68,7 +173,9 @@ class Minimize(AlgoBase):
     params = [
         {'title': 'Method', 'name': 'method', 'type': 'list', 'value': 'cg', 'limits': methods},
         {'title': 'Max Iterations', 'name': 'max_iter', 'type': 'int', 'value': 20, 'min': 1},
-        {'title': 'Loss exponent', 'name': 'exponent', 'type': 'int', 'value': 4, 'min': 2},
+        {'title': 'Loss', 'name': 'loss', 'type': 'list', 'value': loss_factory.losses[0],
+         'limits': loss_factory.losses},
+        {'title': 'Loss Parameters', 'name': 'loss_params', 'type': 'group', 'children': []}
     ]
 
     def __init__(self, parent: 'AlgoApp' = None):
@@ -78,44 +185,32 @@ class Minimize(AlgoBase):
         self._algo_init = False
         self._phase_tensor: torch.Tensor = None
         self.image_tensor: torch.Tensor = None
-        self._module: Union[torch, np] = torch
-        self.module = torch
 
         self._calculated_fitness: float = 0.
 
-        self._loss_function = MSELoss()
+        for loss in loss_factory.losses:
+            self.settings.child('loss_params').addChild({'title': loss, 'name': loss, 'type': 'group',
+                                                         'visible': self.settings['loss'] == loss,
+                                                         'children': loss_factory.get_loss(loss).params})
 
-    @property
-    def module(self):
-        return self.module
-
-    @module.setter
-    def module(self, mod: Union[torch, np]) -> None:
-        self._module = mod
-        self.abs = getattr(mod, 'abs')
-        self.sum = getattr(mod, 'sum')
-        self.exp = getattr(mod, 'exp')
-        self.prod = getattr(mod, 'prod')
-
-        if mod is torch:
-            self.fft2 = lambda x: torch.fft.fft2(x, norm='forward')
-            self.fftshift = torch.fft.fftshift
-        else:
-            self.fft2 = lambda x: np.fft.fft2(x, norm='forward')
-            self.fftshift = np.fft.fftshift
-
+        self._loss = loss_factory.get_loss(self.settings['loss'])(self.settings.child('loss_params',
+                                                                                      self.settings['loss']))
 
     def value_changed(self, param: Parameter):
         self.parent_app.algo_settings_changed()
+        if param.name() == 'loss':
+            for param_child in self.settings.child('loss_params').children():
+                param_child.show(param.value() == param_child.name())
+            self._loss = loss_factory.get_loss(param.value())(self.settings.child('loss_params', param.value()))
 
     def do_things_after_set_target(self):
         if self._algo_init:  #make sure target and object have same shape
             self._target_tensor = torch.tensor(self._target_field.field)
 
             #normalize target_intensity wrt input amplitude
-            self._target_tensor = self._target_tensor / self.abs(self._target_tensor).max()
-            self._target_tensor *= (self.sum(self._amplitude_tensor ** 2) /
-                                    self.sum(self.abs(self._target_tensor)**2))
+            self._target_tensor = self._target_tensor / torch.abs(self._target_tensor).max()
+            self._target_tensor *= (torch.sum(self._amplitude_tensor ** 2) /
+                                    torch.sum(torch.abs(self._target_tensor)**2))
 
 
     def do_things_after_init(self):
@@ -140,39 +235,32 @@ class Minimize(AlgoBase):
     def phase_distribution(self, value: np.ndarray):
         self._phase_tensor = torch.tensor(value, requires_grad=True)
 
-    def compute_image_field(self, phase_input: Union[torch.Tensor, np.ndarray]) -> Union[torch.Tensor, np.ndarray]:
-        image_tensor = self.fftshift(
-            self.fft2(
-                self.fftshift(
-                    self._amplitude_tensor * self.exp(1j * phase_input)
+    def compute_image_field(self, phase_input: torch.Tensor) -> torch.Tensor:
+        image_tensor = torch.fft.fftshift(
+            torch.fft.fft2(
+                torch.fft.fftshift(
+                    self._amplitude_tensor * torch.exp(1j * phase_input)
                 )
             )
         )
         self.image_tensor = image_tensor
+        return image_tensor
 
-    def loss_function(self,
-                      field_tested: Union[torch.Tensor, np.ndarray],
-                      field_target: Union[torch.Tensor, np.ndarray]) -> Union[torch.Tensor, np.ndarray]:
+
+    def compute_loss(self, phase) -> torch.Tensor:
+        self.compute_image_field(phase)
+
         if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
             slices = self.get_mask_slices(ApplyMaskTo.TARGET)
         else:
             slices = (Ellipsis, Ellipsis)
 
-        field_tested = field_tested[*slices]
+        loss = self._loss.compute_loss(self.image_tensor[*slices],
+                                       self._target_tensor[*slices])
 
-        return ((self.sum(
-                    (self.abs(field_tested) ** 2 -
-                     self.abs(field_target[*slices]) ** 2)
-                    ** self.settings['exponent'])))
-
-    def compute_loss(self, phase) -> torch.Tensor:
-        self.compute_image_field(phase)
-        loss = self.loss_function(self.image_tensor, self._target_tensor)
         self._calculated_fitness = loss.item()
         return loss
 
-    def evolve_field(self):
-        pass
 
     def callback(self, phase):
         self.iter += 1
@@ -190,7 +278,6 @@ class Minimize(AlgoBase):
             ### todo could use that call to stop the inner minimize loop
             # PR in pytorch-minimize in that direction submitted
             return True
-
 
     def compute_phase(self):
         self.iter = 0
