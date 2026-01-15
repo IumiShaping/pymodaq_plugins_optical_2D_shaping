@@ -151,6 +151,27 @@ class LeastExponent(LossBase):
                     ** self.settings['exponent'])))
 
 
+@LossFactory.register_loss()
+class Chicken(LossBase):
+    params = [
+        {'title': 'Power exponent', 'name': 'power_exponent', 'type': 'int', 'value': 9, 'min': 2},
+        {'title': 'Sum exponent', 'name': 'sum_exponent', 'type': 'int', 'value': 4, 'min': 2},
+
+    ]
+
+    def compute_loss(self,
+                     field_tested: torch.Tensor,
+                     field_target: torch.Tensor, ) -> torch.Tensor:
+        """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
+        """
+
+        amplitude_normalized = torch.sum(torch.abs(field_target) * torch.abs(field_target))
+
+        return 10 ** self.settings['power_exponent'] * (
+                1 - torch.sum((torch.abs(field_tested) * torch.abs(field_target) / amplitude_normalized) *
+                              torch.cos(torch.angle(field_target) - torch.angle(field_tested))))**self.settings['sum_exponent']
+
+
 loss_factory = LossFactory()
 
 
@@ -240,7 +261,7 @@ class Minimize(AlgoBase):
             torch.fft.fft2(
                 torch.fft.fftshift(
                     self._amplitude_tensor * torch.exp(1j * phase_input)
-                )
+                ), norm='forward'
             )
         )
         self.image_tensor = image_tensor
