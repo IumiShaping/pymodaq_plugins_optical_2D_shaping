@@ -100,7 +100,7 @@ class Model(Module):
             torch.fft.fft2(
                 torch.fft.fftshift(
                     self.object_amplitude_tensor * torch.exp(1j * phase_input)
-                )
+                ), norm='forward'
             )
         )
         self._image_tensor = image_tensor
