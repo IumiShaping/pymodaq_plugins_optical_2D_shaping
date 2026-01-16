@@ -65,6 +65,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     ALGO_NAME: str = None  # to be reimplemented
     SETUP_TYPE: LensSetup = None # to be reimplemented
     ITERATIVE = False
+    MANUAL_LOOP = True
     params = []
 
 
@@ -83,6 +84,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self._image_field = Field()
 
         self.update_mask = True
+
 
     def quit(self):
         """ to reimplement if necessary"""
@@ -272,7 +274,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     def fitness_as_dwa(self):
         return DataRaw('fitness', data=[np.array([self.fitness])])
 
-    def compute_phase(self):
+    def compute_phase(self, do_step=True, **kwargs):
         """ Compute the phase to apply to SLM given the target object
 
         To be subclassed in real implementation

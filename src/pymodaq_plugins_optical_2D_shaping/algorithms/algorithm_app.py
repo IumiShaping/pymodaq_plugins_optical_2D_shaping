@@ -29,6 +29,11 @@ from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 algo_factory = AlgorithmFactory()
 
 
+class Actions(StrEnum):
+
+    STEP = 'step'
+    CONTINUOUS = 'continuous'
+    STOP = 'stop'
 
 
 class AlgoApp(CustomApp):
@@ -144,7 +149,7 @@ class AlgoApp(CustomApp):
                 self.set_input_field(self._input_field)  # defines it first as the target axes depends
                 # on the input beam size and resolution
                 self.set_target_field(self._target_field)
-            self.set_action_visible('grab', self._algorithm.ITERATIVE)
+            self.set_action_visible(Actions.CONTINUOUS, self._algorithm.ITERATIVE)
 
             self.algo_changed.emit(self._algorithm)
 
@@ -184,18 +189,18 @@ class AlgoApp(CustomApp):
         self.add_widget('algo_led', QLED)
         self.add_action('compute_fft', 'Compute FFT', 'snap', "Run a fft of the input phase")
 
-        self.add_action('snap', 'Snap', 'snap', "Run a loop of the algorithm")
-        self.add_action('grab', 'Grab', 'run2', "Run continuously the algorithm", checkable=True)
-        self.add_action('stop', 'Stop', 'stop', "Stop the algorithm")
+        self.add_action(Actions.STEP, 'Step', 'snap', "Step a loop of the algorithm")
+        self.add_action(Actions.CONTINUOUS, 'Continuous', 'videocam', "Run continuously the algorithm",
+                        checkable=True, icon_checked='videocam_off')
+
         self.add_action('reset_phase', 'Reset Phase', 'Refresh2', "Reset the SLM phase")
         self.add_action('export', 'Export', 'SaveAs', 'Export data')
 
     def connect_things(self):
-        self.connect_action('snap', self.compute_phase)
+        self.connect_action(Actions.STEP, self.compute_phase)
         self.connect_action('compute_fft', self.compute_fft)
-        self.connect_action('grab', self.compute_phase_loop)
+        self.connect_action(Actions.CONTINUOUS, self.compute_phase_loop)
         self.connect_action('ini_algo', self.ini_algo)
-        self.connect_action('stop', self.stop)
         self.connect_action('export', self.export_data)
         self.connect_action('reset_phase', self.define_phase)
         self.connect_action('algorithms', slot=self.set_algorithm,
@@ -203,7 +208,7 @@ class AlgoApp(CustomApp):
 
     def enable_things(self, enable=True, exclude: tuple[str]= ()):
         """ Given the initialization state of the chosen algorithm enable or not some actions and settings"""
-        for action in ('snap', 'grab', 'stop', 'reset_phase', 'export'):
+        for action in (Actions.STEP, Actions.CONTINUOUS, 'reset_phase', 'export'):
             if action not in exclude:
                 self.set_action_enabled(action, enable)
         self.set_action_enabled('algorithms', not enable)
@@ -226,19 +231,15 @@ class AlgoApp(CustomApp):
         if self._algorithm is not None:
             self._algorithm.compute_forward_fft()
 
-    def stop(self):
-        self.command_runner.emit(ThreadCommand('stop'))
-        self.set_action_checked('grab', False)
-
     def compute_phase_loop(self):
-        if self.is_action_checked('grab'):
-            self.command_runner.emit(ThreadCommand('grab'))
+        if self.is_action_checked(Actions.CONTINUOUS):
+            self.command_runner.emit(ThreadCommand(Actions.CONTINUOUS))
         else:
-            self.command_runner.emit(ThreadCommand('stop'))
+            self.command_runner.emit(ThreadCommand(Actions.STOP))
 
     def compute_phase(self):
-        self.command_runner.emit(ThreadCommand('snap'))
-        self.set_action_enabled('grab', True)
+        self.command_runner.emit(ThreadCommand(Actions.STEP))
+        self.set_action_enabled(Actions.CONTINUOUS, True)
 
     def apply_mask(self, apply_to: ApplyMaskTo) -> bool:
         return self.settings[str(apply_to), 'apply_mask']
@@ -290,7 +291,7 @@ class AlgoApp(CustomApp):
         self.fields_to_plot.emit(dte)
 
     def ini_algo(self):
-        self.set_action_enabled('grab', False)
+        self.set_action_enabled(Actions.CONTINUOUS, False)
 
         if self.is_action_checked('ini_algo'):
             self.get_action('algorithms').widget.setEnabled(False)
@@ -308,7 +309,7 @@ class AlgoApp(CustomApp):
             runner.moveToThread(self.runner_thread)
 
             self.runner_thread.start()
-            self.enable_things(exclude=('grab',))
+            self.enable_things(exclude=(Actions.CONTINUOUS,))
 
         else:
             self.get_action('algorithms').widget.setEnabled(True)
@@ -336,28 +337,31 @@ class AlgoRunner(QtCore.QObject):
     def queue_command(self, command: ThreadCommand):
         """
         """
-        if command.command == "grab":
-            self.run_algo()
+        if command.command == Actions.CONTINUOUS:
+            self.continuous_algo()
 
-        elif command.command == "snap":
-            self.snap_algo()
+        elif command.command == Actions.STEP:
+            self.step_algo()
 
-        elif command.command == "stop":
+        elif command.command == Actions.STOP:
             self.running = False
             self.algo.stop()
 
-    def snap_algo(self):
+    def step_algo(self):
         self.algo.start()
-        self.algo.compute_phase()
+        self.algo.compute_phase(do_step=True)
         self.algo_output_signal.emit(self.algo.get_fields_to_plot())
 
-
-    def run_algo(self):
+    def continuous_algo(self):
         self.running = True
-        while self.running:
+        if self.algo.MANUAL_LOOP:
+            while self.running:
+                self.algo.start()
+                self.algo.compute_phase(do_step=True)
+                QtWidgets.QApplication.processEvents()
+        else:
             self.algo.start()
-            self.snap_algo()
-            QtWidgets.QApplication.processEvents()
+            self.algo.compute_phase(do_step=False)
         self.algo.stop()
 
 def main():

@@ -181,7 +181,7 @@ class NCGConjugateGradient(AlgoBase):
         loss = self.model.compute_loss(self.model())
         return loss
 
-    def compute_phase(self):
+    def compute_phase(self, do_step=True, **kwargs):
 
         self.iter += 1
         self._fitness = self.optim.step(self.closure).item()

@@ -216,6 +216,7 @@ class Minimize(AlgoBase):
     ALGO_NAME = 'Minimize'
     SETUP_TYPE = LensSetup.TwoF
     ITERATIVE = True
+    MANUAL_LOOP = False
 
     params = [
         {'title': 'Method', 'name': 'method', 'type': 'list', 'value': 'cg', 'limits': methods},
@@ -326,16 +327,16 @@ class Minimize(AlgoBase):
             # PR in pytorch-minimize in that direction submitted
             return True
 
-    def compute_phase(self):
+    def compute_phase(self, do_step=True, **kwargs):
         self.iter = 0
-        self.phase_distribution = self.define_input_phase()
-
+        if do_step:
+            max_iter = 1
+        else:
+            max_iter = self.settings['max_iter']
         result = minimize(self.compute_loss, self._phase_tensor,
                           method=self.settings['method'],
-                          max_iter=self.settings['max_iter'],
+                          max_iter=max_iter,
                           callback=self.callback)
-
-        print(result)
 
         self.set_phase_in_object_plane(result.x.detach().numpy())
         img_array = self.image_tensor.detach().numpy()

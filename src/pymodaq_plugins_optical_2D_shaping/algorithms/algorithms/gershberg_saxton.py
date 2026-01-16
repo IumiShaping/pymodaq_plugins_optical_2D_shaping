@@ -81,7 +81,7 @@ class GbSax(AlgoBase):
 
         self.set_phase_in_object_plane(field_object_corrected.phase)
 
-    def compute_phase(self):
+    def compute_phase(self, do_step=True, **kwargs):
         self.propagate_field()
         self.evolve_field()
 
