@@ -165,12 +165,38 @@ class Chicken(LossBase):
         """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
         """
 
-        amplitude_normalized = torch.sum(torch.abs(field_target) * torch.abs(field_target))
+        amplitude_normalized = torch.sum(torch.abs(field_tested) * torch.abs(field_target))
 
         return 10 ** self.settings['power_exponent'] * (
                 1 - torch.sum((torch.abs(field_tested) * torch.abs(field_target) / amplitude_normalized) *
                               torch.cos(torch.angle(field_target) - torch.angle(field_tested))))**self.settings['sum_exponent']
 
+
+@LossFactory.register_loss()
+class LSQAmplitudePhase(LossBase):
+    params = [
+        {'title': 'Amplitude exponent', 'name': 'amplitude_exponent', 'type': 'int', 'value': 1, 'min': 1},
+        {'title': 'Phase exponent', 'name': 'phase_exponent', 'type': 'int', 'value': 1, 'min': 1},
+
+    ]
+
+    def compute_loss(self,
+                     field_tested: torch.Tensor,
+                     field_target: torch.Tensor, ) -> torch.Tensor:
+        """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
+        """
+
+        amplitude_normalized = torch.sum(torch.abs(field_tested) * torch.abs(field_target))
+
+        return ((torch.sum(
+                    (torch.abs(field_tested) ** 2 -
+                     torch.abs(field_target) ** 2)
+                    ** self.settings['amplitude_exponent'])) *
+                ((torch.sum(
+                    (torch.angle(field_tested) ** 2 -
+                     torch.angle(field_target) ** 2)
+                    ** self.settings['phase_exponent'])))
+                )
 
 loss_factory = LossFactory()
 
@@ -193,7 +219,7 @@ class Minimize(AlgoBase):
 
     params = [
         {'title': 'Method', 'name': 'method', 'type': 'list', 'value': 'cg', 'limits': methods},
-        {'title': 'Max Iterations', 'name': 'max_iter', 'type': 'int', 'value': 20, 'min': 1},
+        {'title': 'Max Iterations', 'name': 'max_iter', 'type': 'int', 'value': 400, 'min': 1},
         {'title': 'Loss', 'name': 'loss', 'type': 'list', 'value': loss_factory.losses[0],
          'limits': loss_factory.losses},
         {'title': 'Loss Parameters', 'name': 'loss_params', 'type': 'group', 'children': []}
