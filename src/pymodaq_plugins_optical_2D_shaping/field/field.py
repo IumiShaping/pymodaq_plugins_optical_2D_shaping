@@ -134,6 +134,7 @@ class Field(DataRaw):
         ----------
         scaling: pint.Quantity
             Apply this axis scaling to the transformed field (on pixel_sizes)
+        kwargs: variable named parameters passed to numpy fft2 method (norm, ...)
         """
         field_array = fftshift(fft2(fftshift(self.field), **kwargs)) / \
                       np.sqrt(np.prod(self.shape))
@@ -155,6 +156,7 @@ class Field(DataRaw):
         ----------
         scaling: pint.Quantity
             Apply this axis scaling to the transformed field (on pixel_sizes)
+        kwargs: variable named parameters passed to numpy ifft2 method (norm, ...)
         """
         field_array = fftshift(ifft2(fftshift(self.field), **kwargs)) / \
                       np.sqrt(np.prod(self.shape))
