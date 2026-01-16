@@ -24,8 +24,9 @@ from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field,
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 
 import torch
-from torch.nn import MSELoss, Module
+from torch.nn import MSELoss as TorchMSELoss, SmoothL1Loss as TorchSmoothL1Loss
 from torchmin import minimize
+
 
 
 device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
@@ -133,6 +134,42 @@ class LeastSquares(LossBase):
                      torch.abs(field_target) ** 2)
                     ** 2)))
 
+@LossFactory.register_loss()
+class MSELoss(LossBase):
+    params = []
+
+    def __init__(self, settings: Parameter):
+        super().__init__(settings)
+
+        self._loss = TorchMSELoss()
+
+    def compute_loss(self,
+                     field_tested: torch.Tensor,
+                     field_target: torch.Tensor,) -> torch.Tensor:
+        """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
+        """
+        return self._loss(torch.abs(field_tested), torch.abs(field_target))
+
+
+@LossFactory.register_loss()
+class SmoothL1Loss(LossBase):
+    params = [
+        {'title': 'Beta', 'name': 'beta', 'type': 'float', 'value': 0.5},
+    ]
+
+
+    def __init__(self, settings: Parameter):
+        super().__init__(settings)
+
+        self._loss = TorchSmoothL1Loss(beta=self.settings['beta'])
+
+    def compute_loss(self,
+                     field_tested: torch.Tensor,
+                     field_target: torch.Tensor,) -> torch.Tensor:
+        """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
+        """
+        return self._loss(torch.abs(field_tested), torch.abs(field_target))
+
 
 @LossFactory.register_loss()
 class LeastExponent(LossBase):
@@ -221,6 +258,7 @@ class Minimize(AlgoBase):
     params = [
         {'title': 'Method', 'name': 'method', 'type': 'list', 'value': 'cg', 'limits': methods},
         {'title': 'Max Iterations', 'name': 'max_iter', 'type': 'int', 'value': 400, 'min': 1},
+        {'title': 'Tolerance', 'name': 'tolerance', 'type': 'float', 'value': 1e-20},
         {'title': 'Loss', 'name': 'loss', 'type': 'list', 'value': loss_factory.losses[0],
          'limits': loss_factory.losses},
         {'title': 'Loss Parameters', 'name': 'loss_params', 'type': 'group', 'children': []}
@@ -259,7 +297,6 @@ class Minimize(AlgoBase):
             self._target_tensor = self._target_tensor / torch.abs(self._target_tensor).max()
             self._target_tensor *= (torch.sum(self._amplitude_tensor ** 2) /
                                     torch.sum(torch.abs(self._target_tensor)**2))
-
 
     def do_things_after_init(self):
         # Initialize phase distribution as trainable parameter
@@ -327,8 +364,12 @@ class Minimize(AlgoBase):
             # PR in pytorch-minimize in that direction submitted
             return True
 
-    def compute_phase(self, do_step=True, **kwargs):
+    def compute_phase(self, do_step=True, ini_phase=None, **kwargs):
         self.iter = 0
+
+        if ini_phase is not None:
+            self.phase_distribution = ini_phase
+
         if do_step:
             max_iter = 1
         else:
@@ -336,7 +377,8 @@ class Minimize(AlgoBase):
         result = minimize(self.compute_loss, self._phase_tensor,
                           method=self.settings['method'],
                           max_iter=max_iter,
-                          callback=self.callback)
+                          callback=self.callback,
+                          tol=self.settings['tolerance'])
 
         self.set_phase_in_object_plane(result.x.detach().numpy())
         img_array = self.image_tensor.detach().numpy()

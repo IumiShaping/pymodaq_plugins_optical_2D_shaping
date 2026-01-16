@@ -49,6 +49,9 @@ class OL2014(AlgoBase):
         super().__init__(parent)
 
     def compute_phase(self, do_step=True, **kwargs):
+
+        self.define_input_phase()
+
         odd_mask = self.create_checker_board()
         even_mask = 1 - odd_mask
 

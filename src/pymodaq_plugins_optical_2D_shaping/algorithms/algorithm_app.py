@@ -3,6 +3,7 @@ from typing import Union
 import numpy as np
 from qtpy import QtWidgets, QtCore
 
+from pymodaq_data import DataCalculated
 from pymodaq_gui.plotting.utils.plot_utils import RoiInfo
 from pymodaq_utils.utils import ThreadCommand
 
@@ -83,10 +84,16 @@ class AlgoApp(CustomApp):
         self._input_field: Field = None
 
         self._current_data: DataToExport = None
+        self._current_phase: np.ndarray = None  # cached phase to be used for subsequent optimizations
 
         self.setup_ui()
 
         self.enable_things(False)
+
+    @property
+    def current_phase(self) -> np.ndarray:
+        """ cached phase to be used for subsequent optimizations """
+        return self._current_phase
 
     @property
     def algorithm_combo(self) -> QtWidgets.QComboBox:
@@ -236,11 +243,11 @@ class AlgoApp(CustomApp):
 
     def connect_things(self):
         self.connect_action(Actions.STEP, self.compute_phase)
-        self.connect_action('compute_fft', self.compute_fft)
+        self.connect_action('compute_fft', lambda: self.compute_fft(update_plots=True))
         self.connect_action(Actions.CONTINUOUS, self.compute_phase_loop)
         self.connect_action('ini_algo', self.ini_algo)
         self.connect_action('export', self.export_data)
-        self.connect_action('reset_phase', self.define_phase)
+        self.connect_action('reset_phase', lambda: self.define_phase(force_reset=True))
         self.connect_action('algorithms', slot=self.set_algorithm,
                             signal_name='currentTextChanged')
 
@@ -261,9 +268,12 @@ class AlgoApp(CustomApp):
         """ get the current algorithm name """
         return self.get_action('algorithms').currentText()
 
-    def define_phase(self):
+    def define_phase(self, force_reset=False):
         if self._algorithm is not None:
-            self._algorithm.define_input_phase(self.settings['target_phase_group', 'target_phase'])
+            phase = self._algorithm.define_input_phase(self.settings['target_phase_group', 'target_phase'],
+                                                       force_reset=force_reset)
+            if force_reset:
+                self._current_phase = phase
 
     def compute_fft(self, update_plots=True):
         if self._algorithm is not None:
@@ -271,12 +281,12 @@ class AlgoApp(CustomApp):
 
     def compute_phase_loop(self):
         if self.is_action_checked(Actions.CONTINUOUS):
-            self.command_runner.emit(ThreadCommand(Actions.CONTINUOUS))
+            self.command_runner.emit(ThreadCommand(Actions.CONTINUOUS, attribute=self._current_phase))
         else:
             self.command_runner.emit(ThreadCommand(Actions.STOP))
 
     def compute_phase(self):
-        self.command_runner.emit(ThreadCommand(Actions.STEP))
+        self.command_runner.emit(ThreadCommand(Actions.STEP, attribute=self._current_phase))
         self.set_action_enabled(Actions.CONTINUOUS, True)
 
     def apply_mask(self, apply_to: ApplyMaskTo) -> bool:
@@ -319,6 +329,8 @@ class AlgoApp(CustomApp):
 
     def process_output(self, dte: DataToExport):
         self._current_data = dte.deepcopy()
+        self._current_phase: np.ndarray = dte.get_data_from_full_name('object/phase')[0].copy()
+
 
         self.object_field_signal.emit(
             Field('object',
@@ -343,30 +355,32 @@ class AlgoRunner(QtCore.QObject):
         """
         """
         if command.command == Actions.CONTINUOUS:
-            self.continuous_algo()
+            self.continuous_algo(command.attribute)
 
         elif command.command == Actions.STEP:
-            self.step_algo()
+            self.step_algo(command.attribute)
 
         elif command.command == Actions.STOP:
             self.running = False
             self.algo.stop()
 
-    def step_algo(self):
+    def step_algo(self, ini_phase: np.ndarray = None):
         self.algo.start()
-        self.algo.compute_phase(do_step=True)
+        self.algo.compute_phase(do_step=True, ini_phase=ini_phase)
         self.algo_output_signal.emit(self.algo.get_fields_to_plot())
 
-    def continuous_algo(self):
+    def continuous_algo(self, ini_phase: np.ndarray = None):
         self.running = True
         if self.algo.MANUAL_LOOP:
             while self.running:
                 self.algo.start()
-                self.algo.compute_phase(do_step=True)
+                self.algo.compute_phase(do_step=True, ini_phase=ini_phase)
+                self.algo_output_signal.emit(self.algo.get_fields_to_plot())
                 QtWidgets.QApplication.processEvents()
         else:
             self.algo.start()
-            self.algo.compute_phase(do_step=False)
+            self.algo.compute_phase(do_step=False, ini_phase=ini_phase)  # the continuous run is handled by the algo itself. If possible
+            #it should update the plots during the course of the initialization... See minimizer.py as an example
         self.algo.stop()
 
 def main():
