@@ -19,7 +19,7 @@ class LoadTypeEnum(BaseEnum):
 
 
 class FieldLoaderParameterManager(ParameterManager):
-    settings_name = 'loader_settings'
+    settings_name = 'LoaderSettings'
 
     def __init__(self):
         super().__init__()

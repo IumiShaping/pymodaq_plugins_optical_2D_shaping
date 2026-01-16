@@ -30,11 +30,6 @@ class SavedFieldLoader(FieldLoader):
              'value': str(cat), 'filetype': True}
          ]
 
-    def settings_changed(self, param: Parameter):
-        """ Don't do anything but only use the reload button otherwise it is too complex to load both phase/amplitude
-         images or only one... """
-        ...
-
 
     def load(self, *args, **kwargs) -> Field:
         """ Mandatory reimplemented method. Used to load a target to populate the field attribute"""
