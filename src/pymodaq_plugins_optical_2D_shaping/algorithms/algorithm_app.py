@@ -177,6 +177,7 @@ class AlgoApp(CustomApp):
 
             self.runner_thread.runner = runner
             runner.algo_output_signal.connect(self.process_output)
+            runner.algo_stopped_signal.connect(self._set_stop_ui())
             self.command_runner.connect(runner.queue_command)
 
             runner.moveToThread(self.runner_thread)
@@ -199,6 +200,9 @@ class AlgoApp(CustomApp):
                     self.runner_thread = None
             self.enable_things(enable=False)
 
+    def _set_stop_ui(self):
+        if self.is_action_checked(Actions.CONTINUOUS):
+            self.set_action_checked(Actions.CONTINUOUS, False)
 
     def setup_docks(self):
 
@@ -343,6 +347,7 @@ class AlgoApp(CustomApp):
 
 class AlgoRunner(QtCore.QObject):
     algo_output_signal = QtCore.Signal(DataToExport)
+    algo_stopped_signal = QtCore.Signal()
 
     def __init__(self, algo: AlgoBase):
         super().__init__()
@@ -368,6 +373,8 @@ class AlgoRunner(QtCore.QObject):
         self.algo.start()
         self.algo.compute_phase(do_step=True, ini_phase=ini_phase)
         self.algo_output_signal.emit(self.algo.get_fields_to_plot())
+        self.algo.stop()
+        self.algo_stopped_signal.emit()
 
     def continuous_algo(self, ini_phase: np.ndarray = None):
         self.running = True
@@ -382,6 +389,7 @@ class AlgoRunner(QtCore.QObject):
             self.algo.compute_phase(do_step=False, ini_phase=ini_phase)  # the continuous run is handled by the algo itself. If possible
             #it should update the plots during the course of the initialization... See minimizer.py as an example
         self.algo.stop()
+        self.algo_stopped_signal.emit()
 
 def main():
     from pathlib import Path
