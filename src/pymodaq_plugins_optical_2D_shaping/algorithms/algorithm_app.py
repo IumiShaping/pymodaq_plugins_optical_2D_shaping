@@ -177,7 +177,7 @@ class AlgoApp(CustomApp):
 
             self.runner_thread.runner = runner
             runner.algo_output_signal.connect(self.process_output)
-            runner.algo_stopped_signal.connect(self._set_stop_ui())
+            runner.algo_stopped_signal.connect(self._algo_stopped)
             self.command_runner.connect(runner.queue_command)
 
             runner.moveToThread(self.runner_thread)
@@ -200,9 +200,9 @@ class AlgoApp(CustomApp):
                     self.runner_thread = None
             self.enable_things(enable=False)
 
-    def _set_stop_ui(self):
+    def _algo_stopped(self):
         if self.is_action_checked(Actions.CONTINUOUS):
-            self.set_action_checked(Actions.CONTINUOUS, False)
+            self.get_action(Actions.CONTINUOUS).trigger()
 
     def setup_docks(self):
 
