@@ -156,6 +156,43 @@ class AlgoApp(CustomApp):
         except ValueError as e:
             self.enable_things(False)
 
+    def ini_algo(self):
+        #self.set_action_enabled(Actions.CONTINUOUS, False)
+
+        if self.is_action_checked('ini_algo'):
+            self.get_action('algorithms').widget.setEnabled(False)
+            self.get_action('algo_led').set_as_true()
+            #self.set_action_enabled('ini_algo', False)
+            #self.set_algorithm()
+
+            self.runner_thread = QtCore.QThread()
+            runner = AlgoRunner(self._algorithm)
+
+            self.runner_thread.runner = runner
+            runner.algo_output_signal.connect(self.process_output)
+            self.command_runner.connect(runner.queue_command)
+
+            runner.moveToThread(self.runner_thread)
+
+            self.runner_thread.start()
+
+            self.compute_fft(update_plots=True)
+
+            self.enable_things()
+
+        else:
+            self.get_action('algorithms').widget.setEnabled(True)
+            if self.runner_thread is not None:
+                self.get_action('algo_led').set_as_false()
+                self.command_runner.disconnect()
+                if self.runner_thread.isRunning():
+                    self.runner_thread.terminate()
+                    while not self.runner_thread.isFinished():
+                        QtCore.QThread.msleep(100)
+                    self.runner_thread = None
+            self.enable_things(enable=False)
+
+
     def setup_docks(self):
 
         self.algo_area = self.dockarea
@@ -187,13 +224,14 @@ class AlgoApp(CustomApp):
         self.get_action('algorithms').setCurrentText(plugin_config('algo', 'default_algo')[0])
         self.add_action('ini_algo', 'Init Algo', 'ini', checkable=True)
         self.add_widget('algo_led', QLED)
-        self.add_action('compute_fft', 'Compute FFT', 'snap', "Run a fft of the input phase")
 
-        self.add_action(Actions.STEP, 'Step', 'snap', "Step a loop of the algorithm")
-        self.add_action(Actions.CONTINUOUS, 'Continuous', 'videocam', "Run continuously the algorithm",
-                        checkable=True, icon_checked='videocam_off')
+        self.add_action('reset_phase', 'Reset Phase', 'Refresh2', tip="Reset the SLM phase")
+        self.add_action('compute_fft', 'Compute FFT', 'FFT', tip="Run a fft of the input phase")
 
-        self.add_action('reset_phase', 'Reset Phase', 'Refresh2', "Reset the SLM phase")
+        self.add_action(Actions.STEP, 'Step', 'snap', tip="Step a loop of the algorithm")
+        self.add_action(Actions.CONTINUOUS, 'Continuous', 'run2', tip="Run continuously the algorithm",
+                        checkable=True, icon_checked='stop')
+
         self.add_action('export', 'Export', 'SaveAs', 'Export data')
 
     def connect_things(self):
@@ -227,9 +265,9 @@ class AlgoApp(CustomApp):
         if self._algorithm is not None:
             self._algorithm.define_input_phase(self.settings['target_phase_group', 'target_phase'])
 
-    def compute_fft(self):
+    def compute_fft(self, update_plots=True):
         if self._algorithm is not None:
-            self._algorithm.compute_forward_fft()
+            self._algorithm.compute_forward_fft(update_plots=update_plots)
 
     def compute_phase_loop(self):
         if self.is_action_checked(Actions.CONTINUOUS):
@@ -289,39 +327,6 @@ class AlgoApp(CustomApp):
                   pixel_sizes=self._input_field.pixels_sizes))
 
         self.fields_to_plot.emit(dte)
-
-    def ini_algo(self):
-        self.set_action_enabled(Actions.CONTINUOUS, False)
-
-        if self.is_action_checked('ini_algo'):
-            self.get_action('algorithms').widget.setEnabled(False)
-            self.get_action('algo_led').set_as_true()
-            #self.set_action_enabled('ini_algo', False)
-            self.set_algorithm()
-
-            self.runner_thread = QtCore.QThread()
-            runner = AlgoRunner(self._algorithm)
-
-            self.runner_thread.runner = runner
-            runner.algo_output_signal.connect(self.process_output)
-            self.command_runner.connect(runner.queue_command)
-
-            runner.moveToThread(self.runner_thread)
-
-            self.runner_thread.start()
-            self.enable_things(exclude=(Actions.CONTINUOUS,))
-
-        else:
-            self.get_action('algorithms').widget.setEnabled(True)
-            if self.runner_thread is not None:
-                self.get_action('algo_led').set_as_false()
-                self.command_runner.disconnect()
-                if self.runner_thread.isRunning():
-                    self.runner_thread.terminate()
-                    while not self.runner_thread.isFinished():
-                        QtCore.QThread.msleep(100)
-                    self.runner_thread = None
-            self.enable_things(enable=False)
 
 
 class AlgoRunner(QtCore.QObject):

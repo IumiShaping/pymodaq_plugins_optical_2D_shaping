@@ -62,6 +62,8 @@ class GbSax(AlgoBase):
             self._algo_init = True
             self.do_things_after_set_target()
 
+            self.define_input_phase()
+
     def do_things_after_set_input(self):
         """ Apply the initial phase to the object field """
 
