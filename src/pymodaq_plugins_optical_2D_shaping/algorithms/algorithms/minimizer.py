@@ -15,7 +15,7 @@ from qtpy import QtWidgets, QtCore
 import numpy as np
 
 from pymodaq_gui.utils import DockArea
-from pymodaq_gui.utils.utils import mkQApp
+from pymodaq_gui.qt_utils import mkQApp
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_gui.parameter import Parameter
 

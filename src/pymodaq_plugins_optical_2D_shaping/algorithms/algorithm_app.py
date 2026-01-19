@@ -3,6 +3,7 @@ from typing import Union
 import numpy as np
 from qtpy import QtWidgets, QtCore
 
+import pymodaq_gui.qt_utils
 from pymodaq_data import DataCalculated
 from pymodaq_gui.plotting.utils.plot_utils import RoiInfo
 from pymodaq_utils.utils import ThreadCommand
@@ -400,7 +401,7 @@ def main():
     from skimage.color import rgb2gray
     from skimage.transform import rescale, resize
 
-    from pymodaq_gui.utils.utils import mkQApp
+    from pymodaq_gui.qt_utils import mkQApp
 
     cheshire_cat_path = Path(__file__).parent.parent.joinpath(
         'resources/cheshirecat_rect.png')

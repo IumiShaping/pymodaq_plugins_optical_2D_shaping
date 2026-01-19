@@ -1,4 +1,3 @@
-
 from pymodaq_gui.utils.widgets.widget_bkg import WidgetWithBkg
 from qtpy import QtWidgets, QtCore
 
@@ -73,7 +72,7 @@ class ZernikeUI(CustomApp):
 
 
 def main():
-    from pymodaq_gui.utils.utils import mkQApp
+    from pymodaq_gui.qt_utils import mkQApp
 
     def print_info(n, m, value):
         print(f'Slider {n},{m} has a value of  {value}')

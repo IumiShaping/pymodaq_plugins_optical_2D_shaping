@@ -426,8 +426,7 @@ class FieldLoaderApp(CustomApp):
 
 def main():
     from pathlib import Path
-    from pymodaq_gui.utils.utils import mkQApp
-
+    from pymodaq_gui.qt_utils import mkQApp
 
     app = mkQApp('Optical Shaping')
 

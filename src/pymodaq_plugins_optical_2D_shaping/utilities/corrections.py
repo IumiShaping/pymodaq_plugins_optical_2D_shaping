@@ -291,7 +291,7 @@ class Correction(CustomApp):
 
 
 def main():
-    from pymodaq_gui.utils.utils import mkQApp
+    from pymodaq_gui.qt_utils import mkQApp
 
     def print_corrections(corrections: CorrectionValues):
         print(corrections)
