@@ -2,7 +2,6 @@ from dataclasses import dataclass
 
 from qtpy.QtCore import QObject, Signal
 
-
 from pymodaq_gui.parameter.pymodaq_ptypes import registerParameterType, GroupParameter
 
 
@@ -59,7 +58,8 @@ class Setup(QObject, ParameterManager):
 
 
 if __name__ == '__main__':
-    from pymodaq_gui.utils.utils import mkQApp
+    from pymodaq_gui.qt_utils import mkQApp
+
     app = mkQApp('Setup')
 
     setup = Setup()

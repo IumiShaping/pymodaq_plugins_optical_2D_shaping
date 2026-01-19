@@ -1,5 +1,6 @@
 import numpy as np
 from numpy.fft import fftshift, fft
+
 from pymodaq_plugins_optical_2D_shaping.field import Field
 from time import perf_counter
 
@@ -8,7 +9,7 @@ device = torch.accelerator.current_accelerator().type if torch.accelerator.is_av
 print(f"Using {device} device")
 torch.set_default_device(device)
 
-from pymodaq_gui.utils.utils import mkQApp
+from pymodaq_gui.qt_utils import mkQApp
 
 app = mkQApp('fft')
 N = 2048

@@ -62,6 +62,8 @@ class GbSax(AlgoBase):
             self._algo_init = True
             self.do_things_after_set_target()
 
+            self.define_input_phase()
+
     def do_things_after_set_input(self):
         """ Apply the initial phase to the object field """
 
@@ -81,7 +83,7 @@ class GbSax(AlgoBase):
 
         self.set_phase_in_object_plane(field_object_corrected.phase)
 
-    def compute_phase(self):
+    def compute_phase(self, do_step=True, **kwargs):
         self.propagate_field()
         self.evolve_field()
 

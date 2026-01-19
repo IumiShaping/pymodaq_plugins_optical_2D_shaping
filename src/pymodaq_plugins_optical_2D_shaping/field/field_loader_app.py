@@ -29,7 +29,7 @@ field_loader_factory = LoaderFactory(
 )
 
 class FieldLoaderApp(CustomApp):
-
+    settings_name = "LoaderAppSettings"
     params = [
         {'title': 'Loader', 'name': 'loader', 'type': 'list',
          'limits': field_loader_factory.field_loaders,
@@ -184,9 +184,8 @@ class FieldLoaderApp(CustomApp):
                     break
             settings_str += b'</All_settings>'
 
-            with DataSaverLoader(file_name, new_file=True,
-                                 metadata={'settings': settings_str}) as saver:
-                saver.add_data('/RawData/', dwa)
+            with DataSaverLoader(file_name, new_file=True) as saver:
+                saver.add_data('/RawData/', dwa, settings=settings_str)
 
 
     def update_slm(self, slm_default_name: str):
@@ -427,8 +426,7 @@ class FieldLoaderApp(CustomApp):
 
 def main():
     from pathlib import Path
-    from pymodaq_gui.utils.utils import mkQApp
-
+    from pymodaq_gui.qt_utils import mkQApp
 
     app = mkQApp('Optical Shaping')
 

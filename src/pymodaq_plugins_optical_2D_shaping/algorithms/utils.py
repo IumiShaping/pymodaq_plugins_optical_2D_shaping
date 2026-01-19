@@ -65,6 +65,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     ALGO_NAME: str = None  # to be reimplemented
     SETUP_TYPE: LensSetup = None # to be reimplemented
     ITERATIVE = False
+    MANUAL_LOOP = True
     params = []
 
 
@@ -83,6 +84,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self._image_field = Field()
 
         self.update_mask = True
+
 
     def quit(self):
         """ to reimplement if necessary"""
@@ -186,38 +188,41 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         return  ((shift_y * coeff * pixel_SLM).to_reduced_units().magnitude,
                  (shift_x * coeff * pixel_SLM).to_reduced_units().magnitude)
 
-    def define_input_phase(self, phase_type: TargetPhase = None) -> np.ndarray:
-        if phase_type is None:
-            phase_type = self.get_phase_type()
-        shape = self._object_field.shape
-        if phase_type == TargetPhase.RANDOM:
-            phase = np.random.random_sample(shape) * 2 *np.pi
-
-        elif phase_type == TargetPhase.QUADRATIC or phase_type == TargetPhase.QUADRATIC_SHIFT:
-            ny, nx = shape
-            xlin = np.linspace(-nx//2, nx//2 , nx , endpoint=True)
-            ylin = np.linspace(-ny//2, ny//2 , ny , endpoint=True )
-
-            r = ((self._compute_quadratic_factor().to_reduced_units().magnitude *  # approximated from two lens computation
-                 self.parent_app.settings['target_phase_group', 'params', 'quad_amp'])  # manual coefficient to move the shift
-                 * 1.75)  # adhoc coefficient to match target size
-            xx_quad, yy_quad = np.meshgrid( r[1] * xlin ** 2,
-                                            r[0] * ylin ** 2)
-            phase = xx_quad + yy_quad
-
-            if phase_type == TargetPhase.QUADRATIC_SHIFT:
-                coeff = self._compute_linear_factor()  # approximated from lens computation
-                d = (self.parent_app.settings['target_phase_group', 'params', 'shift_amp']  # manual coefficient to move the shift
-                     * 3) # adhoc coefficient to correctly match target roi position
-                xxlin, yylin = np.meshgrid(d * coeff[1] * xlin,
-                                           d * coeff[0] * ylin)
-                phase += xxlin + yylin
-
+    def define_input_phase(self, phase_type: TargetPhase = None, force_reset = False) -> np.ndarray:
+        if not force_reset and self.parent_app.current_phase is not None:
+            phase = self.parent_app.current_phase
         else:
-            raise ValueError('Unknown phase type')
+
+            if phase_type is None:
+                phase_type = self.get_phase_type()
+            shape = self._object_field.shape
+            if phase_type == TargetPhase.RANDOM:
+                phase = np.random.random_sample(shape) * 2 *np.pi
+
+            elif phase_type == TargetPhase.QUADRATIC or phase_type == TargetPhase.QUADRATIC_SHIFT:
+                ny, nx = shape
+                xlin = np.linspace(-nx//2, nx//2 , nx , endpoint=True)
+                ylin = np.linspace(-ny//2, ny//2 , ny , endpoint=True )
+
+                r = ((self._compute_quadratic_factor().to_reduced_units().magnitude *  # approximated from two lens computation
+                     self.parent_app.settings['target_phase_group', 'params', 'quad_amp'])  # manual coefficient to move the shift
+                     * 1.75)  # adhoc coefficient to match target size
+                xx_quad, yy_quad = np.meshgrid( r[1] * xlin ** 2,
+                                                r[0] * ylin ** 2)
+                phase = xx_quad + yy_quad
+
+                if phase_type == TargetPhase.QUADRATIC_SHIFT:
+                    coeff = self._compute_linear_factor()  # approximated from lens computation
+                    d = (self.parent_app.settings['target_phase_group', 'params', 'shift_amp']  # manual coefficient to move the shift
+                         * 3) # adhoc coefficient to correctly match target roi position
+                    xxlin, yylin = np.meshgrid(d * coeff[1] * xlin,
+                                               d * coeff[0] * ylin)
+                    phase += xxlin + yylin
+
+            else:
+                raise ValueError('Unknown phase type')
 
         phase = (phase + np.pi) % (2 * np.pi) - np.pi
-
         self.set_phase_in_object_plane(phase)
         return phase
 
@@ -272,7 +277,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     def fitness_as_dwa(self):
         return DataRaw('fitness', data=[np.array([self.fitness])])
 
-    def compute_phase(self):
+    def compute_phase(self, do_step=True, ini_phase: np.ndarray = None, **kwargs):
         """ Compute the phase to apply to SLM given the target object
 
         To be subclassed in real implementation

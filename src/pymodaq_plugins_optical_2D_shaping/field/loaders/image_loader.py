@@ -18,7 +18,7 @@ from pymodaq_plugins_optical_2D_shaping.field.factory import LoaderFactory
 
 resources_path = Path(__file__).parent.parent.parent.joinpath('resources')
 cheshire_cat_path = resources_path.joinpath('cheshirecat_rect.png')
-
+cemes_path = resources_path.joinpath('Cemes - Logo - Sigle - Blanc.png')
 
 logger = set_logger(get_module_name(__file__))
 
@@ -37,7 +37,7 @@ class ImageFileLoader(FieldLoader):
          {'title': 'Phase:', 'name': 'phase', 'type': 'group', 'children': [
              {'title': 'Load it:', 'name': 'load', 'type': 'bool', 'value': False},
              {'title': 'File path:', 'name': 'file', 'type': 'browsepath',
-              'value': '', 'filetype': True}]},
+              'value': str(cemes_path), 'filetype': True}]},
          ]
 
     def settings_changed(self, param: Parameter):

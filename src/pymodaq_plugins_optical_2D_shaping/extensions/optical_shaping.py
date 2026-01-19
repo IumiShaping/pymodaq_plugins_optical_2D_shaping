@@ -145,7 +145,7 @@ class OpticalShaping(CustomExt):
         ########
         pyqtgraph.dockarea.Dock
         """
-        self.add_toolbar('dashboard', 'Settings Toolbar')
+        self.add_toolbar('dashboard', 'Dashboard Toolbar')
         self.add_toolbar('algorithm', 'Algorithm Toolbar')
 
         self.mainwindow.addToolBar(self.get_toolbar('dashboard'))
@@ -430,14 +430,14 @@ class OpticalShaping(CustomExt):
 
 
 def main():
-    from pymodaq_gui.utils.utils import mkQApp
+    from pymodaq_gui.qt_utils import mkQApp
     from pymodaq.utils.gui_utils.loader_utils import create_load_dashboard
     from pymodaq_gui.utils.dock import DockArea
 
     app = mkQApp('Optical Shaping')
 
     win, dashboard = create_load_dashboard()
-    win.setVisible(False)
+    win.mainwindow.setVisible(False)
 
     win_optical = QtWidgets.QMainWindow()
     dockarea = DockArea()

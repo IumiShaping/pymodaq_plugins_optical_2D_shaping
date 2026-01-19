@@ -14,6 +14,7 @@ from pymodaq_plugins_optical_2D_shaping.field.factory import LoaderFactory
 resources_path = Path(__file__).parent.parent.parent.joinpath('resources')
 #ferris_wheel = resources_path.joinpath('ferris_wheel_3_11_pluto_setup_4f.h5')
 ferris_wheel = resources_path.joinpath('ferris_wheel_3_11_pluto_setup_2f.h5')
+cat = resources_path.joinpath('cat_field.h5')
 
 logger = set_logger(get_module_name(__file__))
 
@@ -26,13 +27,8 @@ class SavedFieldLoader(FieldLoader):
 
     params = FieldLoader.params + \
             [{'title': 'File path:', 'name': 'file', 'type': 'browsepath',
-             'value': str(ferris_wheel), 'filetype': True}
+             'value': str(cat), 'filetype': True}
          ]
-
-    def settings_changed(self, param: Parameter):
-        """ Don't do anything but only use the reload button otherwise it is too complex to load both phase/amplitude
-         images or only one... """
-        ...
 
 
     def load(self, *args, **kwargs) -> Field:
