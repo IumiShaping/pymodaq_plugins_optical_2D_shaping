@@ -131,6 +131,10 @@ class OpticalShaping(CustomExt):
         self._correction_phase = dwa
         self.update_object(self._object_field)
 
+    @property
+    def algorithm(self):
+        return self._algorithm
+
     def setup_docks(self):
         """
         to be subclassed to setup the docks layout
@@ -145,13 +149,9 @@ class OpticalShaping(CustomExt):
         ########
         pyqtgraph.dockarea.Dock
         """
-        self.add_toolbar('dashboard', 'Dashboard Toolbar')
-        self.add_toolbar('algorithm', 'Algorithm Toolbar')
-
-        self.mainwindow.addToolBar(self.get_toolbar('dashboard'))
-        self.mainwindow.addToolBar(self.get_toolbar('algorithm'))
-
-        self._algorithm = AlgoApp(self.dockarea, toolbar=self.get_toolbar('algorithm'))
+        self.add_toolbar('dashboard', 'Dashboard Toolbar', parent=self.mainwindow,
+                         add_break=True)
+        self.mainwindow.addToolBarBreak()
 
         self._target_dockarea = gutils.DockArea()
         self._target_loader = FieldLoaderApp(self._target_dockarea,
@@ -175,8 +175,7 @@ class OpticalShaping(CustomExt):
         self.docks['fitness'] = gutils.Dock('Fitness')
 
         self.dockarea.addDock(self.docks['fitness'])
-        self.dockarea.addDock(self._algorithm.docks['algo_settings'], 'bottom',
-                              self.docks['fitness'])
+
         self.dockarea.addDock(self.docks['object_field'], 'right')
         self.dockarea.addDock(self.docks['image_field'], 'bottom', self.docks['object_field'])
 
@@ -251,7 +250,6 @@ class OpticalShaping(CustomExt):
 
     def setup_actions(self):
         logger.debug('Main actions')
-        self.add_action('quit', 'Quit', 'close2', "Quit program")
         self.add_action('settings', 'Plugin Settings', 'Settings',
                         'Open the plugin configuration file',
                         checkable=True)
@@ -291,12 +289,25 @@ class OpticalShaping(CustomExt):
                             'Add Focal and Zernike polynomials as individual actuators in Dashboard',
                         toolbar='dashboard'
                             )
-    logger.debug('actions set')
+        logger.debug('actions set')
+
+    def do_things_after_ui_setup(self):
+
+        self._algorithm = AlgoApp(self.dockarea, toolbar=self.toolbar)
+        self.dockarea.addDock(self._algorithm.docks['algo_settings'], 'bottom',
+                              self.docks['fitness'])
+        self._algorithm.algo_changed.connect(self.update_target_loader_from_algo)
+        self._algorithm.fields_to_plot.connect(self.plot_fields)
+        self.update_target_loader_from_algo(self._algorithm.algorithm)
+        self._algorithm.object_field_signal.connect(self.update_object)
+        self._input_field_loader.field_signal.connect(self._algorithm.set_input_field)
+        self._target_loader.field_signal.connect(self._algorithm.set_target_field)
+        self.intermediate_viewer.roi_select_signal.connect(self._algorithm.update_intermediate_slices)
+        for viewer in (self._target_loader.amp_viewer, self._target_loader.phase_viewer):
+            viewer.roi_select_signal.connect(self._algorithm.update_target_slices)
 
     def connect_things(self):
         logger.debug('connecting things')
-        self.connect_action('quit', self.quit, )
-
         self.connect_action('settings', self.show_config)
         self.connect_action('show_other_plots', self.show_other_plots)
         self.connect_action('show_intermediate', self.show_intermediate_field)
@@ -306,14 +317,7 @@ class OpticalShaping(CustomExt):
         self.connect_action('target', self.show_target)
         self.connect_action('input', self.show_input)
 
-        self._algorithm.object_field_signal.connect(self.update_object)
-
-        self._input_field_loader.field_signal.connect(self._algorithm.set_input_field)
-        self._target_loader.field_signal.connect(self._algorithm.set_target_field)
         self._target_loader.field_signal.connect(self.plot_target)
-        self._algorithm.algo_changed.connect(self.update_target_loader_from_algo)
-        self._algorithm.fields_to_plot.connect(self.plot_fields)
-        self.update_target_loader_from_algo(self._algorithm.algorithm)
 
         self.connect_action('corrections', self.show_corrections)
         self._corrections.phase_changed.connect(self.update_correction_phase)
@@ -321,10 +325,6 @@ class OpticalShaping(CustomExt):
             self.connect_action('add_corrections', self.add_corrections_actuators)
 
         self.connect_action('save_phase', self.save_phase)
-
-        self.intermediate_viewer.roi_select_signal.connect(self._algorithm.update_intermediate_slices)
-        for viewer in (self._target_loader.amp_viewer, self._target_loader.phase_viewer):
-            viewer.roi_select_signal.connect(self._algorithm.update_target_slices)
 
     def plot_fields(self, dte: DataToExport):
         fitness = dte.remove(dte.get_data_from_name('fitness'))
@@ -420,30 +420,40 @@ class OpticalShaping(CustomExt):
         self.intermediate_widget.setVisible(show)
         self.intermediate_widget.closeEvent = lambda event: self.get_action('show_intermediate').trigger()
 
-    def quit(self):
+    def quit_fun(self):
         self._input_field_dockarea.close()
         self._target_dockarea.close()
         self.intermediate_widget.close()
         self.other_plots_widget.close()
-        self.dockarea.parent().close()
         self.dashboard.quit_fun()
+        QtWidgets.QApplication.processEvents()  # allows the dashboard modules to close properly
+
+        super().quit_fun()
 
 
 def main():
     from pymodaq_gui.qt_utils import mkQApp
     from pymodaq.utils.gui_utils.loader_utils import create_load_dashboard
     from pymodaq_gui.utils.dock import DockArea
+    from pymodaq.utils.shared_ui import SharedUI
 
     app = mkQApp('Optical Shaping')
 
     win, dashboard = create_load_dashboard()
     win.mainwindow.setVisible(False)
 
+
     win_optical = QtWidgets.QMainWindow()
     dockarea = DockArea()
     win_optical.setCentralWidget(dockarea)
+
+    shared_ui = SharedUI(win_optical, show=False)
+    win_optical.addToolBarBreak()
     extension = OpticalShaping(dockarea, dashboard)
-    win_optical.show()
+
+    shared_ui.affect_application(extension)
+
+    shared_ui.show()
 
     app.exec()
 

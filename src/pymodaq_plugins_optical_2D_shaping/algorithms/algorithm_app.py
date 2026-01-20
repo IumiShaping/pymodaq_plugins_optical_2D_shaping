@@ -75,10 +75,8 @@ class AlgoApp(CustomApp):
     fields_to_plot = QtCore.Signal(DataToExport)
 
     def __init__(self, dockarea, toolbar: QtWidgets.QToolBar=None):
-        super().__init__(dockarea)
+        super().__init__(dockarea, toolbar=toolbar)
         self.runner_thread: QtCore.QThread = None
-        if toolbar is not None:
-            self.set_toolbar(toolbar)
 
         self._algorithm: AlgoBase = None
         self._target_field: Field = None
