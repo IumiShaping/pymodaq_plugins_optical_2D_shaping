@@ -1,13 +1,16 @@
-
-from abc import ABCMeta, abstractproperty, abstractmethod
+from abc import ABCMeta
 from typing import Tuple, TYPE_CHECKING, Union, Optional
 
 import numpy as np
 from qtpy import QtWidgets
-from pymodaq_gui.managers.parameter_manager import ParameterManager, Parameter
+from scipy.ndimage import gaussian_filter
+
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataRaw, DataToExport
 from pymodaq_utils.enums import StrEnum
+
+from pymodaq_gui.managers.parameter_manager import ParameterManager, Parameter
+
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.field import Field, Q_
 
@@ -253,7 +256,14 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
     def set_phase_in_object_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
         if phase.shape == self._object_field.shape:
-            self._object_field.phase = phase.copy()
+            phase = phase.copy()
+            if self.parent_app.settings['smoothing', 'apply_smoothing']:
+                phase = gaussian_filter(phase, sigma=(
+                    self.parent_app.settings['smoothing', 'sigma_y'],
+                    self.parent_app.settings['smoothing', 'sigma_x']
+                ))
+
+            self._object_field.phase = phase
             self._object_field.amplitude = (
                     self._input_field.amplitude.copy() *
                     (induced_amplitude if induced_amplitude is not None else 1))

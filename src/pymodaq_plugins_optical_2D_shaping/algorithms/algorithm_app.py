@@ -52,6 +52,11 @@ class AlgoApp(CustomApp):
                   {'title': 'Shift Amplitude', 'name': 'shift_amp', 'type': 'float', 'value': 1.},
               ]},
          ]},
+              {'title': 'Object Phase Smoothing', 'name': 'smoothing', 'type': 'group', 'children': [
+                  {'title': 'Apply:', 'name': 'apply_smoothing', 'type': 'bool', 'value': False},
+                  {'title': 'Sigma X (pxl)', 'name': 'sigma_x', 'type': 'int', 'value': 10, },
+                  {'title': 'Sigma Y (pxl)', 'name': 'sigma_y', 'type': 'int', 'value': 10, },
+              ]},
         {'title': 'Target Masking', 'name': str(ApplyMaskTo.TARGET), 'type': 'group', 'children': [
             {'title': 'Apply Mask', 'name': 'apply_mask', 'type': 'bool', 'value': False},
             {'title': 'Mask Type', 'name': 'mask_type', 'type': 'list', 'value': str(MaskType.SQUARE),
