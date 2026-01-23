@@ -62,8 +62,6 @@ class OpticalShaping(CustomExt):
 
         self._corrections: Correction = None
 
-        self.preset_manager: PresetManager = None
-
         if self.modules_manager is not None and 'Shaper' in self.modules_manager.actuators_name:
             self._shaper = self.modules_manager.get_mod_from_name('Shaper', 'act')
         else:
@@ -149,9 +147,7 @@ class OpticalShaping(CustomExt):
         ########
         pyqtgraph.dockarea.Dock
         """
-        self.add_toolbar('dashboard', 'Dashboard Toolbar', parent=self.mainwindow,
-                         add_break=True)
-        self.mainwindow.addToolBarBreak()
+        self.create_dashboard_toolbar()
 
         self._target_dockarea = gutils.DockArea()
         self._target_loader = FieldLoaderApp(self._target_dockarea,
@@ -258,21 +254,13 @@ class OpticalShaping(CustomExt):
                         'Open the Target FieldLoader window', checkable=True)
         self.add_action('input', 'Input Beam Selection', 'input',
                         'Open the InputBeam FieldLoader window', checkable=True)
-        self.add_action('save_phase', 'Save', 'SaveAs_32',
+        self.add_action('save_phase', 'Save', 'save_as',
                         'Save Phases to a file',)
 
         self.add_action('show_other_plots', 'Show Other Plots', 'visibility', checkable=True,
                         icon_checked='visibility_off')
         self.add_action('show_intermediate', 'Show Intermediate', 'visibility', checkable=True,
                         icon_checked='visibility_off', tip='Show Field intensity in intermediate plane')
-
-        logger.debug('DashBoard related actions')
-        self.add_widget('dashboard_label', QtWidgets.QLabel('Dashboard:'),
-                        toolbar='dashboard')
-        self.add_action('show_dashboard', 'Show Dashboard', 'show',
-                        'Show/Hide the Dashboard window', checkable=True,
-                        icon_checked='unshow', toolbar='dashboard')
-        self.preset_manager = PresetManager(self.dashboard, toolbar=self.get_toolbar('dashboard'))
 
         self.add_action('send_algo_to_shaper', 'Algo to shaper', 'random',
                         'Send calculated phase to the control module called *Shaper*',
