@@ -172,7 +172,6 @@ class AlgoApp(CustomApp):
 
         if self.is_action_checked('ini_algo'):
             self.get_action('algorithms').widget.setEnabled(False)
-            self.get_action('algo_led').set_as_true()
             #self.set_action_enabled('ini_algo', False)
             #self.set_algorithm()
 
@@ -195,7 +194,6 @@ class AlgoApp(CustomApp):
         else:
             self.get_action('algorithms').widget.setEnabled(True)
             if self.runner_thread is not None:
-                self.get_action('algo_led').set_as_false()
                 self.command_runner.disconnect()
                 if self.runner_thread.isRunning():
                     self.runner_thread.terminate()
@@ -237,17 +235,19 @@ class AlgoApp(CustomApp):
                         tip='select the algorithm to compute the phase')
         self.get_action('algorithms').addItems(plugin_config('algo', 'default_algo'))
         self.get_action('algorithms').setCurrentText(plugin_config('algo', 'default_algo')[0])
-        self.add_action('ini_algo', 'Init Algo', 'ini', checkable=True)
-        self.add_widget('algo_led', QLED)
+        self.add_action('ini_algo', 'Init Algo', 'start', checkable=True,
+                        icon_checked_color=self.get_theme().green)
 
-        self.add_action('reset_phase', 'Reset Phase', 'Refresh2', tip="Reset the SLM phase")
-        self.add_action('compute_fft', 'Compute FFT', 'FFT', tip="Run a fft of the input phase")
+        self.add_action('reset_phase', 'Reset Phase', 'refresh', tip="Reset the SLM phase")
+        self.add_action('compute_fft', 'Compute FFT', 'function', tip="Run a fft of the input phase")
 
-        self.add_action(Actions.STEP, 'Step', 'snap', tip="Step a loop of the algorithm")
-        self.add_action(Actions.CONTINUOUS, 'Continuous', 'run2', tip="Run continuously the algorithm",
-                        checkable=True, icon_checked='stop')
+        self.add_action(Actions.STEP, 'Step', 'looks_one', tip="Step a loop of the algorithm")
+        self.add_action(Actions.CONTINUOUS, 'Continuous', 'repeat',
+                        tip="Run continuously the algorithm",
+                        checkable=True, icon_checked='repeat_on',
+                        icon_checked_color=self.get_theme().green)
 
-        self.add_action('export', 'Export', 'SaveAs', 'Export data')
+        self.add_action('export', 'Export', 'save_as', 'Export data')
 
     def connect_things(self):
         self.connect_action(Actions.STEP, self.compute_phase)

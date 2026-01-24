@@ -147,7 +147,7 @@ class OpticalShaping(CustomExt):
         ########
         pyqtgraph.dockarea.Dock
         """
-        self.create_dashboard_toolbar()
+        self.create_dashboard_toolbar(add_break=False)
 
         self._target_dockarea = gutils.DockArea()
         self._target_loader = FieldLoaderApp(self._target_dockarea,
@@ -241,47 +241,54 @@ class OpticalShaping(CustomExt):
         """
         ...
 
-    def show_dashboard(self):
-        self.dashboard.mainwindow.setVisible(self.is_action_checked('show_dashboard'))
-
     def setup_actions(self):
         logger.debug('Main actions')
-        self.add_action('settings', 'Plugin Settings', 'Settings',
+        self.add_action('settings', 'Plugin Settings', 'account_tree',
                         'Open the plugin configuration file',
                         checkable=True)
 
         self.add_action('target', 'Target Selection', 'target',
-                        'Open the Target FieldLoader window', checkable=True)
+                        'Open the Target FieldLoader window', checkable=True,
+                        icon_checked_color=self.get_theme().green)
         self.add_action('input', 'Input Beam Selection', 'input',
-                        'Open the InputBeam FieldLoader window', checkable=True)
-        self.add_action('save_phase', 'Save', 'save_as',
-                        'Save Phases to a file',)
+                        'Open the InputBeam FieldLoader window', checkable=True,
+                        icon_checked_color=self.get_theme().green)
 
         self.add_action('show_other_plots', 'Show Other Plots', 'visibility', checkable=True,
                         icon_checked='visibility_off')
         self.add_action('show_intermediate', 'Show Intermediate', 'visibility', checkable=True,
                         icon_checked='visibility_off', tip='Show Field intensity in intermediate plane')
 
-        self.add_action('send_algo_to_shaper', 'Algo to shaper', 'random',
-                        'Send calculated phase to the control module called *Shaper*',
-                        checkable=True, toolbar='dashboard')
+        self.get_toolbar('dashboard').addSeparator()
+        self.add_action('send_algo_to_shaper', 'Algo to shaper', 'blur_off',
+                        icon_color=self.get_theme().red,
+                        tip='Send calculated phase to the control module called *Shaper*',
+                        checkable=True, toolbar='dashboard',
+                        icon_checked='blur_on', icon_checked_color=self.get_theme().green)
 
-        self.add_action('corrections', 'Corrections', 'utility2',
+        self.add_action('corrections', 'Corrections', 'build_circle',
                         tip='Open the Utility window with focal and Zernike correction',
                         checkable=True, toolbar='dashboard')
-        self.add_action('send_correc_to_shaper', 'Correction to shaper', 'random',
+        self.add_action('send_correc_to_shaper', 'Correction to shaper', 'deblur',
                         'Send correction phase to the control module called *Shaper*',
-                        checkable=True, toolbar='dashboard')
+                        checkable=True, toolbar='dashboard',
+                        icon_color=self.get_theme().red,
+                        icon_checked_color=self.get_theme().green)
+        self.add_action('save_phase', 'Save', 'save_as',
+                    'Save Phases to a file', toolbar='dashboard')
         if self.dashboard is not None:
-            self.add_action('add_corrections', 'Add Corrections', 'Add_Step',
+            self.add_action('add_corrections', 'Add Corrections', 'add_circle',
                             'Add Focal and Zernike polynomials as individual actuators in Dashboard',
                         toolbar='dashboard'
                             )
+
         logger.debug('actions set')
 
     def do_things_after_ui_setup(self):
+        self.mainwindow.removeToolBarBreak(self.get_toolbar('dashboard'))
 
         self._algorithm = AlgoApp(self.dockarea, toolbar=self.toolbar)
+        self.mainwindow.insertToolBarBreak(self.toolbar)
         self.dockarea.addDock(self._algorithm.docks['algo_settings'], 'bottom',
                               self.docks['fitness'])
         self._algorithm.algo_changed.connect(self.update_target_loader_from_algo)
@@ -299,8 +306,6 @@ class OpticalShaping(CustomExt):
         self.connect_action('settings', self.show_config)
         self.connect_action('show_other_plots', self.show_other_plots)
         self.connect_action('show_intermediate', self.show_intermediate_field)
-
-        self.connect_action('show_dashboard', self.show_dashboard)
 
         self.connect_action('target', self.show_target)
         self.connect_action('input', self.show_input)
@@ -436,7 +441,6 @@ def main():
     win_optical.setCentralWidget(dockarea)
 
     shared_ui = SharedUI(win_optical, show=False)
-    win_optical.addToolBarBreak()
     extension = OpticalShaping(dockarea, dashboard)
 
     shared_ui.affect_application(extension)
