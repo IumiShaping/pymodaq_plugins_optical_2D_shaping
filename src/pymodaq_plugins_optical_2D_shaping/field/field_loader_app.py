@@ -221,7 +221,7 @@ class FieldLoaderApp(CustomApp):
     def threshold_phase(self, field: Field, threshold=1e-9):
         """ Apply a threshold around 0 and pi to avoid numerical errors"""
 
-        field.phase[np.pi - np.abs(field.phase) < threshold] = np.pi
+        field.phase[2*np.pi - np.abs(field.phase) < threshold] = 2*np.pi
         field.phase[np.abs(field.phase) < threshold] = 0
 
     def load_field(self, *args, **kwargs):

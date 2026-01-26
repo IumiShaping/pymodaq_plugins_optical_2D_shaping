@@ -1,7 +1,6 @@
 import numpy as np
 from qtpy import QtWidgets, QtCore
 
-from pymodaq.utils.managers import PresetManager
 from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_utils.config import Config
@@ -16,7 +15,7 @@ from pymodaq_gui.utils.file_io import select_file
 from pymodaq_gui import utils as gutils
 from pymodaq_gui.utils.widgets.tree_toml import TreeFromToml
 
-from pymodaq.extensions.utils import CustomExt
+from pymodaq.extensions.custom_ext import CustomExt
 
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp, AlgoBase
@@ -425,29 +424,19 @@ class OpticalShaping(CustomExt):
 
 
 def main():
+    import sys
     from pymodaq_gui.qt_utils import mkQApp
-    from pymodaq.utils.gui_utils.loader_utils import create_load_dashboard
-    from pymodaq_gui.utils.dock import DockArea
-    from pymodaq.utils.shared_ui import SharedUI
-
-    app = mkQApp('Optical Shaping')
+    from pymodaq.dashboard import create_load_dashboard
+    from pymodaq.utils.gui_utils.loader_utils import create_extension
+    app = mkQApp('OpticalShaping')
 
     win, dashboard = create_load_dashboard()
     win.mainwindow.setVisible(False)
 
+    win_ext, scan = create_extension(dashboard, OpticalShaping)
+    win_ext.show()
 
-    win_optical = QtWidgets.QMainWindow()
-    dockarea = DockArea()
-    win_optical.setCentralWidget(dockarea)
-
-    shared_ui = SharedUI(win_optical, show=False)
-    extension = OpticalShaping(dockarea, dashboard)
-
-    shared_ui.affect_application(extension)
-
-    shared_ui.show()
-
-    app.exec()
+    sys.exit(app.exec())
 
 
 if __name__ == '__main__':

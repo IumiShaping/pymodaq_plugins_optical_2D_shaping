@@ -19,7 +19,8 @@ from pymodaq_plugins_optical_2D_shaping.field.factory import LoaderFactory
 resources_path = Path(__file__).parent.parent.parent.joinpath('resources')
 cheshire_cat_path = resources_path.joinpath('cheshirecat_rect.png')
 cemes_path = resources_path.joinpath('Cemes - Logo - Sigle - Blanc.png')
-
+osama = resources_path.joinpath('osama.png')
+one_piece = resources_path.joinpath('one_piece.png')
 logger = set_logger(get_module_name(__file__))
 
 
@@ -32,12 +33,12 @@ class ImageFileLoader(FieldLoader):
         [{'title': 'Amplitude:', 'name': 'amplitude', 'type': 'group', 'children': [
             {'title': 'Load it:', 'name': 'load', 'type': 'bool', 'value': True},
             {'title': 'File path:', 'name': 'file', 'type': 'browsepath',
-             'value': str(cheshire_cat_path), 'filetype': True},
+             'value': str(osama), 'filetype': True},
         ]},
          {'title': 'Phase:', 'name': 'phase', 'type': 'group', 'children': [
              {'title': 'Load it:', 'name': 'load', 'type': 'bool', 'value': False},
              {'title': 'File path:', 'name': 'file', 'type': 'browsepath',
-              'value': str(cemes_path), 'filetype': True}]},
+              'value': str(one_piece), 'filetype': True}]},
          ]
 
     def settings_changed(self, param: Parameter):
@@ -60,15 +61,17 @@ class ImageFileLoader(FieldLoader):
         fname = Path(fname)
         if fname.is_file():
             try:
-                img_array = imread(fname)
+                img_array = imread(fname, as_gray=True)
                 if len(img_array.shape) == 2:
                     pass
                 elif len(img_array.shape) == 3:
                     img_array = rgb2gray(img_array[..., 0:3])
 
                 if load_type == LoadTypeEnum.AMPLITUDE:
-                    img_array = mutils.normalize_to(np.flipud(img_array), 1)
+                    #img_array = np.flipud(img_array)
+                    img_array = mutils.normalize_to(np.flipud(img_array), 1.)
                 else:
+                    #img_array = np.flipud(img_array)
                     img_array = mutils.normalize_to(np.flipud(img_array), 2 * np.pi)
                 return img_array
 
@@ -88,6 +91,7 @@ class ImageFileLoader(FieldLoader):
                                                  load_type=LoadTypeEnum.AMPLITUDE)
             phase = self.load_image_from_name(self.settings['phase', 'file'],
                                               load_type=LoadTypeEnum.PHASE)
+
             self.field = Field(
                 'Image',
                 amplitude=amplitude if amplitude is not None and self.settings['amplitude', 'load'] else None,
