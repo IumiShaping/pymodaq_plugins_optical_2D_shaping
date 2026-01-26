@@ -68,10 +68,8 @@ class ImageFileLoader(FieldLoader):
                     img_array = rgb2gray(img_array[..., 0:3])
 
                 if load_type == LoadTypeEnum.AMPLITUDE:
-                    #img_array = np.flipud(img_array)
                     img_array = mutils.normalize_to(np.flipud(img_array), 1.)
                 else:
-                    #img_array = np.flipud(img_array)
                     img_array = mutils.normalize_to(np.flipud(img_array), 2 * np.pi)
                 return img_array
 
