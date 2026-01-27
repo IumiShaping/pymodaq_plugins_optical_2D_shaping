@@ -74,7 +74,17 @@ class GbSax(AlgoBase):
 
     def evolve_field(self):
 
-        amplitude = self._target_field.amplitude
+        if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
+            if self.update_mask:
+                self.amplitude_mask = self.get_mask_field(ApplyMaskTo.TARGET, inner_value=1, outer_value=0)
+                self.update_mask = False
+
+            mask_target = self.amplitude_mask.amplitude
+            mask_noise = np.ones_like(mask_target) - mask_target
+            amplitude = (self._target_field.amplitude * mask_target +
+                         self._image_field.amplitude * mask_noise)
+        else:
+            amplitude = self._target_field.amplitude
 
         field_image_corrected = Field(amplitude=amplitude,
                                       phase=self._image_field.phase,
@@ -120,7 +130,7 @@ class GbSaxAdaptiveWeighted(GbSax):
             mask_target = self.amplitude_mask.amplitude
             mask_noise = np.ones_like(mask_target) - mask_target
             amplitude = (self._target_field.amplitude * mask_target  *
-                         np.exp(self._target_field.amplitude - self.image_field.amplitude) +
+                         np.sum((np.exp(self._target_field.amplitude - self.image_field.amplitude)) * mask_target) +
                          self._image_field.amplitude * mask_noise)
         else:
             amplitude = self._target_field.amplitude
@@ -128,7 +138,7 @@ class GbSaxAdaptiveWeighted(GbSax):
         field_image_corrected = Field(amplitude=amplitude,
                                       phase=self._image_field.phase,
                                       pixel_sizes=self._image_field.pixels_sizes)
-        field_object_corrected = field_image_corrected.ifft2(norm='forward')
+        field_object_corrected = field_image_corrected.ifft2(norm='backward')
 
         self.set_phase_in_object_plane(field_object_corrected.phase)
 
