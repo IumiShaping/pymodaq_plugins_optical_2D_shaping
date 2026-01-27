@@ -45,6 +45,7 @@ class GbSax(AlgoBase):
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
         self._algo_init = False
+        self.amplitude_mask: Field = None
 
     def value_changed(self, param: Parameter):
         self.parent_app.algo_settings_changed()
@@ -97,6 +98,15 @@ class GbSax(AlgoBase):
         self.propagate_field()
         self.evolve_field()
 
+    @property
+    def fitness(self) -> float:
+        if self.amplitude_mask is not None:
+            return 100 * np.sum(
+                np.abs(np.sqrt(self._target_field.intensity)
+                       - self._image_field.intensity) * self.amplitude_mask.amplitude) ** 2 \
+                / np.prod(self._image_field.shape) / np.sum(self._target_field.intensity * self.amplitude_mask.amplitude)
+        else:
+            return super().fitness
 
 
 @AlgorithmFactory.register_algorithm()
@@ -119,7 +129,7 @@ class GbSaxAdaptiveWeighted(GbSax):
 
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
-        self.amplitude_mask: Field = None
+
 
     def evolve_field(self):
         if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
@@ -141,18 +151,6 @@ class GbSaxAdaptiveWeighted(GbSax):
         field_object_corrected = field_image_corrected.ifft2(norm='backward')
 
         self.set_phase_in_object_plane(field_object_corrected.phase)
-
-
-    @property
-    def fitness(self) -> float:
-        """ Compute fitness with respect to the image_field and target_field """
-        if self.amplitude_mask is not None:
-            return 100 * np.sum(
-                np.abs(np.sqrt(self._target_field.intensity)
-                       - self._image_field.intensity) * self.amplitude_mask.amplitude) ** 2 \
-                / np.prod(self._image_field.shape) / np.sum(self._target_field.intensity * self.amplitude_mask.amplitude)
-        else:
-            return super().fitness
 
 
 
