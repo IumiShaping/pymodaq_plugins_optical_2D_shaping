@@ -230,7 +230,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         return phase
 
     def compute_forward_fft(self, update_plots = True):
-        self._image_field = self._object_field.fft2(norm='forward')
+        self._image_field = self._object_field.fft2(norm='backward')
         self._image_field = self.scale_target_with_geometry(self._image_field)
 
         if update_plots and self.parent_app is not None:
