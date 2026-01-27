@@ -288,8 +288,7 @@ class OpticalShaping(CustomExt):
 
         self._algorithm = AlgoApp(self.dockarea, toolbar=self.toolbar)
         self.mainwindow.insertToolBarBreak(self.toolbar)
-        self.dockarea.addDock(self._algorithm.docks['algo_settings'], 'bottom',
-                              self.docks['fitness'])
+        self.dockarea.addDock(self._algorithm.docks['algo_settings'], 'left')
         self._algorithm.algo_changed.connect(self.update_target_loader_from_algo)
         self._algorithm.fields_to_plot.connect(self.plot_fields)
         self.update_target_loader_from_algo(self._algorithm.algorithm)
