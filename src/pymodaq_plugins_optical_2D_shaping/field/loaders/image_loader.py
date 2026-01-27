@@ -36,7 +36,7 @@ class ImageFileLoader(FieldLoader):
              'value': str(osama), 'filetype': True},
         ]},
          {'title': 'Phase:', 'name': 'phase', 'type': 'group', 'children': [
-             {'title': 'Load it:', 'name': 'load', 'type': 'bool', 'value': False},
+             {'title': 'Load it:', 'name': 'load', 'type': 'bool', 'value': True},
              {'title': 'File path:', 'name': 'file', 'type': 'browsepath',
               'value': str(one_piece), 'filetype': True}]},
          ]
