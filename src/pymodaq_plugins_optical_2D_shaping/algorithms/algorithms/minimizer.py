@@ -69,7 +69,7 @@ class Minimize(AlgoBase):
 
     params = [
         {'title': 'Method', 'name': 'method', 'type': 'list', 'value': 'cg', 'limits': methods},
-        {'title': 'Max Iterations', 'name': 'max_iter', 'type': 'int', 'value': 400, 'min': 1},
+        {'title': 'Max Iterations', 'name': 'max_iter', 'type': 'int', 'value': 10, 'min': 1},
         {'title': 'Tolerance', 'name': 'tolerance', 'type': 'float', 'value': 1e-20},
         {'title': 'Loss', 'name': 'loss', 'type': 'list', 'value': loss_factory.losses[0],
          'limits': loss_factory.losses},
@@ -82,7 +82,7 @@ class Minimize(AlgoBase):
         self.iter = 0
         self._algo_init = False
         self._phase_tensor: torch.Tensor = None
-        self.image_tensor: torch.Tensor = None
+        self.image_field_array: np.ndarray = None
 
         self._calculated_fitness: float = 0.
 
@@ -103,17 +103,18 @@ class Minimize(AlgoBase):
 
     def do_things_after_set_target(self):
         if self._algo_init:  #make sure target and object have same shape
-            self._target_tensor = torch.tensor(self._target_field.field)
+            self._target_field.phase = self._target_field.phase / np.max(self._target_field.phase) * np.pi
+            target_tensor = torch.tensor(self._target_field.field)
 
             #normalize target_intensity wrt input amplitude
-            self._target_tensor = self._target_tensor / torch.abs(self._target_tensor).max()
-            self._target_tensor *= (torch.sum(self._amplitude_tensor ** 2) /
-                                    torch.sum(torch.abs(self._target_tensor)**2))
+            target_tensor = target_tensor / torch.abs(target_tensor).max()
+            self._target_tensor = target_tensor * (torch.sum(self._amplitude_tensor) /
+                                                   torch.sum(torch.abs(target_tensor)))
 
     def do_things_after_init(self):
         # Initialize phase distribution as trainable parameter
         self.phase_distribution = self.define_input_phase()
-        self._amplitude_tensor = torch.tensor(self.object_field.amplitude)
+        self._amplitude_tensor = torch.tensor(self.object_field.amplitude.copy(), requires_grad=True)
 
         if not self._algo_init:
             self._algo_init = True
@@ -131,7 +132,7 @@ class Minimize(AlgoBase):
 
     @phase_distribution.setter
     def phase_distribution(self, value: np.ndarray):
-        self._phase_tensor = torch.tensor(value, requires_grad=True)
+        self._phase_tensor = torch.tensor(value.copy(), requires_grad=True)
 
     def compute_image_field(self, phase_input: torch.Tensor) -> torch.Tensor:
         image_tensor = torch.fft.fftshift(
@@ -141,22 +142,22 @@ class Minimize(AlgoBase):
                 ), norm='forward'
             )
         )
-        self.image_tensor = image_tensor
+        self.image_field_array = image_tensor.detach().numpy()
         return image_tensor
 
 
     def compute_loss(self, phase) -> torch.Tensor:
-        self.compute_image_field(phase)
+        image_tensor = self.compute_image_field(phase)
 
         if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
             slices = self.get_mask_slices(ApplyMaskTo.TARGET)
         else:
             slices = (Ellipsis, Ellipsis)
 
-        loss = self._loss.compute_loss(self.image_tensor[*slices],
+        loss = self._loss.compute_loss(image_tensor[*slices],
                                        self._target_tensor[*slices])
 
-        self._calculated_fitness = loss.item()
+        self._calculated_fitness = float(loss)
         return loss
 
 
@@ -170,9 +171,8 @@ class Minimize(AlgoBase):
             return True
 
     def update_data(self, phase):
-        image_array = self.image_tensor.detach().numpy()
         self._image_field = self.scale_target_with_geometry(
-            Field('image', np.abs(image_array), np.angle(image_array)))
+            Field('image', np.abs(self.image_field_array), np.angle(self.image_field_array)))
         phase = phase.detach().numpy().reshape(self.object_field.shape)
         phase = (phase + np.pi) % (2 * np.pi) - np.pi
         self.set_phase_in_object_plane(phase)
@@ -197,9 +197,8 @@ class Minimize(AlgoBase):
                           tol=self.settings['tolerance'])
 
         self.set_phase_in_object_plane(result.x.detach().numpy())
-        img_array = self.image_tensor.detach().numpy()
         self._image_field = self.scale_target_with_geometry(
-            Field('image', np.abs(img_array), np.angle(img_array)))
+            Field('image', np.abs(self.image_field_array), np.angle(self.image_field_array)))
 
     @property
     def fitness(self) -> float:

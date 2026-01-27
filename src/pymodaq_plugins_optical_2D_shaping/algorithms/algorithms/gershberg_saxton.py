@@ -54,8 +54,8 @@ class GbSax(AlgoBase):
 
             #normalize target_intensity wrt input amplitude
             self._target_field = self._target_field / np.max(np.abs(self._target_field.field))
-            self._target_field = self._target_field * (np.sum(self._object_field.amplitude ** 2) /
-                                   np.sum(self._target_field.amplitude ** 2))
+            self._target_field = self._target_field * (np.sum(self._object_field.amplitude) /
+                                   np.sum(self._target_field.amplitude))
 
     def do_things_after_init(self):
         if not self._algo_init:
