@@ -59,6 +59,10 @@ class TorchOptim(Minimize):
     ITERATIVE = True
     MANUAL_LOOP = True
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.mask = None
 
     def do_things_after_init(self):
         # Initialize phase distribution as trainable parameter
@@ -109,14 +113,14 @@ class TorchOptim(Minimize):
         return loss
 
     def compute_phase(self, do_step=True, ini_phase=None, **kwargs):
-        if ini_phase is not None:
+        if ini_phase is not None or self.mask is None:
             self.phase_distribution = ini_phase
             self.ini_optimizer()
 
-        if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
-            self.mask = torch.tensor(self.get_mask_field(ApplyMaskTo.TARGET).amplitude, dtype=torch.float32)
-        else:
-            self.mask = torch.ones_like(self._amplitude_tensor, dtype=torch.float32)
+            if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
+                self.mask = torch.tensor(self.get_mask_field(ApplyMaskTo.TARGET).amplitude, dtype=torch.float32)
+            else:
+                self.mask = torch.ones_like(self._amplitude_tensor, dtype=torch.float32)
 
 
         self.optimizer.step(self.closure)
