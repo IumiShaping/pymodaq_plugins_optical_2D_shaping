@@ -386,6 +386,7 @@ class AlgoRunner(QtCore.QObject):
                 self.algo.start()
                 self.algo.compute_phase(do_step=True, ini_phase=ini_phase)
                 self.algo_output_signal.emit(self.algo.get_fields_to_plot())
+                ini_phase = None
                 QtWidgets.QApplication.processEvents()
         else:
             self.algo.start()

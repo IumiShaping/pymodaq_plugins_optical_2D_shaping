@@ -160,7 +160,7 @@ class Chicken(LossBase):
         amplitude_normalized = torch.sum(torch.abs(field_tested) * torch.abs(field_target))
 
         return 10 ** self.settings['power_exponent'] * (
-                1 - torch.sum((torch.abs(field_tested) * torch.abs(field_target) / amplitude_normalized) *
+                1 - torch.sum((torch.abs(field_target) * torch.abs(field_target) / amplitude_normalized) *
                               torch.cos(torch.angle(field_target) - torch.angle(field_tested))))**self.settings['sum_exponent']
 
 

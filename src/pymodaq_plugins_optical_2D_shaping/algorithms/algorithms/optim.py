@@ -13,6 +13,7 @@ from qtpy import QtWidgets
 
 import numpy as np
 from torch import nn
+from time import perf_counter
 
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_gui.parameter import Parameter
@@ -56,7 +57,7 @@ class TorchOptim(Minimize):
     ALGO_NAME = 'TorchOptim'
     SETUP_TYPE = LensSetup.TwoF
     ITERATIVE = True
-    MANUAL_LOOP = False
+    MANUAL_LOOP = True
 
 
     def do_things_after_init(self):
@@ -86,16 +87,24 @@ class TorchOptim(Minimize):
             line_search_fn="strong_wolfe")
 
 
+    # def closure(self):
+    #     self.optimizer.zero_grad()
+    #     image_tensor = self.ratio * self.compute_image_field(self._phase_tensor)
+    #
+    #     # diff = image_tensor - target_tensor
+    #     diff = torch.abs(image_tensor) - torch.abs(self._target_tensor)  # amplitude only
+    #
+    #     loss = torch.mean(torch.abs(diff * self.mask) ** 2)
+    #     self._calculated_fitness = loss.item()
+    #     print(self._calculated_fitness)
+    #
+    #     loss.backward()
+    #     return loss
+
     def closure(self):
         self.optimizer.zero_grad()
-        image_tensor = self.ratio * self.compute_image_field(self._phase_tensor)
+        loss = self.compute_loss(self._phase_tensor)
 
-        # diff = image_tensor - target_tensor
-        diff = torch.abs(image_tensor) - torch.abs(self._target_tensor)  # amplitude only
-
-        loss = torch.mean(torch.abs(diff * self.mask) ** 2)
-        self._calculated_fitness = loss.item()
-        print(self._calculated_fitness)
         loss.backward()
         return loss
 
@@ -115,6 +124,7 @@ class TorchOptim(Minimize):
         self.set_phase_in_object_plane(self._phase_tensor.detach().numpy())
         self.compute_forward_fft(update_plots=False)
         QtWidgets.QApplication.processEvents()
+
 
 
 

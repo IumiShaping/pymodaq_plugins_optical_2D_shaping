@@ -69,8 +69,9 @@ class Minimize(AlgoBase):
 
     params = [
         {'title': 'Method', 'name': 'method', 'type': 'list', 'value': 'cg', 'limits': methods},
-        {'title': 'Max Iterations', 'name': 'max_iter', 'type': 'int', 'value': 10, 'min': 1},
-        {'title': 'Tolerance', 'name': 'tolerance', 'type': 'float', 'value': 1e-20},
+        {'title': 'Max Iterations', 'name': 'max_iter', 'type': 'int', 'value': 100, 'min': 1},
+        {'title': 'Refresh time (s)', 'name': 'refresh_time', 'type': 'float', 'value': 1, 'min': 0.2},
+        {'title': 'Tolerance', 'name': 'tolerance', 'type': 'float', 'value': 1e-9},
         {'title': 'Loss', 'name': 'loss', 'type': 'list', 'value': loss_factory.losses[0],
          'limits': loss_factory.losses},
         {'title': 'Loss Parameters', 'name': 'loss_params', 'type': 'group', 'children': []}
@@ -150,17 +151,13 @@ class Minimize(AlgoBase):
 
 
     def compute_loss(self, phase) -> torch.Tensor:
-        image_tensor = self.compute_image_field(phase)
+        image_tensor = self.ratio * self.compute_image_field(phase)
 
-        if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
-            slices = self.get_mask_slices(ApplyMaskTo.TARGET)
-        else:
-            slices = (Ellipsis, Ellipsis)
+        loss = self._loss.compute_loss(image_tensor * self.mask,
+                                       self._target_tensor * self.mask)
 
-        loss = self._loss.compute_loss(image_tensor[*slices],
-                                       self._target_tensor[*slices])
-
-        self._calculated_fitness = float(loss)
+        self._calculated_fitness = loss.item()
+        print(self._calculated_fitness)
         return loss
 
 
