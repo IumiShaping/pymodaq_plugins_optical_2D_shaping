@@ -160,8 +160,33 @@ class Chicken(LossBase):
         amplitude_normalized = torch.sum(torch.abs(field_tested) * torch.abs(field_target))
 
         return 10 ** self.settings['power_exponent'] * (
-                1 - torch.sum((torch.abs(field_target) * torch.abs(field_target) / amplitude_normalized) *
+                1 - torch.sum((torch.abs(field_target) * torch.abs(field_tested) / amplitude_normalized) *
                               torch.cos(torch.angle(field_target) - torch.angle(field_tested))))**self.settings['sum_exponent']
+
+
+@LossFactory.register_loss()
+class ChickenArnaud(LossBase):
+
+    def compute_loss(self,
+                     field_tested: torch.Tensor,
+                     field_target: torch.Tensor, ) -> torch.Tensor:
+        """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
+        """
+
+        return torch.sum((torch.abs(field_target - field_tested) ** 2))
+
+
+@LossFactory.register_loss()
+class Phase(LossBase):
+
+    def compute_loss(self,
+                     field_tested: torch.Tensor,
+                     field_target: torch.Tensor, ) -> torch.Tensor:
+        """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
+        """
+
+        return torch.sum((torch.abs(field_target.angle() -
+                                    field_tested.angle()) ** 2))
 
 
 @LossFactory.register_loss()
@@ -181,11 +206,11 @@ class LSQAmplitudePhase(LossBase):
         amplitude_normalized = torch.sum(torch.abs(field_tested) * torch.abs(field_target))
 
         return ((torch.sum(
-                    (torch.abs(field_tested) ** 2 -
-                     torch.abs(field_target) ** 2)
+                    torch.abs((torch.abs(field_tested) ** 2 -
+                     torch.abs(field_target) ** 2))
                     ** self.settings['amplitude_exponent'])) *
                 ((torch.sum(
-                    (torch.angle(field_tested) ** 2 -
+                    torch.abs(torch.angle(field_tested) ** 2 -
                      torch.angle(field_target) ** 2)
                     ** self.settings['phase_exponent'])))
                 )
