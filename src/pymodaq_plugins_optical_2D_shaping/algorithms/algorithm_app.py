@@ -62,7 +62,7 @@ class AlgoApp(CustomApp):
             {'title': 'Mask Type', 'name': 'mask_type', 'type': 'list', 'value': str(MaskType.SQUARE),
              'limits': MaskType.names()},
             {'title': 'Slices', 'name': 'slices', 'type': 'str',
-             'value': '(slice(162, 882, None), slice(545, 1825, None))'},
+             'value': '(slice(338, 757, None), slice(665, 1770, None))'},
         ]},
         {'title': 'Intermediate Masking', 'name': str(ApplyMaskTo.INTERMEDIATE), 'type': 'group',
          'visible': False, 'children': [
@@ -211,7 +211,6 @@ class AlgoApp(CustomApp):
         self.algo_area = self.dockarea
 
         self.docks['algo_settings'] = Dock('Algorithm Settings')
-
 
         self.settings_widget = QtWidgets.QWidget()
         self.settings_widget.setLayout(QtWidgets.QVBoxLayout())

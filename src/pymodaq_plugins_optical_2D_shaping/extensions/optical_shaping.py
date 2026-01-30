@@ -416,7 +416,6 @@ class OpticalShaping(CustomExt):
         self._target_dockarea.close()
         self.intermediate_widget.close()
         self.other_plots_widget.close()
-        self.dashboard.quit_fun()
         QtWidgets.QApplication.processEvents()  # allows the dashboard modules to close properly
 
         super().quit_fun()
