@@ -77,8 +77,7 @@ class TorchOptim(Minimize):
 
     def ini_optimizer(self):
 
-        fft_tensor = self.compute_image_field(torch.zeros_like(self._amplitude_tensor))
-        self.ratio = self.compute_intensity_ratio(fft_tensor, self._amplitude_tensor)
+
 
         self.optimizer = torch.optim.LBFGS(
             [self._phase_tensor],
