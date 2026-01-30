@@ -104,12 +104,18 @@ class Minimize(AlgoBase):
     def do_things_after_set_target(self):
         if self._algo_init:  #make sure target and object have same shape
             self._target_field.phase = self._target_field.phase / np.max(self._target_field.phase) * np.pi
-            target_tensor = torch.tensor(self._target_field.field)
+            target_tensor = torch.from_numpy(self._target_field.field)
 
             #normalize target_intensity wrt input amplitude
-            target_tensor = target_tensor / torch.abs(target_tensor).max()
-            self._target_tensor = target_tensor * (torch.sum(self._amplitude_tensor) /
-                                                   torch.sum(torch.abs(target_tensor)))
+            self._target_tensor = self.normalize_intensity_wrt(target_tensor, self._amplitude_tensor)
+
+    @staticmethod
+    def compute_intensity_ratio(tensor: torch.Tensor, tensor_ref: torch.Tensor) -> torch.Tensor:
+        return torch.sqrt((torch.sum(torch.abs(tensor_ref)**2) /
+                           torch.sum(torch.abs(tensor)**2)))
+
+    def normalize_intensity_wrt(self, tensor: torch.Tensor, tensor_ref: torch.Tensor) -> torch.Tensor:
+        return tensor * self.compute_intensity_ratio(tensor, tensor_ref)
 
     def do_things_after_init(self):
         # Initialize phase distribution as trainable parameter
@@ -136,10 +142,7 @@ class Minimize(AlgoBase):
 
     def compute_image_field(self, phase_input: torch.Tensor) -> torch.Tensor:
         image_tensor = torch.fft.fftshift(
-            torch.fft.fft2(
-                torch.fft.fftshift(
-                    self._amplitude_tensor * torch.exp(1j * phase_input)
-                ), norm='forward'
+            torch.fft.fft2(self._amplitude_tensor * torch.exp(1j * phase_input), norm='forward'
             )
         )
         self.image_field_array = image_tensor.detach().numpy()

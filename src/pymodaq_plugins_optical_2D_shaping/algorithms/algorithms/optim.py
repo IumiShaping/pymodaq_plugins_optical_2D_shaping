@@ -62,79 +62,60 @@ class TorchOptim(Minimize):
     def do_things_after_init(self):
         # Initialize phase distribution as trainable parameter
         self.phase_distribution = self.define_input_phase()
-        self._amplitude_tensor = torch.tensor(self.object_field.amplitude)
+        self._amplitude_tensor = torch.from_numpy(self.object_field.amplitude)
 
         if not self._algo_init:
             self._algo_init = True
             self.do_things_after_set_target()
 
-        self.compute_image_field(self._phase_tensor)
-        self.update_data(self._phase_tensor.reshape(np.prod(self._phase_tensor.shape)))
+        self.ini_optimizer()
 
-        # self.optimizer = torch.optim.LBFGS(
-        #     [self._phase_tensor],
-        #     lr=1.0, max_iter=self.settings['max_iter'],
-        #     max_eval=None,
-        #     tolerance_grad=self.settings['tolerance'],
-        #     tolerance_change=1e-09,
-        #     history_size=50, line_search_fn="strong_wolfe")
-        self.iter = 0
+    def ini_optimizer(self):
+
+        fft_tensor = self.compute_image_field(torch.zeros_like(self._amplitude_tensor))
+        self.ratio = self.compute_intensity_ratio(fft_tensor, self._amplitude_tensor)
+
+        self.optimizer = torch.optim.LBFGS(
+            [self._phase_tensor],
+            lr=1.0,
+            max_iter=10,
+            max_eval=None,
+            tolerance_grad=self.settings['tolerance'],
+            tolerance_change=self.settings['tolerance'],
+            history_size=10,
+            line_search_fn="strong_wolfe")
+
 
     def closure(self):
         self.optimizer.zero_grad()
-        loss = self.compute_loss(self._phase_tensor)
+        image_tensor = self.ratio * self.compute_image_field(self._phase_tensor)
+
+        # diff = image_tensor - target_tensor
+        diff = torch.abs(image_tensor) - torch.abs(self._target_tensor)  # amplitude only
+
+        loss = torch.mean(torch.abs(diff * self.mask) ** 2)
+        self._calculated_fitness = loss.item()
+        print(self._calculated_fitness)
         loss.backward()
         return loss
 
     def compute_phase(self, do_step=True, ini_phase=None, **kwargs):
         if ini_phase is not None:
             self.phase_distribution = ini_phase
-
-        phase_ini  = torch.rand(self._phase_tensor.shape) * 2 * torch.pi
-        phase = phase_ini.clone().detach().requires_grad_(True)
-        amplitude  =  self._amplitude_tensor.clone().detach()
-        target_tensor = self._target_tensor.clone().detach()
+            self.ini_optimizer()
 
         if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
-            slices = self.get_mask_slices(ApplyMaskTo.TARGET)
-            mask = torch.tensor(self.get_mask_field(ApplyMaskTo.TARGET).amplitude)
+            self.mask = torch.tensor(self.get_mask_field(ApplyMaskTo.TARGET).amplitude, dtype=torch.float32)
         else:
-            slices = (Ellipsis, Ellipsis)
-            mask = torch.ones_like(self._amplitude_tensor)
-
-        optimizer = torch.optim.LBFGS(
-            [phase],
-            lr=1.0, max_iter=self.settings['max_iter'],
-            max_eval=None,
-            tolerance_grad=self.settings['tolerance'],
-            tolerance_change=self.settings['tolerance'],
-            history_size=50, line_search_fn="strong_wolfe")
+            self.mask = torch.ones_like(self._amplitude_tensor, dtype=torch.float32)
 
 
-        for ind in range(self.settings['max_iter']):
-            def closure():
-                optimizer.zero_grad()
-                field = amplitude * torch.exp(1j * phase)
-                image_tensor = torch.fft.fftshift(
-                    torch.fft.fft2(
-                        field, norm='backward'
-                    )
-                )
-                image_normalized = image_tensor * torch.sum(torch.abs(amplitude)) / torch.sum(torch.abs(image_tensor))
-                diff = image_normalized - target_tensor
-                loss = torch.mean(torch.abs(diff * mask) ** 2)
-                self._calculated_fitness = float(loss)
-                loss.backward()
-                return loss
+        self.optimizer.step(self.closure)
 
-            optimizer.step(closure)
+        self.set_phase_in_object_plane(self._phase_tensor.detach().numpy())
+        self.compute_forward_fft(update_plots=False)
+        QtWidgets.QApplication.processEvents()
 
-            print(torch.mean(torch.abs(self._phase_tensor - phase)))
-
-            self.set_phase_in_object_plane(phase.detach().numpy())
-            self.compute_forward_fft(update_plots=True)
-
-            QtWidgets.QApplication.processEvents()
 
 
 

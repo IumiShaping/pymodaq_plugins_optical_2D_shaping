@@ -230,11 +230,19 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         return phase
 
     def compute_forward_fft(self, update_plots = True):
-        self._image_field = self._object_field.fft2(norm='backward')
+        self._image_field = self.normalize_wrt(self._object_field.fft2(norm='forward'),
+                                               self.object_field)
         self._image_field = self.scale_target_with_geometry(self._image_field)
 
         if update_plots and self.parent_app is not None:
             self.parent_app.fields_to_plot.emit(self.get_fields_to_plot())
+
+    @staticmethod
+    def normalize_wrt(field: Field, ref_field: Field) -> Field:
+        """ Make sure the intensities are normalized """
+        field.amplitude  = field.amplitude * np.sqrt(np.sum(np.abs(ref_field.amplitude) ** 2) /
+                                                     np.sum(np.abs(field.amplitude) ** 2))
+        return field
 
     def stop(self):
         self._running = False
@@ -247,7 +255,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self.do_things_after_set_object()
 
     def set_target_field(self, field: Field):
-        self._target_field = field
+        self._target_field = self.normalize_wrt(field, self._input_field)
         self._image_field = Field.init_from_field(self._target_field)
         self.do_things_after_set_target()
 
