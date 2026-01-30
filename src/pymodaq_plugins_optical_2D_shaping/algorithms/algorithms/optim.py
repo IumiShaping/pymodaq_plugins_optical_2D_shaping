@@ -22,12 +22,10 @@ from pymodaq_plugins_optical_2D_shaping.algorithms.loss import LossFactory
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo, TargetPhase
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
-from pymodaq_plugins_optical_2D_shaping.algorithms.algorithms.minimizer import Minimize
+from pymodaq_plugins_optical_2D_shaping.algorithms.algorithms.torch_base import TorchBase
+
 
 import torch
-from torch.nn import MSELoss, Module
-
-
 
 device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
 print(f"Using {device} device")
@@ -42,9 +40,8 @@ plugin_config = PluginConfig()
 loss_factory = LossFactory()
 
 
-
 @AlgorithmFactory.register_algorithm()
-class TorchOptim(Minimize):
+class TorchOptim(TorchBase):
     """ Implementation of the ConjugateGradient iterative algorithm to create amplitude and phase modulated
     image with phase only spatial light modulators in the Fourier plane of a converging lens
 
@@ -62,22 +59,9 @@ class TorchOptim(Minimize):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.mask = None
-
-    def do_things_after_init(self):
-        # Initialize phase distribution as trainable parameter
-        self.phase_distribution = self.define_input_phase()
-        self._amplitude_tensor = torch.from_numpy(self.object_field.amplitude)
-
-        if not self._algo_init:
-            self._algo_init = True
-            self.do_things_after_set_target()
-
-        self.ini_optimizer()
+        self.optimizer: torch.optim.LBFGS = None  # a given optimizer
 
     def ini_optimizer(self):
-
-
 
         self.optimizer = torch.optim.LBFGS(
             [self._phase_tensor],
@@ -89,25 +73,9 @@ class TorchOptim(Minimize):
             history_size=10,
             line_search_fn="strong_wolfe")
 
-
-    # def closure(self):
-    #     self.optimizer.zero_grad()
-    #     image_tensor = self.ratio * self.compute_image_field(self._phase_tensor)
-    #
-    #     # diff = image_tensor - target_tensor
-    #     diff = torch.abs(image_tensor) - torch.abs(self._target_tensor)  # amplitude only
-    #
-    #     loss = torch.mean(torch.abs(diff * self.mask) ** 2)
-    #     self._calculated_fitness = loss.item()
-    #     print(self._calculated_fitness)
-    #
-    #     loss.backward()
-    #     return loss
-
     def closure(self):
         self.optimizer.zero_grad()
         loss = self.compute_loss(self._phase_tensor)
-
         loss.backward()
         return loss
 

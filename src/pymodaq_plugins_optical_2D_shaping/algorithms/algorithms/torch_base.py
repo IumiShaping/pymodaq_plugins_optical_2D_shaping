@@ -39,7 +39,7 @@ plugin_config = PluginConfig()
 loss_factory = LossFactory()
 
 
-class TorchBased(AlgoBase):
+class TorchBase(AlgoBase):
     """ Usage of torch package to get optimization of a loss expression
 
     The corresponding experimental setup should define a working light wavelength and a focal length
@@ -73,6 +73,8 @@ class TorchBased(AlgoBase):
         self.ratio: torch.Tensor = None
 
         self._calculated_fitness: float = 0.
+
+        self.optimizer = None  # a given optimizer
 
         for loss in loss_factory.losses:
             self.settings.child('loss_params').addChild({'title': loss, 'name': loss, 'type': 'group',
