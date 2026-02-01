@@ -69,8 +69,8 @@ plt.colorbar()
 #%% Normalisation
 
 target_amplitude[0] = (target_amplitude[0] * 
-                       np.sum(input_amplitude[0]) / 
-                       np.sum(target_amplitude[0]))
+                       np.sqrt(np.sum(input_amplitude[0]**2) / 
+                       np.sum(target_amplitude[0]**2)))
 
 target_field = target_amplitude * np.exp(1j * target_phase)
 
@@ -136,8 +136,8 @@ def closure():
     input_field = input_amplitude_tensor * torch.exp(1j * phase)
     image_field = ratio * torch.fft.fftshift(torch.fft.fft2(input_field, norm='forward'))
 
-    diff = torch.abs(image_field) - torch.abs(target_field_tensor)  #amplitude only
-    #diff = image_field - target_field_tensor  #amplitude and phase
+    #diff = torch.abs(image_field) - torch.abs(target_field_tensor)  #amplitude only
+    diff = image_field - target_field_tensor  #amplitude and phase
     
     
     loss = torch.mean(torch.abs(diff * mask)**2)
