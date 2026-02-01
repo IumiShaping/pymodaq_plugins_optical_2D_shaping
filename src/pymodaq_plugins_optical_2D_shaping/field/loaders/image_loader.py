@@ -31,14 +31,15 @@ class ImageFileLoader(FieldLoader):
 
     params = FieldLoader.params + \
         [{'title': 'Amplitude:', 'name': 'amplitude', 'type': 'group', 'children': [
-            {'title': 'Load it:', 'name': 'load', 'type': 'bool', 'value': True},
             {'title': 'File path:', 'name': 'file', 'type': 'browsepath',
              'value': str(osama), 'filetype': True},
+            {'title': 'Load it:', 'name': 'load', 'type': 'bool', 'value': True},
         ]},
          {'title': 'Phase:', 'name': 'phase', 'type': 'group', 'children': [
-             {'title': 'Load it:', 'name': 'load', 'type': 'bool', 'value': True},
              {'title': 'File path:', 'name': 'file', 'type': 'browsepath',
-              'value': str(one_piece), 'filetype': True}]},
+              'value': str(one_piece), 'filetype': True},
+             {'title': 'Load it:', 'name': 'load', 'type': 'bool', 'value': True},
+         ]},
          ]
 
     def settings_changed(self, param: Parameter):

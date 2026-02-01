@@ -45,7 +45,7 @@ class FieldLoader(FieldLoaderParameterManager, metaclass=ABCMeta):
 
         progress_setting = {'title': 'Progress', 'name': 'progress', 'type': 'progress', 'value': 0}
 
-        self.settings.addChild(progress_setting)
+        self.settings.insertChild(0, progress_setting)
 
     @property
     def progressbar(self) -> int:
