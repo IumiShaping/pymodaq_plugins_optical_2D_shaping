@@ -83,6 +83,7 @@ class LeastSquares(LossBase):
                      field_target: torch.Tensor,) -> torch.Tensor:
         """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
         """
+
         return ((torch.sum(
                     (torch.abs(field_tested) ** 2 -
                      torch.abs(field_target) ** 2)
@@ -147,7 +148,7 @@ class LeastExponent(LossBase):
 class Chicken(LossBase):
     params = [
         {'title': 'Power exponent', 'name': 'power_exponent', 'type': 'int', 'value': 9, 'min': 2},
-        {'title': 'Sum exponent', 'name': 'sum_exponent', 'type': 'int', 'value': 4, 'min': 2},
+        {'title': 'Sum exponent', 'name': 'sum_exponent', 'type': 'int', 'value': 2, 'min': 2},
 
     ]
 
@@ -157,11 +158,15 @@ class Chicken(LossBase):
         """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
         """
 
-        amplitude_normalized = torch.sum(torch.abs(field_tested) * torch.abs(field_target))
+        field_target = field_target / torch.sqrt(torch.sum(torch.abs(field_target)**2))
+        field_tested = field_tested / torch.sqrt(torch.sum(torch.abs(field_tested)**2))
 
-        return 10 ** self.settings['power_exponent'] * (
-                1 - torch.sum((torch.abs(field_target) * torch.abs(field_tested) / amplitude_normalized) *
-                              torch.cos(torch.angle(field_target) - torch.angle(field_tested))))**self.settings['sum_exponent']
+        #this normalization step is essential for the algorithm to converge
+
+        return (10 ** self.settings['power_exponent'] * (
+                1 - torch.sum((torch.abs(field_target) * torch.abs(field_tested)) *
+                              torch.abs(torch.cos(torch.angle(field_target) - torch.angle(field_tested)))))
+                **self.settings['sum_exponent'])
 
 
 @LossFactory.register_loss()
@@ -173,6 +178,8 @@ class ChickenArnaud(LossBase):
         """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
         """
 
+        # field_target = field_target / torch.sqrt(torch.sum(torch.abs(field_target)**2))
+        # field_tested = field_tested / torch.sqrt(torch.sum(torch.abs(field_tested)**2))
         return torch.sum((torch.abs(field_target - field_tested) ** 2))
 
 

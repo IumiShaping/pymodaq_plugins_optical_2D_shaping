@@ -85,7 +85,7 @@ class TorchBase(AlgoBase):
                                                                                       self.settings['loss']))
 
     def value_changed(self, param: Parameter):
-        self.parent_app.algo_settings_changed()
+        #self.parent_app.algo_settings_changed()
         if param.name() == 'loss':
             for param_child in self.settings.child('loss_params').children():
                 param_child.show(param.value() == param_child.name())
@@ -144,6 +144,12 @@ class TorchBase(AlgoBase):
         self.image_field_array = image_tensor.detach().numpy()
         return image_tensor
 
+    def compute_mask(self):
+        if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
+            self.mask = torch.tensor(self.get_mask_field(ApplyMaskTo.TARGET).amplitude, dtype=torch.float32)
+        else:
+            self.mask = torch.ones_like(self._amplitude_tensor, dtype=torch.float32)
+        self.update_mask = False
 
     def compute_loss(self, phase) -> torch.Tensor:
         image_tensor = self.ratio * self.compute_image_field(phase)

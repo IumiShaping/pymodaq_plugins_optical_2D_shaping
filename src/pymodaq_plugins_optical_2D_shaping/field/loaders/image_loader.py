@@ -71,7 +71,7 @@ class ImageFileLoader(FieldLoader):
                 if load_type == LoadTypeEnum.AMPLITUDE:
                     img_array = mutils.normalize_to(np.flipud(img_array), 1.)
                 else:
-                    img_array = mutils.normalize_to(np.flipud(img_array), 2 * np.pi)
+                    img_array = mutils.normalize_to(np.flipud(img_array), 2 * np.pi) - np.pi
                 return img_array
 
             except Exception as e:

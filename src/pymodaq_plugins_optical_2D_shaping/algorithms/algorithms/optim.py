@@ -84,11 +84,8 @@ class TorchOptim(TorchBase):
             self.phase_distribution = ini_phase
             self.ini_optimizer()
 
-            if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
-                self.mask = torch.tensor(self.get_mask_field(ApplyMaskTo.TARGET).amplitude, dtype=torch.float32)
-            else:
-                self.mask = torch.ones_like(self._amplitude_tensor, dtype=torch.float32)
-
+        if self.mask is None or self.update_mask:
+            self.compute_mask()
 
         self.optimizer.step(self.closure)
 
