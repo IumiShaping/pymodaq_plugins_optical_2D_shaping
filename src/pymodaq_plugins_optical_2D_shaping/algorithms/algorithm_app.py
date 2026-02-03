@@ -89,11 +89,7 @@ class AlgoApp(CustomApp):
         self._target_field: Field = None
         self._input_field: Field = None
 
-        #base_path = [self.algorithm.ALGO_NAME]
-        base_path = 'test'
-        self.config_saver_loader = ConfigSaverLoader(self.settings,
-                                                     algo_config,
-                                                     base_path)
+        self.config_saver_loader = ConfigSaverLoader(self.settings, algo_config)
 
         self._current_data: DataToExport = None
         self._current_phase: np.ndarray = None  # cached phase to be used for subsequent optimizations
