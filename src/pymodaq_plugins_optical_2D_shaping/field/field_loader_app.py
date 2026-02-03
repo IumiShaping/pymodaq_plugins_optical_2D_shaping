@@ -5,7 +5,7 @@ from skimage.transform import rescale, resize
 from scipy.ndimage import gaussian_filter
 
 from pymodaq_utils.config import Config
-from pymodaq_utils.math_utils import normalize
+from pymodaq_utils.math_utils import normalize, greater2n
 
 from pymodaq_data import DataToExport, DataCalculated
 from pymodaq_data.h5modules.saving import H5SaverLowLevel
@@ -24,9 +24,12 @@ from pymodaq_gui.managers.roi_manager import ROI2D_TYPES, ROI
 
 
 config_utils = Config()
-field_loader_factory = LoaderFactory(
+field_loader_factory = LoaderFactory()
 
-)
+
+needed_pixel_size = greater2n(max(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
+                                  plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width')))
+
 
 class FieldLoaderApp(CustomApp):
     settings_name = "LoaderAppSettings"
@@ -50,10 +53,10 @@ class FieldLoaderApp(CustomApp):
              'value': plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'pixel_size'),
              'readonly': False},
             {'title': 'Height', 'name': 'height', 'type': 'int',
-             'value': plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
+             'value': needed_pixel_size,
              'readonly': True},
             {'title': 'Width', 'name': 'width', 'type': 'int',
-             'value': plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width'),
+             'value': needed_pixel_size,
              'readonly': True},
             {'title': 'Show on Viewer', 'name': 'show_needed_area', 'type': 'bool_push',
              'value': True,},
