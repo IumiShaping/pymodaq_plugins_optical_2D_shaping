@@ -5,7 +5,7 @@ from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_utils.config import Config
 from pymodaq.utils.data import DataToExport, DataCalculated
-
+from pymodaq_utils.math_utils import greater2n
 from pymodaq_data.h5modules.data_saving import DataToExportSaver
 
 from pymodaq_gui.plotting.data_viewers.viewer0D import Viewer0D
@@ -378,9 +378,11 @@ class OpticalShaping(CustomExt):
 
     def update_target_loader_from_algo(self, algo: AlgoBase):
         pixel_size = Q_(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
-        height = plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height')
-        width = plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width')
-        slm_size = (pixel_size * height, pixel_size * width)
+        needed_pixel_size = greater2n(
+            max(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
+                plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width')))
+
+        slm_size = (pixel_size * needed_pixel_size, pixel_size * needed_pixel_size)
         self._target_loader.update_pixels(algo.get_target_pixels_size(slm_size))
 
     def show_config(self, show=True):

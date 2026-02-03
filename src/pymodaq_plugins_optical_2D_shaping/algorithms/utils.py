@@ -5,6 +5,7 @@ import numpy as np
 from qtpy import QtWidgets
 from scipy.ndimage import gaussian_filter
 
+from pymodaq_plugins_optical_2D_shaping.utilities.masking import MaskType
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataRaw, DataToExport
 from pymodaq_utils.enums import StrEnum
@@ -35,11 +36,6 @@ class LensSetup(StrEnum):
     NoLens = 'no_lens'
     TwoF = '2f'
     FourF = '4f'
-
-
-class MaskType(StrEnum):
-    SQUARE = 'square'
-    ELLIPTICAL = 'elliptical'
 
 
 class ApplyMaskTo(StrEnum):
@@ -339,7 +335,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         field.calibrate_axes(self.get_target_pixels_size())
         return field
 
-    def get_target_pixels_size(self, slm_size: Tuple[Q_, Q_] = None) -> list[Q_]:
+    def get_target_pixels_size(self, input_size: Tuple[Q_, Q_] = None) -> list[Q_]:
         """ Get the expected physical size of the pixels in the target plane given
         the chosen algorithm and physical parameters: focal length, wavelength...
 
@@ -347,14 +343,14 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         length ratio
 
         """
-        if slm_size is None:
-            slm_size = [self._input_field.shape[ind] * self._input_field.pixels_sizes[ind]
-                        for ind in range(2)]
+        if input_size is None:
+            input_size = [self._input_field.shape[ind] * self._input_field.pixels_sizes[ind]
+                          for ind in range(2)]
 
         if self.SETUP_TYPE == LensSetup.TwoF:
             return [Q_(plugin_config('setup', 'wavelength_nm', ), 'nm') *
                     Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm') /
-                    size for size in slm_size]
+                    size for size in input_size]
 
         elif self.SETUP_TYPE == LensSetup.FourF:
             pixels_size = self._input_field.pixels_sizes

@@ -11,6 +11,7 @@ from pymodaq_data import DataToExport, DataCalculated
 from pymodaq_data.h5modules.saving import H5SaverLowLevel
 from pymodaq_data.h5modules.data_saving import DataSaverLoader
 
+from pymodaq_gui.plotting.items.roi import RectROI
 from pymodaq_gui.managers.parameter_manager import Parameter
 from pymodaq_gui.plotting.data_viewers.viewer2D import Viewer2D
 from pymodaq_gui.utils.custom_app import CustomApp
@@ -19,8 +20,8 @@ from pymodaq_gui.utils.file_io import select_file
 from pymodaq_gui.parameter.ioxml import parameter_to_xml_string
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 from pymodaq_plugins_optical_2D_shaping.field import Field, Q_, LoaderFactory, FieldLoader
+from pymodaq_plugins_optical_2D_shaping.utilities.masking import MaskType
 
-from pymodaq_gui.managers.roi_manager import ROI2D_TYPES, ROI
 
 
 config_utils = Config()
@@ -67,7 +68,7 @@ class FieldLoaderApp(CustomApp):
             {'title': 'Flip ud', 'name': 'flipud', 'type': 'bool', 'value': False},
             {'title': 'Flip lr', 'name': 'fliplr', 'type': 'bool', 'value': False},
             {'title': 'Sizing', 'name': 'sizing', 'type': 'group', 'children': [
-                {'title': 'Scaling', 'name': 'scaling', 'type': 'float', 'value': 1., 'max': 1.},
+                {'title': 'Scaling', 'name': 'scaling', 'type': 'float', 'value': 1., },
                 {'title': 'Do Scaling', 'name': 'do_scaling', 'type': 'bool', 'value': True},
                 {'title': 'Keep aspect ratio', 'name': 'aspect_ratio', 'type': 'bool',
                  'value': True},
@@ -80,8 +81,10 @@ class FieldLoaderApp(CustomApp):
                 {'title': 'Sigma Y (pxl)', 'name': 'sigma_y', 'type': 'int', 'value': 10, },
             ]},
             {'title': 'Masking', 'name': 'masking', 'type': 'group', 'children': [
-                {'title': 'Mask type', 'name': 'mask_type', 'type': 'list',
-                 'limits': ROI2D_TYPES, 'value': ROI2D_TYPES[0]},
+                {'title': 'Mask Type', 'name': 'mask_type', 'type': 'list', 'value': str(MaskType.SQUARE),
+                 'limits': MaskType.names()},
+                {'title': 'Slices', 'name': 'slices', 'type': 'str',
+                 'value': '(slice(338, 757, None), slice(665, 1770, None))'},
                 {'title': 'Show On', 'name': 'show_on', 'type': 'list',
                  'value': 'Amplitude', 'limits': ['Amplitude', 'Phase']},
                 {'title': 'Show Mask', 'name': 'show_mask', 'type': 'bool', 'value': False},
@@ -102,7 +105,7 @@ class FieldLoaderApp(CustomApp):
         self.amp_viewer: Viewer2D = None
         self.phase_viewer: Viewer2D = None
 
-        self.mask: ROI = None
+        self.mask: RectROI = None
 
         self._field_loader: FieldLoader = None
 
@@ -120,13 +123,28 @@ class FieldLoaderApp(CustomApp):
         self.settings.child('needed_size', 'pixel_width').setValue(pixel_sizes[1].m_as('um'))
         self.load_field()
 
+    def get_mask_as_slices(self) -> Union[None, tuple[slice, slice]]:
+
+        slices = eval(self.settings['utils', 'masking', 'slices'])
+        if hasattr(slices, '__iter__'):
+            for _slice in slices:
+                if not isinstance(_slice, slice):
+                    return None
+        return slices
+
+    def get_mask_type(self) -> MaskType:
+        return MaskType[self.settings['utils', 'masking', 'mask_type']]
+
+    def update_mask_slices(self):
+        if self.mask is not None:
+            self.settings.child('utils', 'masking', 'slices').setValue(str(self.mask.to_info().to_slices()))
+
     def value_changed(self, param: Parameter):
         if param.name() == 'loader':
             self.loader = param.value()
 
         elif param.name() in ('flipud', 'fliplr', 'do_scaling', 'scaling', 'aspect_ratio', 'apply_mask',
-                              'apply_smoothing', 'sigma_y', 'sigma_x'
-            ):
+                              'apply_smoothing', 'sigma_y', 'sigma_x', 'slices'):
             self.field = self._ini_field.deepcopy()
             self.update_final_size()
             self.update_viewers()
@@ -148,11 +166,10 @@ class FieldLoaderApp(CustomApp):
             else:
                 viewer = self.phase_viewer
             if param.value():
-                viewer.roi_manager.add_roi_programmatically(
-                    self.settings['utils', 'masking', 'mask_type'])
+                viewer.roi_manager.add_roi_programmatically('RectROI')
                 self.mask = viewer.roi_manager.get_roi_from_index(0)
-                self.mask.sigRegionChangeFinished.connect(
-                    lambda : self.value_changed(self.settings.child('utils', 'masking', 'apply_mask')))
+                self.mask.sigRegionChangeFinished.connect(self.update_mask_slices)
+                self.update_mask_slices()
             else:
                 viewer.roi_manager.remove_roi_programmatically(0)
                 self.mask.sigRegionChangeFinished.disconnect()
@@ -285,37 +302,17 @@ class FieldLoaderApp(CustomApp):
         self.settings.child('utils', 'sizing', 'height').setValue(self.field.shape[0])
         self.settings.child('utils', 'sizing', 'width').setValue(self.field.shape[1])
 
+        self.field = self.crop(self.field, needed_shape)
+
         npad = self.get_npad_between(needed_shape, self.field.shape)
         if np.any(np.array(npad)):
-            _field_temp = self.field.deepcopy()
-            self.field.amplitude = np.pad(_field_temp.amplitude, npad)
-            self.field.phase = np.pad(_field_temp.phase, npad)
+            self.field = self.field.pad(npad)
 
-        if self.settings['utils', 'masking', 'apply_mask'] and self.mask is not None:
-            QtWidgets.QApplication.processEvents()
-            if self.settings['utils', 'masking', 'show_on'] == 'Amplitude':
-                viewer = self.amp_viewer
-            else:
-                viewer = self.phase_viewer
-            slices, tr = self.mask.getArraySlice(self.field.amplitude,
-                                                 viewer.view.get_image_item(),
-                                                 returnSlice=True)
+        if self.settings['utils', 'masking', 'apply_mask']:
 
-            mask_amp = self.mask.getArrayRegion(self.field.amplitude,
-                                                viewer.view.get_image_item())
-            amplitude = np.zeros(self.field.amplitude.shape)
-            slices_sure = []
-            for ind, sl in enumerate(slices):
-                slices_sure.append(slice(sl.start, sl.start + mask_amp.shape[ind]))
-
-            amplitude[*slices_sure] = mask_amp
-            self.field.amplitude = amplitude
-
-            mask_phase = self.mask.getArrayRegion(self.field.phase,
-                                                  viewer.view.get_image_item())
-            phase = np.zeros(self.field.amplitude.shape)
-            phase[*slices_sure] = mask_phase
-            self.field.phase = phase
+            mask = self.get_mask_array()
+            self.field.amplitude = self.field.amplitude * mask
+            self.field.phase = self.field.phase * mask
 
         if self.settings['utils', 'smoothing', 'apply_smoothing']:
             self.field.amplitude = gaussian_filter(self.field.amplitude, sigma=(
@@ -327,9 +324,31 @@ class FieldLoaderApp(CustomApp):
                 self.settings['utils', 'smoothing', 'sigma_x']
             ))
 
-        #print(self.field.shape)
+    def get_mask_array(self, inner_value=1, outer_value=0) -> np.ndarray:
+        """ Return a numpy array to be used to mask fields
+        """
+        shape = (self.settings['needed_size', 'height'],
+                 self.settings['needed_size', 'width'])
 
-    def rescale_normalize(self, array_in: np.ndarray, ratio) -> np.ndarray:
+        mask = outer_value * np.ones(shape)
+        slices = self.get_mask_as_slices()
+        if self.get_mask_type() == MaskType.SQUARE:
+            mask[*slices] = inner_value
+        else:
+
+            y0, x0 = tuple([(_slice.stop + _slice.start) / 2 for _slice in slices])
+            ry, rx = tuple([(_slice.stop - _slice.start) / 2 for _slice in slices])
+
+            x = np.arange(0, shape[1], 1)
+            y = np.arange(0, shape[0], 1)
+
+            xx, yy = np.meshgrid(x, y)
+            mask[
+                (xx - x0) ** 2 / rx **2 + (yy - y0) ** 2 / ry **2 <= 1] = inner_value
+        return mask
+
+    @staticmethod
+    def rescale_normalize(array_in: np.ndarray, ratio) -> np.ndarray:
         """ Rescale and renormalize the output array to have the same intensity dynamic as the input array"""
         array_out = rescale(array_in, ratio)
         array_normalized = normalize(array_out) * (np.max(array_in) - np.min(array_in)) + np.min(array_in)
@@ -338,8 +357,18 @@ class FieldLoaderApp(CustomApp):
         else:
             return array_normalized
 
+    @staticmethod
+    def crop(field: Field, size: tuple[int, int], center: tuple[int, int] = None):
+        shape = np.array(field.shape)
+        if center is None:
+            center = tuple(shape // 2)
 
-    def get_npad_between(self, first_shape, second_shape):
+        slices = (slice(max(0, center[0] - size[0] // 2), min(shape[0], center[0] + size[0] // 2)),
+                  slice(max(0, center[1] - size[1] // 2), min(shape[1], center[1] + size[1] // 2)))
+        return field.isig[*slices]
+
+    @staticmethod
+    def get_npad_between(first_shape, second_shape):
         """ Get the padding necessary to match object shape and image shape
 
         If positive, the image shape is bigger than the object
