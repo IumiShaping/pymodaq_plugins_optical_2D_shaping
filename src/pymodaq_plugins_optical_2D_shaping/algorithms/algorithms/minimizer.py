@@ -68,7 +68,7 @@ class Minimize(TorchBase):
     MANUAL_LOOP = False
 
     params = TorchBase.params + [
-        {'title': 'Method', 'name': 'method', 'type': 'list', 'value': 'cg', 'limits': methods},
+        {'title': 'Method', 'name': 'method', 'type': 'list', 'value': 'l-bfgs', 'limits': methods},
     ]
 
     def callback(self, phase):
