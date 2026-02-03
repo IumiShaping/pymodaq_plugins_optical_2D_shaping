@@ -21,15 +21,16 @@ from pymodaq_gui.utils import QLED
 from pymodaq_gui.utils.file_io import select_file
 from pymodaq_gui.parameter import ioxml
 from pymodaq_gui.parameter import utils as putils
+from pymodaq_gui.config_saver_loader import ConfigSaverLoader
 
 from pymodaq_plugins_optical_2D_shaping.algorithms import AlgorithmFactory, AlgoBase
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import TargetPhase, ApplyMaskTo, MaskType, LensSetup
 from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
-
+from pymodaq_plugins_optical_2D_shaping.algorithms.algo_config import AlgoConfig
 
 algo_factory = AlgorithmFactory()
-
+algo_config = AlgoConfig()
 
 class Actions(StrEnum):
 
@@ -39,6 +40,7 @@ class Actions(StrEnum):
 
 
 class AlgoApp(CustomApp):
+    save_settings = True
     params = [{'title': 'Target Phase', 'name': 'target_phase_group', 'type': 'group',
          'children': [
              {'title': 'Target Phase', 'name': 'target_phase', 'type': 'list',
@@ -87,12 +89,23 @@ class AlgoApp(CustomApp):
         self._target_field: Field = None
         self._input_field: Field = None
 
+        self.config_saver_loader = ConfigSaverLoader(self.settings, algo_config)
+
         self._current_data: DataToExport = None
         self._current_phase: np.ndarray = None  # cached phase to be used for subsequent optimizations
 
         self.setup_ui()
 
         self.enable_things(False)
+
+        self.set_settings_values()
+
+    def set_settings_values(self, param: Parameter = None):
+        self.config_saver_loader.load_config(param)
+
+    def save_algo_parameters(self):
+        if self.save_settings:
+            self.config_saver_loader.save_config()
 
     @property
     def current_phase(self) -> np.ndarray:
@@ -147,6 +160,8 @@ class AlgoApp(CustomApp):
             self.settings.child(str(ApplyMaskTo.INTERMEDIATE)).setOpts(
                 visible=self._algorithm.SETUP_TYPE == LensSetup.FourF)
 
+
+
             while True:
                 child = self._algo_settings_widget.layout().takeAt(0)
                 if not child:
@@ -161,6 +176,9 @@ class AlgoApp(CustomApp):
                 # on the input beam size and resolution
                 self.set_target_field(self._target_field)
             self.set_action_visible(Actions.CONTINUOUS, self._algorithm.ITERATIVE)
+
+            self.config_saver_loader.base_path = [self._algorithm.ALGO_NAME]
+            self.set_settings_values()
 
             self.algo_changed.emit(self._algorithm)
 
@@ -323,6 +341,8 @@ class AlgoApp(CustomApp):
         for applied in ApplyMaskTo.values():
             if applied in putils.get_param_path(param):
                self._algorithm.update_mask = True
+
+        self.save_algo_parameters()
 
     def algo_settings_changed(self):
         self.algo_changed.emit(self.algorithm)
