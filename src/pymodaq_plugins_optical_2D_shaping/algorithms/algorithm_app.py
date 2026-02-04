@@ -65,7 +65,7 @@ class AlgoApp(CustomApp):
             {'title': 'Mask Type', 'name': 'mask_type', 'type': 'list', 'value': str(MaskType.SQUARE),
              'limits': MaskType.names()},
             {'title': 'Slices', 'name': 'slices', 'type': 'str',
-             'value': '(slice(338, 757, None), slice(665, 1770, None))'},
+             'value': '(slice(277, 1770, None), slice(252, 1795, None))'},
         ]},
         {'title': 'Intermediate Masking', 'name': str(ApplyMaskTo.INTERMEDIATE), 'type': 'group',
          'visible': False, 'children': [

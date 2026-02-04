@@ -28,7 +28,7 @@ config_utils = Config()
 field_loader_factory = LoaderFactory()
 
 
-needed_pixel_size = greater2n(max(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
+needed_field_size = greater2n(max(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
                                   plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width')))
 
 
@@ -54,10 +54,10 @@ class FieldLoaderApp(CustomApp):
              'value': plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'pixel_size'),
              'readonly': False},
             {'title': 'Height', 'name': 'height', 'type': 'int',
-             'value': needed_pixel_size,
+             'value': needed_field_size,
              'readonly': True},
             {'title': 'Width', 'name': 'width', 'type': 'int',
-             'value': needed_pixel_size,
+             'value': needed_field_size,
              'readonly': True},
             {'title': 'Show on Viewer', 'name': 'show_needed_area', 'type': 'bool_push',
              'value': True,},
@@ -207,12 +207,28 @@ class FieldLoaderApp(CustomApp):
             with DataSaverLoader(file_name, new_file=True) as saver:
                 saver.add_data('/RawData/', dwa, settings=settings_str)
 
+    def update_apply_mask(self, size: tuple[int, int],
+                          center: tuple[int, int] = None,
+                          apply = False):
+        """ Update the slices setting according to the size and center parameter
+        and apply the mask eventually"""
+        shape = (self.settings['needed_size', 'height'],
+                 self.settings['needed_size', 'width'])
+        if center is None:
+            center = tuple(np.array(shape) // 2)
 
-    def update_slm(self, slm_default_name: str):
-        self.settings.child('needed_size', 'height').setValue(
-            plugin_config('SLM', slm_default_name, 'height'))
-        self.settings.child('needed_size', 'width').setValue(
-            plugin_config('SLM', slm_default_name, 'width'))
+        slices = (slice(max(0, center[0] - size[0] // 2), min(shape[0], center[0] + size[0] // 2)),
+                  slice(max(0, center[1] - size[1] // 2), min(shape[1], center[1] + size[1] // 2)))
+        self.settings.child('utils', 'masking', 'slices').setValue(str(slices))
+        self.settings.child('utils', 'masking', 'apply_mask').setValue(apply)
+
+    def updated_slm(self, slm_default_name: str):
+        """ When a SLM has been changed in the config, one should update the needed size of the field"""
+        needed_size = greater2n(
+            max(plugin_config('SLM', slm_default_name, 'height'),
+                plugin_config('SLM', slm_default_name, 'width')))
+        self.settings.child('needed_size', 'height').setValue(needed_size)
+        self.settings.child('needed_size', 'width').setValue(needed_size)
 
     def show_roi_target(self, show=True):
         self.amp_viewer.roi_target.setVisible(show)

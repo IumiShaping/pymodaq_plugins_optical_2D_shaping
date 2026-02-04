@@ -155,11 +155,15 @@ class OpticalShaping(CustomExt):
         self._target_loader.set_loader_in_settings(
             plugin_config('target', 'default_loader')[0])
 
+
         self._input_field_dockarea = gutils.DockArea()
         self._input_field_loader = FieldLoaderApp(self._input_field_dockarea,
                                                   title='Input Field Loader')
         self._input_field_loader.set_loader_in_settings(
             plugin_config('input', 'default_loader')[0])
+        self._input_field_loader.updated_slm(
+            plugin_config('SLM', 'default_slm')[0])
+        self._input_field_loader.update_apply_mask(size=self.slm_shape, apply=True)
 
         self._corrections_dockarea = gutils.DockArea()
         self._corrections = Correction(self._corrections_dockarea,
@@ -337,21 +341,8 @@ class OpticalShaping(CustomExt):
         self._corrections_dockarea.setVisible(show)
         self._corrections_dockarea.closeEvent = lambda event: self.set_action_checked('corrections', False)
 
-    def _get_xy(self) -> tuple[np.ndarray, np.ndarray]:
-        """ Get the pixel indexes from the selected SLM centered on the center of the SLM
-
-        Return:
-        -------
-        x: np.ndarray
-        y: np.ndarray
-        """
-        shape = self.shape
-        return  (np.linspace(-shape[1] / 2, shape[1] / 2, shape[1], endpoint=True),
-                 np.linspace(-shape[0] / 2, shape[0] / 2, shape[0], endpoint=True),
-                 )
-
     @property
-    def shape(self) -> tuple[int, int]:
+    def slm_shape(self) -> tuple[int, int]:
         """ Get the shape of the configured SLM"""
         return (plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
                 plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width'),
@@ -378,9 +369,7 @@ class OpticalShaping(CustomExt):
 
     def update_target_loader_from_algo(self, algo: AlgoBase):
         pixel_size = Q_(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
-        needed_pixel_size = greater2n(
-            max(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
-                plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width')))
+        needed_pixel_size = greater2n(max(*self.slm_shape))
 
         slm_size = (pixel_size * needed_pixel_size, pixel_size * needed_pixel_size)
         self._target_loader.update_pixels(algo.get_target_pixels_size(slm_size))
@@ -392,9 +381,9 @@ class OpticalShaping(CustomExt):
             if res:
                 plugin_config = PluginConfig()
             self.set_action_checked('settings', False)
-            self._target_loader.update_slm(
+            self._target_loader.updated_slm(
                 plugin_config('SLM', 'default_slm')[0])
-            self._input_field_loader.update_slm(
+            self._input_field_loader.updated_slm(
                 plugin_config('SLM', 'default_slm')[0])
 
     def show_target(self, show=True):
