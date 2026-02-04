@@ -54,6 +54,7 @@ class TorchBase(AlgoBase):
     params = [
         {'title': 'Max Iterations', 'name': 'max_iter', 'type': 'int', 'value': 100, 'min': 1},
         {'title': 'Tolerance', 'name': 'tolerance', 'type': 'float', 'value': 1e-9},
+
         {'title': 'Loss', 'name': 'loss', 'type': 'list', 'value': loss_factory.losses[0],
          'limits': loss_factory.losses},
         {'title': 'Loss Parameters', 'name': 'loss_params', 'type': 'group', 'children': []}

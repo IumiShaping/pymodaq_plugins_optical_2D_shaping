@@ -149,7 +149,6 @@ class Chicken(LossBase):
     params = [
         {'title': 'Power exponent', 'name': 'power_exponent', 'type': 'int', 'value': 9, 'min': 2},
         {'title': 'Sum exponent', 'name': 'sum_exponent', 'type': 'int', 'value': 2, 'min': 2},
-
     ]
 
     def compute_loss(self,
@@ -165,22 +164,22 @@ class Chicken(LossBase):
 
         return (10 ** self.settings['power_exponent'] * (
                 1 - torch.sum((torch.abs(field_target) * torch.abs(field_tested)) *
-                              torch.abs(torch.cos(torch.angle(field_target) - torch.angle(field_tested)))))
+                              (torch.cos(torch.angle(field_target) - torch.angle(field_tested)))))
                 **self.settings['sum_exponent'])
 
 
 @LossFactory.register_loss()
 class ChickenArnaud(LossBase):
-
+    params = [
+        {'title': 'Ratio', 'name': 'ratio', 'type': 'float', 'value': 1},
+    ]
     def compute_loss(self,
                      field_tested: torch.Tensor,
                      field_target: torch.Tensor, ) -> torch.Tensor:
         """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
         """
 
-        # field_target = field_target / torch.sqrt(torch.sum(torch.abs(field_target)**2))
-        # field_tested = field_tested / torch.sqrt(torch.sum(torch.abs(field_tested)**2))
-        return torch.sum((torch.abs(field_target - field_tested) ** 2))
+        return torch.sum((torch.abs(field_target - self.settings['ratio'] * field_tested) ** 2))
 
 
 @LossFactory.register_loss()
