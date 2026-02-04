@@ -5,7 +5,7 @@ from qtpy import QtWidgets, QtCore
 
 import pymodaq_gui.qt_utils
 from pymodaq_data import DataCalculated
-from pymodaq_gui.plotting.utils.plot_utils import RoiInfo
+from pymodaq_gui.plotting.items.roi import RoiInfo
 from pymodaq_utils.utils import ThreadCommand
 
 
@@ -24,7 +24,8 @@ from pymodaq_gui.parameter import utils as putils
 from pymodaq_gui.config_saver_loader import ConfigSaverLoader
 
 from pymodaq_plugins_optical_2D_shaping.algorithms import AlgorithmFactory, AlgoBase
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import TargetPhase, ApplyMaskTo, MaskType, LensSetup
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import TargetPhase, ApplyMaskTo, LensSetup
+from pymodaq_plugins_optical_2D_shaping.utilities.masking import MaskType
 from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 from pymodaq_plugins_optical_2D_shaping.algorithms.algo_config import AlgoConfig
@@ -64,7 +65,7 @@ class AlgoApp(CustomApp):
             {'title': 'Mask Type', 'name': 'mask_type', 'type': 'list', 'value': str(MaskType.SQUARE),
              'limits': MaskType.names()},
             {'title': 'Slices', 'name': 'slices', 'type': 'str',
-             'value': '(slice(338, 757, None), slice(665, 1770, None))'},
+             'value': '(slice(277, 1770, None), slice(252, 1795, None))'},
         ]},
         {'title': 'Intermediate Masking', 'name': str(ApplyMaskTo.INTERMEDIATE), 'type': 'group',
          'visible': False, 'children': [

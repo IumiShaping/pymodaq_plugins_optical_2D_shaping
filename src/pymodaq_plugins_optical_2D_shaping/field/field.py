@@ -100,6 +100,10 @@ class Field(DataRaw):
         field_new.amplitude = np.ones_like(field.amplitude)
         return field_new
 
+    def _slicer(self, slices, is_navigation=True, is_index=True):
+        dwa = super()._slicer(slices, is_navigation, is_index)
+        return Field(self.name, amplitude=dwa[0], phase=dwa[1], pixel_sizes=self.pixels_sizes)
+
     def pad(self, pad_width: Tuple[Tuple[int, int], Tuple[int, int]], **kwargs) -> 'Field':
         """ Get a Field object similar to self but padded
 
