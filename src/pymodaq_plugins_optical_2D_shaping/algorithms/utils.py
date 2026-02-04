@@ -101,8 +101,6 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
         To be reimplemented if needed
         """
-
-
         if self.apply_mask(apply_to):
             mask = Field.init_from_field(self._target_field).amplitude * outer_value
             slices = self.get_mask_slices(apply_to)
@@ -288,8 +286,26 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
             np.abs(np.sqrt(self._target_field.intensity) - self._image_field.intensity)) ** 2 \
             / np.prod(self._image_field.shape) / np.sum(self._target_field.intensity)
 
+    @property
+    def efficiency(self) -> float:
+        """ Compute efficiency as the ratio between image_field intensity within a given region
+        and total intensity
+
+        Meaningfully only for algorithm using a Target defined mask
+
+        To be subclassed if the given implementation below is not correct for your algorithm"""
+
+        return (np.sum(np.abs(self._image_field.intensity *
+                             self.get_mask_field(ApplyMaskTo.TARGET).amplitude)) /
+                np.sum(np.abs(self._image_field.intensity)))
+
     def fitness_as_dwa(self):
         return DataRaw('fitness', data=[np.array([self.fitness])])
+
+    def metrics_as_dwa(self):
+        return DataRaw('metrics', data=[np.array([self.fitness]),
+                                        np.array([self.efficiency])],
+                       labels=['fitness', 'efficiency'])
 
     def compute_phase(self, do_step=True, ini_phase: np.ndarray = None, **kwargs):
         """ Compute the phase to apply to SLM given the target object
@@ -303,7 +319,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         dte =  DataToExport('AlgoData', data=[
             self.image_field.amplitude_as_dwa('image'),
             self.image_field.phase_as_dwa('image'),
-            self.fitness_as_dwa(),
+            self.metrics_as_dwa(),
             self.object_field.amplitude_as_dwa('object'),
             self.object_field.phase_as_dwa('object'),
         ])

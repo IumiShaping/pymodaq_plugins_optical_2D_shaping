@@ -171,16 +171,15 @@ class OpticalShaping(CustomExt):
 
         self.docks['image_field'] = gutils.Dock('Image Plane')
         self.docks['object_field'] = gutils.Dock('Object Plane')
-        self.docks['fitness'] = gutils.Dock('Fitness')
-
-        self.dockarea.addDock(self.docks['fitness'])
-
+        self.docks['metrics'] = gutils.Dock('Fitness')
+        self.dockarea.addDock(self.docks['metrics'], 'left')
         self.dockarea.addDock(self.docks['object_field'], 'right')
         self.dockarea.addDock(self.docks['image_field'], 'bottom', self.docks['object_field'])
 
-        fitness_widget = QtWidgets.QWidget()
-        self.fitness_viewer = Viewer0D(fitness_widget, title='Fitness')
-        self.docks['fitness'].addWidget(fitness_widget)
+
+        metrics_widget = QtWidgets.QWidget()
+        self.metrics_viewer = Viewer0D(metrics_widget, title='Metrics')
+        self.docks['metrics'].addWidget(metrics_widget)
 
         self.target_widget = QtWidgets.QWidget()
         self.target_widget.setLayout(QtWidgets.QHBoxLayout())
@@ -322,7 +321,7 @@ class OpticalShaping(CustomExt):
         self.connect_action('save_phase', self.save_phase)
 
     def plot_fields(self, dte: DataToExport):
-        fitness = dte.remove(dte.get_data_from_name('fitness'))
+        metrics = dte.remove(dte.get_data_from_name('metrics'))
         dte_image = DataToExport('image', data=[
             dte.remove(dte.get_data_from_full_name(full_name)) for full_name in ['image/amplitude', 'image/phase']])
         dte_object = DataToExport('object', data=[
@@ -334,7 +333,7 @@ class OpticalShaping(CustomExt):
             pass
         self.object_viewers.show_data(dte_object)
         self.image_viewers.show_data(dte_image)
-        self.fitness_viewer.show_data(fitness)
+        self.metrics_viewer.show_data(metrics)
         self.other_viewers.show_data(dte)
 
     def show_corrections(self, show=True):
