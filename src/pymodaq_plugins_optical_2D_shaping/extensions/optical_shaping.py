@@ -82,6 +82,15 @@ class OpticalShaping(CustomExt):
         self._input_field_loader.load_field()
         self._target_loader.load_field()
 
+    def get_slm_slices(self) -> tuple[slice, slice]:
+        """ get slices to apply to fields to get only pixels corresponding to the SLM"""
+        shape = self.input_field.shape
+        center = tuple(np.array(shape) // 2)
+        size = self.slm_shape
+        slices = (slice(max(0, center[0] - size[0] // 2), min(shape[0], center[0] + size[0] // 2)),
+                  slice(max(0, center[1] - size[1] // 2), min(shape[1], center[1] + size[1] // 2)))
+        return slices
+
     def update_object(self, field: Field):
         """ field contains here the object field"""
 
@@ -94,15 +103,17 @@ class OpticalShaping(CustomExt):
             phase_to_send = 0.
             if self.is_action_checked('send_algo_to_shaper') or self.is_action_checked('send_correc_to_shaper'):
                 if self.is_action_checked('send_algo_to_shaper'):
-                    phase_to_send = phase_to_send + field.phase_as_dwa()
+                    phase_to_send = phase_to_send + field.phase_as_dwa().isig[*self.get_slm_slices()]
                 if self.is_action_checked('send_correc_to_shaper'):
                     if self._correction_phase is not None:
-                        phase_to_send = phase_to_send + self._correction_phase
-
+                        phase_to_send = phase_to_send + self._correction_phase.isig[*self.get_slm_slices()]
                 self._shaper.move_abs(phase_to_send)
 
     def save_phase(self):
+        """ Saves phases: calculated and all corrections into a hdf5 file
 
+        The shape of the arrays correspond to the shape of the SLM
+        """
         fname = select_file(save=True, ext='h5', force_save_extension=True)
         if fname:
 
@@ -113,16 +124,15 @@ class OpticalShaping(CustomExt):
             zernike_phase = self._corrections.compute_zernike_phase(correction_values.zernike)
             dte = DataToExport('Phases')
             if self._object_field is not None:
-                dte.append(self._object_field.phase_as_dwa(name='Algo Phase'))
+                dte.append(self._object_field.phase_as_dwa(name='Algo Phase').isig[*self.get_slm_slices()])
 
-            dte.append(DataCalculated('Quadratic Phase', data=[quad_phase_array]),)
-            dte.append(DataCalculated('Linear Phase', data=[linear_phase_array]),)
-            dte.append(DataCalculated('Zernike Phase', data=[zernike_phase]))
+            dte.append(DataCalculated('Quadratic Phase', data=[quad_phase_array[*self.get_slm_slices()]]),)
+            dte.append(DataCalculated('Linear Phase', data=[linear_phase_array[*self.get_slm_slices()]]),)
+            dte.append(DataCalculated('Zernike Phase', data=[zernike_phase[*self.get_slm_slices()]]))
 
 
             with DataToExportSaver(fname) as h5saver:
                 h5saver.add_data('/', dte)
-
 
     def update_correction_phase(self, dwa: DataCalculated):
         self._correction_phase = dwa
