@@ -54,9 +54,7 @@ class GbSax(AlgoBase):
         if self._algo_init:  #make sure target and object have same shape
 
             #normalize target_intensity wrt input amplitude
-            self._target_field = self._target_field / np.max(np.abs(self._target_field.field))
-            self._target_field = self._target_field * (np.sum(self._object_field.amplitude) /
-                                   np.sum(self._target_field.amplitude))
+            self._target_field = self.normalize_wrt(self._target_field, self._input_field)
 
     def do_things_after_init(self):
         if not self._algo_init:
@@ -87,10 +85,11 @@ class GbSax(AlgoBase):
         else:
             amplitude = self._target_field.amplitude
 
-        field_image_corrected = Field(amplitude=amplitude,
-                                      phase=self._image_field.phase,
-                                      pixel_sizes=self._image_field.pixels_sizes)
-        field_object_corrected = field_image_corrected.ifft2(norm='forward')
+        field_image_corrected = self.normalize_wrt(Field(amplitude=amplitude,
+                                                         phase=self._image_field.phase,
+                                                         pixel_sizes=self._image_field.pixels_sizes),
+                                                   self._input_field)
+        field_object_corrected = self.compute_backward_fft(field_image_corrected)
 
         self.set_phase_in_object_plane(field_object_corrected.phase)
 
@@ -148,7 +147,7 @@ class GbSaxAdaptiveWeighted(GbSax):
         field_image_corrected = Field(amplitude=amplitude,
                                       phase=self._image_field.phase,
                                       pixel_sizes=self._image_field.pixels_sizes)
-        field_object_corrected = field_image_corrected.ifft2(norm='backward')
+        field_object_corrected = self.compute_backward_fft(field_image_corrected)
 
         self.set_phase_in_object_plane(field_object_corrected.phase)
 

@@ -227,12 +227,16 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         return phase
 
     def compute_forward_fft(self, update_plots = True):
-        self._image_field = self.normalize_wrt(self._object_field.fft2(norm='forward'),
-                                               self.object_field)
+        """ Compute the forward fft usnig the "forward nomalization and the shape prefactor"""
+        self._image_field = np.prod(self._object_field.shape) * self._object_field.fft2(norm='forward')
+
         self._image_field = self.scale_target_with_geometry(self._image_field)
 
         if update_plots and self.parent_app is not None:
             self.parent_app.fields_to_plot.emit(self.get_fields_to_plot())
+
+    def compute_backward_fft(self, field: Field) -> Field:
+        return field.ifft2(norm='forward')
 
     @staticmethod
     def normalize_wrt(field: Field, ref_field: Field) -> Field:
