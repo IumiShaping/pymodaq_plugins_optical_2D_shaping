@@ -22,6 +22,7 @@ from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp,
 from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, Field, Q_
 from pymodaq_plugins_optical_2D_shaping.utilities.corrections import Correction
 from pymodaq_plugins_optical_2D_shaping.algorithms import AlgorithmFactory, AlgoBase
+from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 
 logger = set_logger(get_module_name(__file__))
 
@@ -354,9 +355,7 @@ class OpticalShaping(CustomExt):
     @property
     def slm_shape(self) -> tuple[int, int]:
         """ Get the shape of the configured SLM"""
-        return (plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
-                plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width'),
-                )
+        return sizing.get_effective_slm_size()
 
     def add_corrections_actuators(self):
         try:
@@ -378,7 +377,7 @@ class OpticalShaping(CustomExt):
             logger.exception('Could not create Corrections Actuators', exc_info=e)
 
     def update_target_loader_from_algo(self, algo: AlgoBase):
-        pixel_size = Q_(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
+        pixel_size = Q_(sizing.get_effective_slm_pixel_size(), 'um')
         needed_pixel_size = greater2n(max(*self.slm_shape))
 
         slm_size = (pixel_size * needed_pixel_size, pixel_size * needed_pixel_size)

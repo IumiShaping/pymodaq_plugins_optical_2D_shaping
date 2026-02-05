@@ -14,6 +14,7 @@ from pymodaq_gui.managers.parameter_manager import ParameterManager, Parameter
 
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.field import Field, Q_
+from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 
 if TYPE_CHECKING:
     from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
@@ -177,7 +178,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         else:
             shift_y, shift_x = (0., 0.)
 
-        pixel_SLM = Q_(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
+        pixel_SLM = Q_(sizing.get_effective_slm_pixel_size(), 'um')
         setup_type = plugin_config('setup', 'setup_type')[0]
         focal_postSLM = Q_(plugin_config('setup', setup_type, 'focals')[0], 'mm')
         wavelength = Q_(plugin_config('setup', 'wavelength_nm'), 'nm')
