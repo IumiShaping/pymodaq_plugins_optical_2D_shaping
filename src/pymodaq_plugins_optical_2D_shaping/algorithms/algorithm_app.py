@@ -409,6 +409,7 @@ class AlgoRunner(QtCore.QObject):
                 self.algo_output_signal.emit(self.algo.get_fields_to_plot())
                 ini_phase = None
                 QtWidgets.QApplication.processEvents()
+                QtCore.QThread.msleep(20)
         else:
             self.algo.start()
             self.algo.compute_phase(do_step=False, ini_phase=ini_phase)  # the continuous run is handled by the algo itself. If possible

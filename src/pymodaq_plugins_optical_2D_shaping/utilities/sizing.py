@@ -50,6 +50,13 @@ def unbin_to_real_slm(phase: np.ndarray, binning: int = None) -> np.ndarray:
     return np.repeat(np.repeat(phase, binning, axis=0), binning, axis=1)
 
 
+def get_effective_area_pos_size_in_pxls() -> tuple[np.ndarray, np.ndarray]:
+    """ Get the position and size of the effective area image of the SLM in pixels """
+    size = np.array(get_effective_slm_size())
+    pos = (np.array(get_effective_needed_field_size()) - size) / 2
+    return pos, size
+
+
 
 if __name__ == '__main__':
     pass
