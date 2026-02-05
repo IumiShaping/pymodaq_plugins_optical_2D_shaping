@@ -110,6 +110,10 @@ class OpticalShaping(CustomExt):
                 self._shaper.move_abs(phase_to_send)
 
     def save_phase(self):
+        """ Saves phases: calculated and all corrections into a hdf5 file
+
+        The shape of the arrays correspond to the shape of the SLM
+        """
         fname = select_file(save=True, ext='h5', force_save_extension=True)
         if fname:
 
@@ -120,11 +124,11 @@ class OpticalShaping(CustomExt):
             zernike_phase = self._corrections.compute_zernike_phase(correction_values.zernike)
             dte = DataToExport('Phases')
             if self._object_field is not None:
-                dte.append(self._object_field.phase_as_dwa(name='Algo Phase'))
+                dte.append(self._object_field.phase_as_dwa(name='Algo Phase').isig[*self.get_slm_slices()])
 
-            dte.append(DataCalculated('Quadratic Phase', data=[quad_phase_array]),)
-            dte.append(DataCalculated('Linear Phase', data=[linear_phase_array]),)
-            dte.append(DataCalculated('Zernike Phase', data=[zernike_phase]))
+            dte.append(DataCalculated('Quadratic Phase', data=[quad_phase_array[*self.get_slm_slices()]]),)
+            dte.append(DataCalculated('Linear Phase', data=[linear_phase_array[*self.get_slm_slices()]]),)
+            dte.append(DataCalculated('Zernike Phase', data=[zernike_phase[*self.get_slm_slices()]]))
 
 
             with DataToExportSaver(fname) as h5saver:
