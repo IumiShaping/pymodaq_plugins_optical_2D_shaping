@@ -4,7 +4,7 @@ from qtpy import QtWidgets, QtCore
 from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_utils.config import Config
-from pymodaq.utils.data import DataToExport, DataCalculated
+from pymodaq.utils.data import DataToExport, DataCalculated, DataActuator
 from pymodaq_utils.math_utils import greater2n
 from pymodaq_data.h5modules.data_saving import DataToExportSaver
 
@@ -114,7 +114,7 @@ class OpticalShaping(CustomExt):
                 if self.is_action_checked('send_correc_to_shaper'):
                     if self._correction_phase is not None:
                         phase_to_send = phase_to_send + self._correction_phase.isig[*self.get_slm_slices()]
-                self._shaper.move_abs(phase_to_send)
+                self._shaper.move_abs(DataActuator('phase', data=phase_to_send[0]))
 
     def save_phase(self):
         """ Saves phases: calculated and all corrections into a hdf5 file
