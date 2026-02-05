@@ -115,6 +115,7 @@ class OpticalShaping(CustomExt):
                 if self.is_action_checked('send_correc_to_shaper'):
                     if self._correction_phase is not None:
                         phase_to_send = phase_to_send + self._correction_phase[0][*self.get_slm_slices()]
+
                 self._shaper.move_abs(DataActuator('phase', data=sizing.unbin_to_real_slm(phase_to_send)))
 
     def save_phase(self):
