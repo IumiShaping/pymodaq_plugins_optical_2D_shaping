@@ -19,6 +19,8 @@ setup_type = ['2f', '4f', 'no_lens'] #readonly set from the chosen algorithm
 
 [SLM]
 default_slm = ["PLUTO", "LC2012"] #first elet in the list used as default
+binning = 1  # the shape of the fields will be binned accordingly as (1x1), (2x2), etc... (should be power of 2)
+
 [SLM.PLUTO]
 width = 1920
 height = 1080
