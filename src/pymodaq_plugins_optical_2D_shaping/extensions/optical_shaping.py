@@ -91,6 +91,13 @@ class OpticalShaping(CustomExt):
                   slice(max(0, center[1] - size[1] // 2), min(shape[1], center[1] + size[1] // 2)))
         return slices
 
+    def do_things_after_preset_set(self, preset_name: str):
+        super().do_things_after_preset_set(preset_name)
+        if self.modules_manager is not None and 'Shaper' in self.modules_manager.actuators_name:
+            self._shaper = self.modules_manager.get_mod_from_name('Shaper', 'act')
+        else:
+            self._shaper = None
+
     def update_object(self, field: Field):
         """ field contains here the object field"""
 
