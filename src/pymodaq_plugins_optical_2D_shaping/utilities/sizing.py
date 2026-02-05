@@ -39,11 +39,14 @@ def get_effective_slm_pixel_size() -> float:
             plugin_config('sizing', 'binning'))
 
 
-def unbin_slm(phase: np.ndarray, binning: int) -> np.ndarray:
-    """ "rebin" a given ndarray by repeating its values binning time
+def unbin_to_real_slm(phase: np.ndarray, binning: int = None) -> np.ndarray:
+    """ "rebin" a given ndarray by repeating its values binning time to fit the pixel arrays of the real SLM
 
     The final shape is initial shape x binning
+
     """
+    if binning is None:
+        binning = plugin_config('sizing', 'binning')
     return np.repeat(np.repeat(phase, binning, axis=0), binning, axis=1)
 
 

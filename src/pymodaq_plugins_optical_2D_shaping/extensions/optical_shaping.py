@@ -111,11 +111,11 @@ class OpticalShaping(CustomExt):
             phase_to_send = 0.
             if self.is_action_checked('send_algo_to_shaper') or self.is_action_checked('send_correc_to_shaper'):
                 if self.is_action_checked('send_algo_to_shaper'):
-                    phase_to_send = phase_to_send + field.phase_as_dwa().isig[*self.get_slm_slices()]
+                    phase_to_send = phase_to_send + field.phase_as_dwa()[0][*self.get_slm_slices()]
                 if self.is_action_checked('send_correc_to_shaper'):
                     if self._correction_phase is not None:
-                        phase_to_send = phase_to_send + self._correction_phase.isig[*self.get_slm_slices()]
-                self._shaper.move_abs(DataActuator('phase', data=phase_to_send[0]))
+                        phase_to_send = phase_to_send + self._correction_phase[0][*self.get_slm_slices()]
+                self._shaper.move_abs(DataActuator('phase', data=sizing.unbin_to_real_slm(phase_to_send)))
 
     def save_phase(self):
         """ Saves phases: calculated and all corrections into a hdf5 file
