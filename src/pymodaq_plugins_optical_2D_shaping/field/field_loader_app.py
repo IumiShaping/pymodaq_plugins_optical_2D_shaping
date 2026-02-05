@@ -3,6 +3,7 @@ import numpy as np
 from qtpy import QtWidgets, QtCore
 from skimage.transform import rescale, resize
 from scipy.ndimage import gaussian_filter
+from pyqtgraph import ROI as pgROI
 
 from pymodaq_utils.config import Config
 from pymodaq_utils.math_utils import normalize, greater2n
@@ -22,14 +23,14 @@ from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 from pymodaq_plugins_optical_2D_shaping.field import Field, Q_, LoaderFactory, FieldLoader
 from pymodaq_plugins_optical_2D_shaping.utilities.masking import MaskType
 
-
+from pymodaq_plugins_optical_2D_shaping.utilities.sizing import (get_effective_needed_field_size,
+                                                                 get_effective_slm_pixel_size,
+                                                                 get_effective_slm_size,
+                                                                 get_effective_area_pos_size_in_pxls)
 
 config_utils = Config()
 field_loader_factory = LoaderFactory()
 
-
-needed_field_size = greater2n(max(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
-                                  plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width')))
 
 
 class FieldLoaderApp(CustomApp):
@@ -48,16 +49,16 @@ class FieldLoaderApp(CustomApp):
         ]},
         {'title': 'Needed size', 'name': 'needed_size', 'type': 'group', 'children': [
             {'title': 'Pixel Height (µm)', 'name': 'pixel_height', 'type': 'float',
-             'value': plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'pixel_size'),
+             'value': get_effective_slm_pixel_size(),
              'readonly': False},
             {'title': 'Pixel Width (µm)', 'name': 'pixel_width', 'type': 'float',
-             'value': plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'pixel_size'),
+             'value': get_effective_slm_pixel_size(),
              'readonly': False},
             {'title': 'Height', 'name': 'height', 'type': 'int',
-             'value': needed_field_size,
+             'value': get_effective_needed_field_size(),
              'readonly': True},
             {'title': 'Width', 'name': 'width', 'type': 'int',
-             'value': needed_field_size,
+             'value': get_effective_needed_field_size(),
              'readonly': True},
             {'title': 'Show on Viewer', 'name': 'show_needed_area', 'type': 'bool_push',
              'value': True,},
@@ -224,15 +225,16 @@ class FieldLoaderApp(CustomApp):
 
     def updated_slm(self, slm_default_name: str):
         """ When a SLM has been changed in the config, one should update the needed size of the field"""
-        needed_size = greater2n(
-            max(plugin_config('SLM', slm_default_name, 'height'),
-                plugin_config('SLM', slm_default_name, 'width')))
+        needed_size = get_effective_needed_field_size()
         self.settings.child('needed_size', 'height').setValue(needed_size)
         self.settings.child('needed_size', 'width').setValue(needed_size)
 
     def show_roi_target(self, show=True):
         self.amp_viewer.roi_target.setVisible(show)
+        self.slm_size_roi_amp.setVisible(show)
+
         self.phase_viewer.roi_target.setVisible(show)
+        self.slm_size_roi_phase.setVisible(show)
 
     def update_viewers(self):
         needed_shape = (self.settings['needed_size', 'height'],
@@ -249,6 +251,14 @@ class FieldLoaderApp(CustomApp):
             self.phase_viewer.move_roi_target(
                 (0, 0),
                 (np.array(needed_shape) * pixels_magnitude)[::-1])
+
+            pos, size = get_effective_area_pos_size_in_pxls()
+            self.amp_viewer.view.move_scale_roi(self.slm_size_roi_amp,
+                                                pos=(pos * pixels_magnitude)[::-1],
+                                                size=(size * pixels_magnitude)[::-1])
+            self.phase_viewer.view.move_scale_roi(self.slm_size_roi_phase,
+                                                  pos=(pos * pixels_magnitude)[::-1],
+                                                  size=(size * pixels_magnitude)[::-1])
 
     def set_loader_in_settings(self, loader_name: str):
         if loader_name in self.settings.child('loader').opts['limits']:
@@ -435,10 +445,18 @@ class FieldLoaderApp(CustomApp):
         amp_widget = QtWidgets.QWidget()
         self.amp_viewer = Viewer2D(amp_widget)
         self.amp_viewer.view.get_action('legend').trigger()
+        self.slm_size_roi_amp = pgROI(pos=(0, 0), size=(20, 20), movable=False, rotatable=False, resizable=False,
+                                      pen=(0, 255, 0))
+        self.amp_viewer.view.plotitem.addItem(self.slm_size_roi_amp)
+        self.slm_size_roi_amp.setVisible(False)
 
         phase_widget = QtWidgets.QWidget()
         self.phase_viewer = Viewer2D(phase_widget)
         self.phase_viewer.view.get_action('legend').trigger()
+        self.slm_size_roi_phase = pgROI(pos=(0, 0), size=(20, 20), movable=False, rotatable=False, resizable=False,
+                                        pen=(0, 255, 0))
+        self.phase_viewer.view.plotitem.addItem(self.slm_size_roi_phase)
+        self.slm_size_roi_phase.setVisible(False)
 
         self.show_roi_target(self.settings['needed_size', 'show_needed_area'])
 

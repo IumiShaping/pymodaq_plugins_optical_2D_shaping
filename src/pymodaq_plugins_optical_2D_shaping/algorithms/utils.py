@@ -14,6 +14,7 @@ from pymodaq_gui.managers.parameter_manager import ParameterManager, Parameter
 
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.field import Field, Q_
+from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 
 if TYPE_CHECKING:
     from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
@@ -177,7 +178,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         else:
             shift_y, shift_x = (0., 0.)
 
-        pixel_SLM = Q_(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
+        pixel_SLM = Q_(sizing.get_effective_slm_pixel_size(), 'um')
         setup_type = plugin_config('setup', 'setup_type')[0]
         focal_postSLM = Q_(plugin_config('setup', setup_type, 'focals')[0], 'mm')
         wavelength = Q_(plugin_config('setup', 'wavelength_nm'), 'nm')
@@ -226,12 +227,16 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         return phase
 
     def compute_forward_fft(self, update_plots = True):
-        self._image_field = self.normalize_wrt(self._object_field.fft2(norm='forward'),
-                                               self.object_field)
+        """ Compute the forward fft usnig the "forward nomalization and the shape prefactor"""
+        self._image_field = np.prod(self._object_field.shape) * self._object_field.fft2(norm='forward')
+
         self._image_field = self.scale_target_with_geometry(self._image_field)
 
         if update_plots and self.parent_app is not None:
             self.parent_app.fields_to_plot.emit(self.get_fields_to_plot())
+
+    def compute_backward_fft(self, field: Field) -> Field:
+        return field.ifft2(norm='forward')
 
     @staticmethod
     def normalize_wrt(field: Field, ref_field: Field) -> Field:

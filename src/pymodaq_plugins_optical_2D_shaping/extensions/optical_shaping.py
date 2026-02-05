@@ -22,6 +22,7 @@ from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp,
 from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, Field, Q_
 from pymodaq_plugins_optical_2D_shaping.utilities.corrections import Correction
 from pymodaq_plugins_optical_2D_shaping.algorithms import AlgorithmFactory, AlgoBase
+from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 
 logger = set_logger(get_module_name(__file__))
 
@@ -110,11 +111,11 @@ class OpticalShaping(CustomExt):
             phase_to_send = 0.
             if self.is_action_checked('send_algo_to_shaper') or self.is_action_checked('send_correc_to_shaper'):
                 if self.is_action_checked('send_algo_to_shaper'):
-                    phase_to_send = phase_to_send + field.phase_as_dwa().isig[*self.get_slm_slices()]
+                    phase_to_send = phase_to_send + field.phase_as_dwa()[0][*self.get_slm_slices()]
                 if self.is_action_checked('send_correc_to_shaper'):
                     if self._correction_phase is not None:
-                        phase_to_send = phase_to_send + self._correction_phase.isig[*self.get_slm_slices()]
-                self._shaper.move_abs(DataActuator('phase', data=phase_to_send[0]))
+                        phase_to_send = phase_to_send + self._correction_phase[0][*self.get_slm_slices()]
+                self._shaper.move_abs(DataActuator('phase', data=sizing.unbin_to_real_slm(phase_to_send)))
 
     def save_phase(self):
         """ Saves phases: calculated and all corrections into a hdf5 file
@@ -361,9 +362,7 @@ class OpticalShaping(CustomExt):
     @property
     def slm_shape(self) -> tuple[int, int]:
         """ Get the shape of the configured SLM"""
-        return (plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
-                plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width'),
-                )
+        return sizing.get_effective_slm_size()
 
     def add_corrections_actuators(self):
         try:
@@ -385,7 +384,7 @@ class OpticalShaping(CustomExt):
             logger.exception('Could not create Corrections Actuators', exc_info=e)
 
     def update_target_loader_from_algo(self, algo: AlgoBase):
-        pixel_size = Q_(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
+        pixel_size = Q_(sizing.get_effective_slm_pixel_size(), 'um')
         needed_pixel_size = greater2n(max(*self.slm_shape))
 
         slm_size = (pixel_size * needed_pixel_size, pixel_size * needed_pixel_size)
