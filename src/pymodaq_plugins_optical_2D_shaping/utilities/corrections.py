@@ -253,7 +253,7 @@ class Correction(CustomApp):
         else:
             focal_length = Q_(focal_value, 'cm')
             pixel_size = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
-            wavelength = Q_(self._plugin_config('wavelength_nm'), 'nm')
+            wavelength = Q_(self._plugin_config('setup', 'wavelength_nm'), 'nm')
 
             coeff =  float((pixel_size ** 2 / (wavelength * focal_length) * np.pi).to_reduced_units().magnitude)
 
