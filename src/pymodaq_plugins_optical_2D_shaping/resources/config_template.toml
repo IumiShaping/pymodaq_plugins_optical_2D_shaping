@@ -4,6 +4,8 @@ title = "PyMoDAQ's optical 2D shaping package configuration file"
 
 [sizing]
 binning = 8  # the shape of the fields will be binned accordingly as (1x1), (2x2), etc... (should be power of 2)
+padding = 2048 # the padding during calculation. if 0, not a power of 2 and lower than the slm size, the padding value will be the first power of n bigger than the max size of the SLM
+
 
 [setup]
 wavelength_nm = 515

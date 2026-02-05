@@ -8,12 +8,18 @@ def get_effective_needed_field_size() -> int:
     """ Compute from the configuration values the needed square size of the fields to be used"""
 
     binning = plugin_config('sizing', 'binning')
+    padding = plugin_config('sizing', 'padding')
+
     if not is_power_of_two(binning):
         raise ValueError('binning must be a multiple of 2')
 
-    needed_field_size = (greater2n(max(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
-                                      plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width'))) //
-                         binning)
+    first_power_of_two = (greater2n(
+        max(*get_slm_size())) // binning)
+
+    if not is_power_of_two(padding) or padding < first_power_of_two:
+        padding = first_power_of_two
+
+    needed_field_size = padding
     return needed_field_size
 
 
@@ -26,9 +32,7 @@ def get_effective_slm_size() -> tuple[int, int]:
     binning = plugin_config('sizing', 'binning')
     if not is_power_of_two(binning):
         raise ValueError('binning must be a multiple of 2')
-    size = (np.array([plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
-                                       plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width')]) //
-         binning)
+    size = np.array(get_slm_size()) // binning
     return int(size[0]), int(size[1])
 
 
