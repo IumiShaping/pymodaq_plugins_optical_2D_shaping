@@ -51,10 +51,11 @@ class OL2014(AlgoBase):
 
     def compute_phase(self, do_step=True, **kwargs):
 
-        self.define_input_phase()
 
         odd_mask = self.create_checker_board()
         even_mask = 1 - odd_mask
+        self._target_field = self.normalize_wrt(self._target_field, self._input_field)
+
 
         calculated_field: Field = deepcopy(self._target_field)
 
@@ -66,16 +67,15 @@ class OL2014(AlgoBase):
         alpha_field.phase *= even_mask
 
         self.set_phase_in_object_plane(theta_field.phase + alpha_field.phase)
-
+        self.intermediate_field = self.object_field.fft2(norm='forward') * np.prod(self.object_field.shape)
         if self.apply_mask(apply_to=ApplyMaskTo.INTERMEDIATE):
             circ_aperture = self.get_mask_field(apply_to=ApplyMaskTo.INTERMEDIATE)
-            self.intermediate_field = self.object_field.fft2() * circ_aperture.amplitude
-        else:
-            self.intermediate_field = self.object_field.fft2()
+            self.intermediate_field.amplitude = self.intermediate_field.amplitude * circ_aperture.amplitude
+
         self.intermediate_field.calibrate_axes(self.intermediate_pixel_sizes)
         self.intermediate_field.axes = self.intermediate_field.get_axes()
 
-        self._image_field = self.intermediate_field.ifft2()
+        self._image_field = self.intermediate_field.ifft2(norm='forward')
 
         target_pixel_sizes = [((Q_(plugin_config('setup', 'wavelength_nm',), 'nm') *
                                Q_(plugin_config('setup', str(self.SETUP_TYPE), 'focals')[1], 'mm')) /
