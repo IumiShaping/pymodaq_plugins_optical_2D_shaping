@@ -148,9 +148,6 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         focal = Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm')
         object_size = Q_(np.array(sizing.get_effective_slm_size()) * sizing.get_effective_slm_pixel_size(),
                          'um')
-        # object_size = Q_(np.array([self.object_field.pixels_sizes[ind].magnitude *
-        #                            self.object_field.shape[ind] for ind in range(2)]),
-        #                  self.object_field.pixels_sizes[0].units)
         if self.apply_mask(ApplyMaskTo.TARGET):
             _slices = self.get_mask_slices(ApplyMaskTo.TARGET)
             size = [(_slice.stop - _slice.start)
