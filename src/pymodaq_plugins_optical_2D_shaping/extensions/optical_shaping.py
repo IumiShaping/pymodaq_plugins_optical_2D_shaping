@@ -319,8 +319,12 @@ class OpticalShaping(CustomExt):
         self._input_field_loader.field_signal.connect(self._algorithm.set_input_field)
         self._target_loader.field_signal.connect(self._algorithm.set_target_field)
         self.intermediate_viewer.roi_select_signal.connect(self._algorithm.update_intermediate_slices)
+        self._target_loader.amp_viewer.view.set_action_checked('ROIselect', True)
+        self._target_loader.amp_viewer.view.show_ROI_select(
+            size=(sizing.get_effective_area_pos_size_in_pxls()[1] / 2)[::-1],
+            pos=(sizing.get_effective_area_pos_size_in_pxls()[0])[::-1])
         for viewer in (self._target_loader.amp_viewer, self._target_loader.phase_viewer):
-            viewer.roi_select_signal.connect(self._algorithm.update_target_slices)
+            viewer.roi_select_signal.connect(lambda roi_info: self._algorithm.update_target_slices(roi_info.to_slices()))
 
     def connect_things(self):
         logger.debug('connecting things')
