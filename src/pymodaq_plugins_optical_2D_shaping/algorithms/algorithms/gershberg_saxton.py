@@ -16,7 +16,7 @@ from pymodaq_data import Q_
 from pymodaq_gui.parameter import Parameter
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo, AlgoType
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 
 
@@ -37,6 +37,7 @@ class GbSax(AlgoBase):
     """
 
     ALGO_NAME = 'Gerchberg-Saxton'
+    ALGOTYPE = AlgoType.AMPLITUDE
     SETUP_TYPE = LensSetup.TwoF
     ITERATIVE = True
 
@@ -96,16 +97,6 @@ class GbSax(AlgoBase):
     def compute_phase(self, do_step=True, **kwargs):
         self.propagate_field()
         self.evolve_field()
-
-    @property
-    def fitness(self) -> float:
-        if self.amplitude_mask is not None:
-            return 100 * np.sum(
-                np.abs(np.sqrt(self._target_field.intensity)
-                       - self._image_field.intensity) * self.amplitude_mask.amplitude) ** 2 \
-                / np.prod(self._image_field.shape) / np.sum(self._target_field.intensity * self.amplitude_mask.amplitude)
-        else:
-            return super().fitness
 
 
 @AlgorithmFactory.register_algorithm()

@@ -15,7 +15,7 @@ from pymodaq_data import Q_, DataToExport
 
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo, AlgoType
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 
 
@@ -208,6 +208,7 @@ class OE2016(AlgoBase):
     """
 
     ALGO_NAME = 'OE2016 - Amplitude diffractive'
+    ALGOTYPE = AlgoType.AMPLITUDE
     SETUP_TYPE = LensSetup.FourF
     ITERATIVE = False
 

@@ -17,7 +17,7 @@ from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_gui.parameter import Parameter
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo, AlgoType
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 
 import torch
@@ -47,6 +47,7 @@ class TorchBase(AlgoBase):
     """
 
     ALGO_NAME = None
+    ALGOTYPE = AlgoType.AMPLITUDE  # depends and defined in the loss
     SETUP_TYPE = LensSetup.TwoF
     ITERATIVE = True
     MANUAL_LOOP = False
