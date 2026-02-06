@@ -1,6 +1,7 @@
 import numpy as np
 from qtpy import QtWidgets, QtCore
 
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import ApplyMaskTo
 from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_utils.config import Config
@@ -319,8 +320,18 @@ class OpticalShaping(CustomExt):
         self._input_field_loader.field_signal.connect(self._algorithm.set_input_field)
         self._target_loader.field_signal.connect(self._algorithm.set_target_field)
         self.intermediate_viewer.roi_select_signal.connect(self._algorithm.update_intermediate_slices)
+        self.show_set_target_roi_select()
         for viewer in (self._target_loader.amp_viewer, self._target_loader.phase_viewer):
-            viewer.roi_select_signal.connect(self._algorithm.update_target_slices)
+            viewer.roi_select_signal.connect(lambda roi_info: self._algorithm.update_target_slices(roi_info.to_slices()))
+
+    def show_set_target_roi_select(self):
+        slices = self._algorithm.constrains_slices(eval(self._algorithm.settings[ApplyMaskTo.TARGET, 'slices']))
+        self._target_loader.amp_viewer.view.set_action_checked('ROIselect', True)
+        pos = [slices[0].start, slices[1].start]
+        size = [slices[0].stop - slices[0].start, slices[1].stop - slices[0].start]
+        self._target_loader.amp_viewer.view.show_ROI_select(
+            size=size[::-1],
+            pos=pos[::-1])
 
     def connect_things(self):
         logger.debug('connecting things')
