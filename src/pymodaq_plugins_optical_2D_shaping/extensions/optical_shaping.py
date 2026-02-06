@@ -431,14 +431,12 @@ class OpticalShaping(CustomExt):
         self._target_dockarea.setVisible(show)
         if show:
             self._target_dockarea.showMaximized()
-            self._target_dockarea.topLevelWidget()
         self._target_dockarea.closeEvent = lambda event: self.get_action('target').trigger()
 
     def show_input(self, show=True):
         self._input_field_dockarea.setVisible(show)
         if show:
             self._input_field_dockarea.showMaximized()
-            self._input_field_dockarea.topLevelWidget()
         self._input_field_dockarea.closeEvent = lambda event: self.get_action('input').trigger()
 
     def show_other_plots(self, show=True):
@@ -449,7 +447,6 @@ class OpticalShaping(CustomExt):
         self.intermediate_widget.setVisible(show)
         if show:
             self.intermediate_widget.showMaximized()
-            self.intermediate_widget.topLevelWidget()
         self.intermediate_widget.closeEvent = lambda event: self.get_action('show_intermediate').trigger()
 
     def quit_fun(self):
