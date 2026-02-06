@@ -366,7 +366,7 @@ class AlgoApp(CustomApp):
 
 
     def process_output(self, dte: DataToExport):
-        self._current_data = dte.deepcopy()
+        self._current_data = dte
         self._current_phase: np.ndarray = dte.get_data_from_full_name('object/phase')[0].copy()
 
 
