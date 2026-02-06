@@ -41,7 +41,7 @@ class GbSax(AlgoBase):
     SETUP_TYPE = LensSetup.TwoF
     ITERATIVE = True
 
-    params = []
+    params = [{'title': 'Mixing ratio', 'name': 'mixing_ratio', 'type': 'float', 'value': 0.5}]
 
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
@@ -82,8 +82,8 @@ class GbSax(AlgoBase):
 
             mask_target = self.amplitude_mask.amplitude
             mask_noise = np.ones_like(mask_target) - mask_target
-            amplitude = (self._target_field.amplitude * mask_target +
-                         self._image_field.amplitude * mask_noise)
+            amplitude = (self.settings['mixing_ratio'] * self._target_field.amplitude * mask_target +
+                         (1-self.settings['mixing_ratio']) * self._image_field.amplitude * mask_noise)
         else:
             amplitude = self._target_field.amplitude
 
