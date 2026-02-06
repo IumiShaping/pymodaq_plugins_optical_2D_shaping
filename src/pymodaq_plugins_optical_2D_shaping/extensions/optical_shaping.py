@@ -386,10 +386,10 @@ class OpticalShaping(CustomExt):
 
     def update_target_loader_from_algo(self, algo: AlgoBase):
         pixel_size = Q_(sizing.get_effective_slm_pixel_size(), 'um')
-        needed_pixel_size = greater2n(max(*self.slm_shape))
+        needed_pixel_size = sizing.get_effective_needed_field_size()
 
-        slm_size = (pixel_size * needed_pixel_size, pixel_size * needed_pixel_size)
-        self._target_loader.update_pixels(algo.get_target_pixels_size(slm_size))
+        field_size = (pixel_size * needed_pixel_size[0], pixel_size * needed_pixel_size[1])
+        self._target_loader.update_pixels(algo.get_target_pixels_size(field_size))
 
     def show_config(self, show=True):
         if show:
@@ -397,10 +397,14 @@ class OpticalShaping(CustomExt):
             res = config_tree.show_dialog()
             self.set_action_checked('settings', False)
             if res:
-                self._target_loader.updated_slm(
-                    plugin_config('SLM', 'default_slm')[0])
                 self._input_field_loader.updated_slm(
                     plugin_config('SLM', 'default_slm')[0])
+                self._input_field_loader.update_apply_mask(size=self.slm_shape, apply=True)
+                self._input_field_loader.loader.load_field(notify=True)
+
+                self._target_loader.updated_slm(
+                    plugin_config('SLM', 'default_slm')[0])
+                self.update_target_loader_from_algo(self.algorithm.algorithm) #will reload the target
 
     def show_target(self, show=True):
         self._target_dockarea.setVisible(show)
