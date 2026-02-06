@@ -324,13 +324,16 @@ class OpticalShaping(CustomExt):
         self._algorithm.object_field_signal.connect(self.update_object)
         self._input_field_loader.field_signal.connect(self._algorithm.set_input_field)
         self._target_loader.field_signal.connect(self._algorithm.set_target_field)
-        self.intermediate_viewer.roi_select_signal.connect(self._algorithm.update_intermediate_slices)
+
+        self.intermediate_viewer.roi_select_signal.connect(
+            lambda roi: self._algorithm.update_intermediate_slices(roi.to_slices()))
         self.show_set_target_roi_select()
+
         for viewer in (self._target_loader.amp_viewer, self._target_loader.phase_viewer):
-            viewer.roi_select_signal.connect(self._algorithm.update_target_slices)
+            viewer.roi_select_signal.connect(lambda roi: self._algorithm.update_target_slices(roi.to_slices()))
+
         if layout_path.joinpath('shaping.dock').is_file():
             load_layout_state(self.dockarea, layout_path.joinpath('shaping.dock'))
-            viewer.roi_select_signal.connect(lambda roi_info: self._algorithm.update_target_slices(roi_info.to_slices()))
 
     def show_set_target_roi_select(self):
         slices = self._algorithm.constrains_slices(eval(self._algorithm.settings[ApplyMaskTo.TARGET, 'slices']))
