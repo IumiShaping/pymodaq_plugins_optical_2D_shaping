@@ -53,7 +53,7 @@ class GbSax(AlgoBase):
     def do_things_after_set_target(self):
         if self._algo_init:  #make sure target and object have same shape
 
-            #normalize target_intensity wrt input amplitude
+            #normalize target_intensity wrt input intensity
             self._target_field = self.normalize_wrt(self._target_field, self._input_field)
 
     def do_things_after_init(self):
@@ -85,12 +85,11 @@ class GbSax(AlgoBase):
         else:
             amplitude = self._target_field.amplitude
 
-        field_image_corrected = self.normalize_wrt(Field(amplitude=amplitude,
-                                                         phase=self._image_field.phase,
-                                                         pixel_sizes=self._image_field.pixels_sizes),
-                                                   self._input_field)
-        field_object_corrected = self.compute_backward_fft(field_image_corrected)
+        field_image_corrected = Field(amplitude=amplitude,
+                                      phase=self._image_field.phase,
+                                      pixel_sizes=self._image_field.pixels_sizes)
 
+        field_object_corrected = self.compute_backward_fft(field_image_corrected)
         self.set_phase_in_object_plane(field_object_corrected.phase)
 
     def compute_phase(self, do_step=True, **kwargs):
