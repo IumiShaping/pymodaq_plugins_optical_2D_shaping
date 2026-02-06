@@ -4,16 +4,19 @@ from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 
 
 
-def get_effective_needed_field_size() -> int:
+def get_effective_needed_field_size() -> tuple[int, int]:
     """ Compute from the configuration values the needed square size of the fields to be used"""
 
     binning = plugin_config('sizing', 'binning')
     if not is_power_of_two(binning):
         raise ValueError('binning must be a multiple of 2')
-
-    needed_field_size = (greater2n(max(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
-                                      plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width'))) //
-                         binning)
+    if plugin_config('sizing', 'square_size'):
+        needed_field_size = (greater2n(max(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'height'),
+                                           plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'width'))) //
+                             binning)
+        needed_field_size = (needed_field_size, needed_field_size)
+    else:
+        needed_field_size = tuple(np.array(get_slm_size()) // binning)
     return needed_field_size
 
 

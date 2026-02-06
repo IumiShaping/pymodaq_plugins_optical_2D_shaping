@@ -286,7 +286,7 @@ class Correction(CustomApp):
     @property
     def shape(self) -> tuple[int, int]:
         """ Get the effective shape of the fields in the plane of the SLM"""
-        return sizing.get_effective_needed_field_size(), sizing.get_effective_needed_field_size()
+        return sizing.get_effective_needed_field_size()[0], sizing.get_effective_needed_field_size()[1]
 
 
 def main():

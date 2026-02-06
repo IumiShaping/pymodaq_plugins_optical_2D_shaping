@@ -3,6 +3,7 @@
 title = "PyMoDAQ's optical 2D shaping package configuration file"
 
 [sizing]
+square_size = false
 binning = 8  # the shape of the fields will be binned accordingly as (1x1), (2x2), etc... (should be power of 2)
 
 [setup]

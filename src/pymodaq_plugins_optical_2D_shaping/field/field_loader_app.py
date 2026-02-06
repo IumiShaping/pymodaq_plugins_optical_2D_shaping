@@ -55,10 +55,10 @@ class FieldLoaderApp(CustomApp):
              'value': get_effective_slm_pixel_size(),
              'readonly': False},
             {'title': 'Height', 'name': 'height', 'type': 'int',
-             'value': get_effective_needed_field_size(),
+             'value': get_effective_needed_field_size()[0],
              'readonly': True},
             {'title': 'Width', 'name': 'width', 'type': 'int',
-             'value': get_effective_needed_field_size(),
+             'value': get_effective_needed_field_size()[1],
              'readonly': True},
             {'title': 'Show on Viewer', 'name': 'show_needed_area', 'type': 'bool_push',
              'value': True,},
@@ -226,8 +226,12 @@ class FieldLoaderApp(CustomApp):
     def updated_slm(self, slm_default_name: str):
         """ When a SLM has been changed in the config, one should update the needed size of the field"""
         needed_size = get_effective_needed_field_size()
-        self.settings.child('needed_size', 'height').setValue(needed_size)
-        self.settings.child('needed_size', 'width').setValue(needed_size)
+        pixel_size = get_effective_slm_pixel_size()
+        self.settings.child('needed_size', 'height').setValue(needed_size[0])
+        self.settings.child('needed_size', 'width').setValue(needed_size[1])
+        self.settings.child('needed_size', 'pixel_height').setValue(pixel_size)
+        self.settings.child('needed_size', 'pixel_width').setValue(pixel_size)
+
 
     def show_roi_target(self, show=True):
         self.amp_viewer.roi_target.setVisible(show)

@@ -395,13 +395,12 @@ class OpticalShaping(CustomExt):
         if show:
             config_tree = TreeFromToml(PluginConfig(), capitalize=False)
             res = config_tree.show_dialog()
-            if res:
-                plugin_config = PluginConfig()
             self.set_action_checked('settings', False)
-            self._target_loader.updated_slm(
-                plugin_config('SLM', 'default_slm')[0])
-            self._input_field_loader.updated_slm(
-                plugin_config('SLM', 'default_slm')[0])
+            if res:
+                self._target_loader.updated_slm(
+                    plugin_config('SLM', 'default_slm')[0])
+                self._input_field_loader.updated_slm(
+                    plugin_config('SLM', 'default_slm')[0])
 
     def show_target(self, show=True):
         self._target_dockarea.setVisible(show)
