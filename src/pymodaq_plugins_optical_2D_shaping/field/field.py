@@ -69,6 +69,15 @@ class Field(DataRaw):
 
         self.axes = self.get_axes()
 
+    def __mul__(self, other):
+        """ multiplication is possible with numbers but then the amplitude is multiplied while the phase is summed"""
+        if isinstance(other, Number):
+            field = Field(self.name, self.amplitude * np.abs(other), self.phase + np.angle(other),
+                          pixel_sizes=self.pixels_sizes)
+        else:
+            raise TypeError(f"Cannot multiply Field and {type(other)}")
+        return field
+
     def calibrate_axes(self, pixel_sizes: Union[Q_, Iterable[Q_]]):
         """ Specify the size of the underlying 2D array pixels on which the field object is defined
 

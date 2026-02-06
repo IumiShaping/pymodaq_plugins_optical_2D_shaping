@@ -14,6 +14,7 @@ from pymodaq_gui.managers.parameter_manager import ParameterManager, Parameter
 
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.field import Field, Q_
+from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 
 if TYPE_CHECKING:
     from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
@@ -143,9 +144,8 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     def focal_quad(self) -> np.ndarray:
         """ Compute focal to add in order to have all light on the size of the target """
         focal = Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm')
-        object_size = Q_(np.array([self.object_field.pixels_sizes[ind].magnitude *
-                                   self.object_field.shape[ind] for ind in range(2)]),
-                         self.object_field.pixels_sizes[0].units)
+        object_size = Q_(np.array(sizing.get_effective_slm_size()) * sizing.get_effective_slm_pixel_size(),
+                         'um')
         if self.apply_mask(ApplyMaskTo.TARGET):
             _slices = self.get_mask_slices(ApplyMaskTo.TARGET)
             size = [(_slice.stop - _slice.start)
@@ -175,7 +175,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         else:
             shift_y, shift_x = (0., 0.)
 
-        pixel_SLM = Q_(plugin_config('SLM', plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
+        pixel_SLM = Q_(sizing.get_effective_slm_pixel_size(), 'um')
         setup_type = plugin_config('setup', 'setup_type')[0]
         focal_postSLM = Q_(plugin_config('setup', setup_type, 'focals')[0], 'mm')
         wavelength = Q_(plugin_config('setup', 'wavelength_nm'), 'nm')
@@ -224,12 +224,17 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         return phase
 
     def compute_forward_fft(self, update_plots = True):
-        self._image_field = self.normalize_wrt(self._object_field.fft2(norm='forward'),
-                                               self.object_field)
+        """ Compute the forward fft usnig the "forward nomalization and the shape prefactor"""
+        self._image_field = self._object_field.fft2(norm='forward') * np.prod(self._object_field.shape)
+        # self._image_field = self.normalize_wrt(self._object_field.fft2(norm='forward'),
+        #                                        self.object_field)
         self._image_field = self.scale_target_with_geometry(self._image_field)
 
         if update_plots and self.parent_app is not None:
             self.parent_app.fields_to_plot.emit(self.get_fields_to_plot())
+
+    def compute_backward_fft(self, field: Field) -> Field:
+        return field.ifft2(norm='forward')
 
     @staticmethod
     def normalize_wrt(field: Field, ref_field: Field) -> Field:

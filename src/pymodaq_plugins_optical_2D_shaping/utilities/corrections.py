@@ -20,6 +20,7 @@ from pymodaq_gui.utils.widgets.spinbox import SpinBox
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 from pymodaq_plugins_optical_2D_shaping.utilities.zernike import (ZernikeUI, SliderSpinBox,
                                                                   ZernikeCoeffs)
+from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 
 here = Path(__file__).parent
 
@@ -210,7 +211,7 @@ class Correction(CustomApp):
         return zernike_phase * 2 * np.pi
 
     def compute_zernike_base(self):
-        pixel_size = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
+        pixel_size = Q_(sizing.get_effective_slm_pixel_size(), 'um')
         unity_radius = self.unit_radius_sb.value() * self.beam_fwhm
 
         xlin, ylin = self._get_xy()
@@ -252,8 +253,8 @@ class Correction(CustomApp):
             coeff = 0.
         else:
             focal_length = Q_(focal_value, 'cm')
-            pixel_size = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
-            wavelength = Q_(self._plugin_config('wavelength_nm'), 'nm')
+            pixel_size = Q_(sizing.get_effective_slm_pixel_size(), 'um')
+            wavelength = Q_(self._plugin_config('setup', 'wavelength_nm'), 'nm')
 
             coeff =  float((pixel_size ** 2 / (wavelength * focal_length) * np.pi).to_reduced_units().magnitude)
 
@@ -270,7 +271,7 @@ class Correction(CustomApp):
 
         shift_x = Q_(tiltx, 'mm')
         shift_y = Q_(tilty, 'mm')
-        pixel_SLM = Q_(self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm')[0], 'pixel_size'), 'um')
+        pixel_SLM = Q_(sizing.get_effective_slm_pixel_size(), 'um')
         setup_type = self._plugin_config('setup', 'setup_type')[0]
         focal_postSLM = Q_(self._plugin_config('setup', setup_type, 'focals')[0], 'mm')
         wavelength = Q_(self._plugin_config('setup', 'wavelength_nm'), 'nm')
@@ -284,10 +285,8 @@ class Correction(CustomApp):
 
     @property
     def shape(self) -> tuple[int, int]:
-        """ Get the shape of the configured SLM"""
-        return (self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm')[0], 'height'),
-                self._plugin_config('SLM', self._plugin_config('SLM', 'default_slm')[0], 'width'),
-                )
+        """ Get the effective shape of the fields in the plane of the SLM"""
+        return sizing.get_effective_needed_field_size()[0], sizing.get_effective_needed_field_size()[1]
 
 
 def main():

@@ -30,6 +30,8 @@ from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 from pymodaq_plugins_optical_2D_shaping.algorithms.algo_config import AlgoConfig
 
+from pymodaq_plugins_optical_2D_shaping.utilities import sizing
+
 algo_factory = AlgorithmFactory()
 algo_config = AlgoConfig()
 
@@ -161,8 +163,6 @@ class AlgoApp(CustomApp):
             self.settings.child(str(ApplyMaskTo.INTERMEDIATE)).setOpts(
                 visible=self._algorithm.SETUP_TYPE == LensSetup.FourF)
 
-
-
             while True:
                 child = self._algo_settings_widget.layout().takeAt(0)
                 if not child:
@@ -180,6 +180,7 @@ class AlgoApp(CustomApp):
 
             self.config_saver_loader.base_path = [self._algorithm.ALGO_NAME]
             self.set_settings_values()
+            self.update_target_slices(eval(self.settings[str(ApplyMaskTo.TARGET), 'slices']))
 
             self.algo_changed.emit(self._algorithm)
 
@@ -332,11 +333,20 @@ class AlgoApp(CustomApp):
     def get_mask_type(self, apply_to: ApplyMaskTo) -> MaskType:
         return MaskType[self.settings[str(apply_to), 'mask_type']]
 
-    def update_intermediate_slices(self, roi_info: RoiInfo):
-        self.settings.child(str(ApplyMaskTo.INTERMEDIATE), 'slices').setValue(str(roi_info.to_slices()))
+    def update_intermediate_slices(self, slices: tuple[slice, slice]):
+        self.settings.child(str(ApplyMaskTo.INTERMEDIATE), 'slices').setValue(str(slices))
 
-    def update_target_slices(self, roi_info: RoiInfo):
-        self.settings.child(str(ApplyMaskTo.TARGET), 'slices').setValue(str(roi_info.to_slices()))
+    def update_target_slices(self, slices: tuple[slice, slice]):
+        slices = self.constrains_slices(slices)
+        self.settings.child(str(ApplyMaskTo.TARGET), 'slices').setValue(str(slices))
+
+    @staticmethod
+    def constrains_slices(slices: tuple[slice, slice]) -> tuple[slice, slice]:
+        position, size = sizing.get_effective_area_pos_size_in_pxls()
+        slices = (slice(int(max(slices[0].start, position[0])), int(min(slices[0].stop, position[0] + size[0]))),
+                  slice(int(max(slices[1].start, position[1])), int(min(slices[1].stop, position[1] + size[1])))
+                  )
+        return slices
 
     def value_changed(self, param: Parameter):
         for applied in ApplyMaskTo.values():
@@ -356,7 +366,7 @@ class AlgoApp(CustomApp):
 
 
     def process_output(self, dte: DataToExport):
-        self._current_data = dte.deepcopy()
+        self._current_data = dte
         self._current_phase: np.ndarray = dte.get_data_from_full_name('object/phase')[0].copy()
 
 
@@ -409,6 +419,7 @@ class AlgoRunner(QtCore.QObject):
                 self.algo_output_signal.emit(self.algo.get_fields_to_plot())
                 ini_phase = None
                 QtWidgets.QApplication.processEvents()
+                QtCore.QThread.msleep(20)
         else:
             self.algo.start()
             self.algo.compute_phase(do_step=False, ini_phase=ini_phase)  # the continuous run is handled by the algo itself. If possible

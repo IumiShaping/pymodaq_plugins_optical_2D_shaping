@@ -2,6 +2,10 @@
 
 title = "PyMoDAQ's optical 2D shaping package configuration file"
 
+[sizing]
+square_size = false
+binning = 8  # the shape of the fields will be binned accordingly as (1x1), (2x2), etc... (should be power of 2)
+
 [setup]
 wavelength_nm = 515
 setup_type = ['2f', '4f', 'no_lens'] #readonly set from the chosen algorithm
@@ -19,6 +23,8 @@ setup_type = ['2f', '4f', 'no_lens'] #readonly set from the chosen algorithm
 
 [SLM]
 default_slm = ["PLUTO", "LC2012"] #first elet in the list used as default
+
+
 [SLM.PLUTO]
 width = 1920
 height = 1080
