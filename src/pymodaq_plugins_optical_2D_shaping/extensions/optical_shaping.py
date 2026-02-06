@@ -15,8 +15,11 @@ from pymodaq_gui.plotting.data_viewers.viewer import ViewerDispatcher
 from pymodaq_gui.utils.file_io import select_file
 from pymodaq_gui import utils as gutils
 from pymodaq_gui.utils.widgets.tree_toml import TreeFromToml
+from pymodaq_gui.utils.layout import save_layout_state, load_layout_state
+
 
 from pymodaq.extensions.custom_ext import CustomExt
+from pymodaq.utils.config import get_set_layout_path
 
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp, AlgoBase
@@ -25,7 +28,9 @@ from pymodaq_plugins_optical_2D_shaping.utilities.corrections import Correction
 from pymodaq_plugins_optical_2D_shaping.algorithms import AlgorithmFactory, AlgoBase
 from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 
+
 logger = set_logger(get_module_name(__file__))
+layout_path = get_set_layout_path()
 
 config = Config()
 plugin_config = PluginConfig()
@@ -322,6 +327,9 @@ class OpticalShaping(CustomExt):
         self.intermediate_viewer.roi_select_signal.connect(self._algorithm.update_intermediate_slices)
         self.show_set_target_roi_select()
         for viewer in (self._target_loader.amp_viewer, self._target_loader.phase_viewer):
+            viewer.roi_select_signal.connect(self._algorithm.update_target_slices)
+        if layout_path.joinpath('shaping.dock').is_file():
+            load_layout_state(self.dockarea, layout_path.joinpath('shaping.dock'))
             viewer.roi_select_signal.connect(lambda roi_info: self._algorithm.update_target_slices(roi_info.to_slices()))
 
     def show_set_target_roi_select(self):
@@ -419,10 +427,16 @@ class OpticalShaping(CustomExt):
 
     def show_target(self, show=True):
         self._target_dockarea.setVisible(show)
+        if show:
+            self._target_dockarea.showMaximized()
+            self._target_dockarea.topLevelWidget()
         self._target_dockarea.closeEvent = lambda event: self.get_action('target').trigger()
 
     def show_input(self, show=True):
         self._input_field_dockarea.setVisible(show)
+        if show:
+            self._input_field_dockarea.showMaximized()
+            self._input_field_dockarea.topLevelWidget()
         self._input_field_dockarea.closeEvent = lambda event: self.get_action('input').trigger()
 
     def show_other_plots(self, show=True):
@@ -431,9 +445,15 @@ class OpticalShaping(CustomExt):
 
     def show_intermediate_field(self, show=True):
         self.intermediate_widget.setVisible(show)
+        if show:
+            self.intermediate_widget.showMaximized()
+            self.intermediate_widget.topLevelWidget()
         self.intermediate_widget.closeEvent = lambda event: self.get_action('show_intermediate').trigger()
 
     def quit_fun(self):
+
+        save_layout_state(self.dockarea, file=layout_path.joinpath('shaping.dock'))
+
         self._input_field_dockarea.close()
         self._target_dockarea.close()
         self.intermediate_widget.close()
