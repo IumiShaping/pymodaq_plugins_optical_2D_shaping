@@ -202,9 +202,9 @@ class OpticalShaping(CustomExt):
         self.dockarea.addDock(self.docks['image_field'], 'bottom', self.docks['object_field'])
 
 
-        metrics_widget = QtWidgets.QWidget()
-        self.metrics_viewer = Viewer0D(metrics_widget, title='Metrics')
-        self.docks['metrics'].addWidget(metrics_widget)
+        metrics_area = gutils.DockArea()
+        self.metrics_viewer = ViewerDispatcher(metrics_area, title='Metrics', direction='bottom')
+        self.docks['metrics'].addWidget(metrics_area)
 
         self.target_widget = QtWidgets.QWidget()
         self.target_widget.setLayout(QtWidgets.QHBoxLayout())
@@ -374,7 +374,7 @@ class OpticalShaping(CustomExt):
             pass
         self.object_viewers.show_data(dte_object)
         self.image_viewers.show_data(dte_image)
-        self.metrics_viewer.show_data(metrics)
+        self.metrics_viewer.show_data(metrics.split_as_dte('Metrics'))
         self.other_viewers.show_data(dte)
 
     def show_corrections(self, show=True):

@@ -1,12 +1,15 @@
 from abc import ABC, abstractmethod
 from typing import Callable
 
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoType
+
 import torch
 from pyqtgraph.parametertree import Parameter
 from torch.nn import MSELoss as TorchMSELoss, SmoothL1Loss as TorchSmoothL1Loss
 
 
 class LossBase(ABC):
+    ALGOTYPE = AlgoType.AMPLITUDE
 
     params: list[dict[str, str]] = []  # definition of the specific parameters needed to compute the loss
 
@@ -77,6 +80,7 @@ class LossFactory:
 @LossFactory.register_loss()
 class LeastSquares(LossBase):
     params = []
+    ALGOTYPE = AlgoType.AMPLITUDE
 
     def compute_loss(self,
                      field_tested: torch.Tensor,
@@ -92,6 +96,7 @@ class LeastSquares(LossBase):
 
 @LossFactory.register_loss()
 class MSELoss(LossBase):
+    ALGOTYPE = AlgoType.AMPLITUDE
     params = []
 
     def __init__(self, settings: Parameter):
@@ -109,6 +114,7 @@ class MSELoss(LossBase):
 
 @LossFactory.register_loss()
 class SmoothL1Loss(LossBase):
+    ALGOTYPE = AlgoType.AMPLITUDE
     params = [
         {'title': 'Beta', 'name': 'beta', 'type': 'float', 'value': 0.5},
     ]
@@ -129,6 +135,7 @@ class SmoothL1Loss(LossBase):
 
 @LossFactory.register_loss()
 class LeastExponent(LossBase):
+    ALGOTYPE = AlgoType.AMPLITUDE
     params = [
         {'title': 'Loss exponent', 'name': 'exponent', 'type': 'int', 'value': 4, 'min': 2},
     ]
@@ -146,6 +153,7 @@ class LeastExponent(LossBase):
 
 @LossFactory.register_loss()
 class Chicken(LossBase):
+    ALGOTYPE = AlgoType.AMPLITUDE_PHASE
     params = [
         {'title': 'Power exponent', 'name': 'power_exponent', 'type': 'int', 'value': 9, 'min': 2},
         {'title': 'Sum exponent', 'name': 'sum_exponent', 'type': 'int', 'value': 2, 'min': 2},
@@ -170,6 +178,7 @@ class Chicken(LossBase):
 
 @LossFactory.register_loss()
 class ChickenArnaud(LossBase):
+    ALGOTYPE = AlgoType.AMPLITUDE_PHASE
     params = [
         {'title': 'Ratio', 'name': 'ratio', 'type': 'float', 'value': 1},
     ]
@@ -183,20 +192,8 @@ class ChickenArnaud(LossBase):
 
 
 @LossFactory.register_loss()
-class Phase(LossBase):
-
-    def compute_loss(self,
-                     field_tested: torch.Tensor,
-                     field_target: torch.Tensor, ) -> torch.Tensor:
-        """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
-        """
-
-        return torch.sum((torch.abs(field_target.angle() -
-                                    field_tested.angle()) ** 2))
-
-
-@LossFactory.register_loss()
 class LSQAmplitudePhase(LossBase):
+    ALGOTYPE = AlgoType.AMPLITUDE_PHASE
     params = [
         {'title': 'Amplitude exponent', 'name': 'amplitude_exponent', 'type': 'int', 'value': 1, 'min': 1},
         {'title': 'Phase exponent', 'name': 'phase_exponent', 'type': 'int', 'value': 1, 'min': 1},
@@ -208,8 +205,6 @@ class LSQAmplitudePhase(LossBase):
                      field_target: torch.Tensor, ) -> torch.Tensor:
         """ Compute the loss by returning a 0D Tensor that will be minimized using minimization algorithm
         """
-
-        amplitude_normalized = torch.sum(torch.abs(field_tested) * torch.abs(field_target))
 
         return ((torch.sum(
                     torch.abs((torch.abs(field_tested) ** 2 -

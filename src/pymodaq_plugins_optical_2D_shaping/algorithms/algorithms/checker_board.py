@@ -20,7 +20,7 @@ from pymodaq_data import Q_, DataToExport
 from pymodaq_gui.plotting.data_viewers import ViewerDispatcher, Viewer2D
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo, AlgoType
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 
 logger = set_logger(get_module_name(__file__))
@@ -38,6 +38,7 @@ class OL2014(AlgoBase):
     """
 
     ALGO_NAME = 'OL2014 - Amplitude/Phase Checkerboard'
+    ALGOTYPE = AlgoType.AMPLITUDE_PHASE
     SETUP_TYPE = LensSetup.FourF
     ITERATIVE = False
 

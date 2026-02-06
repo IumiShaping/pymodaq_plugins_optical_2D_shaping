@@ -39,6 +39,11 @@ class LensSetup(StrEnum):
     FourF = '4f'
 
 
+class AlgoType(StrEnum):
+    AMPLITUDE = 'Amplitude'
+    AMPLITUDE_PHASE = 'AmplitudePhase'
+
+
 class ApplyMaskTo(StrEnum):
     TARGET = 'target_mask'
     INTERMEDIATE = 'intermediate_mask'
@@ -64,6 +69,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
     ALGO_NAME: str = None  # to be reimplemented
     SETUP_TYPE: LensSetup = None # to be reimplemented
+    ALGOTYPE = AlgoType.AMPLITUDE
     ITERATIVE = False
     MANUAL_LOOP = True
     params = []
@@ -287,9 +293,25 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
         To be subclassed if the given implementation below is not correct for your algorithm"""
 
-        return 100 * np.sum(
-            np.abs(np.sqrt(self._target_field.intensity) - self._image_field.intensity)) ** 2 \
-            / np.prod(self._image_field.shape) / np.sum(self._target_field.intensity)
+        return self.fidelity
+
+    @property
+    def fidelity(self) -> float:
+        if self.apply_mask(ApplyMaskTo.TARGET):
+            slices = self.get_mask_slices(ApplyMaskTo.TARGET)
+        else:
+            slices = (..., ...)
+
+        if self.ALGOTYPE == AlgoType.AMPLITUDE:
+           return (np.sum(np.abs(
+                self._target_field.amplitude[*slices] * self._image_field.amplitude[*slices]) ** 2) /
+                    np.sum(self._target_field.intensity[*slices]**2))
+        elif self.ALGOTYPE == AlgoType.AMPLITUDE_PHASE:
+            return (np.sum(np.abs(
+                np.conj(self._target_field.field[*slices]) * self._image_field.field[*slices])**2) /
+                    np.sum(self._target_field.intensity[*slices]**2))
+        else:
+            raise TypeError('Algorithm type not supported')
 
     @property
     def efficiency(self) -> float:
@@ -299,10 +321,13 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         Meaningfully only for algorithm using a Target defined mask
 
         To be subclassed if the given implementation below is not correct for your algorithm"""
+        if self.apply_mask(ApplyMaskTo.TARGET):
+            slices = self.get_mask_slices(ApplyMaskTo.TARGET)
+        else:
+            slices = (..., ...)
 
-        return (np.sum(np.abs(self._image_field.intensity *
-                             self.get_mask_field(ApplyMaskTo.TARGET).amplitude)) /
-                np.sum(np.abs(self._image_field.intensity)))
+        return (np.sum(self._image_field.intensity[*slices]) /
+                np.sum(self._image_field.intensity))
 
     def fitness_as_dwa(self):
         return DataRaw('fitness', data=[np.array([self.fitness])])
