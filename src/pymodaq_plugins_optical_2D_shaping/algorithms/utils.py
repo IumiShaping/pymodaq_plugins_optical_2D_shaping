@@ -228,8 +228,9 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
     def compute_forward_fft(self, update_plots = True):
         """ Compute the forward fft usnig the "forward nomalization and the shape prefactor"""
-        self._image_field = np.prod(self._object_field.shape) * self._object_field.fft2(norm='forward')
-
+        self._image_field = self._object_field.fft2(norm='forward') * np.prod(self._object_field.shape)
+        # self._image_field = self.normalize_wrt(self._object_field.fft2(norm='forward'),
+        #                                        self.object_field)
         self._image_field = self.scale_target_with_geometry(self._image_field)
 
         if update_plots and self.parent_app is not None:
