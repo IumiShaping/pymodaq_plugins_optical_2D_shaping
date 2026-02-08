@@ -300,7 +300,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         if self.apply_mask(ApplyMaskTo.TARGET):
             slices = self.get_mask_slices(ApplyMaskTo.TARGET)
         else:
-            slices = (..., ...)
+            slices = (...,)
 
         if self.ALGOTYPE == AlgoType.AMPLITUDE:
            return (np.sum(np.abs(
@@ -324,7 +324,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         if self.apply_mask(ApplyMaskTo.TARGET):
             slices = self.get_mask_slices(ApplyMaskTo.TARGET)
         else:
-            slices = (..., ...)
+            slices = (...,)
 
         return (np.sum(self._image_field.intensity[*slices]) /
                 np.sum(self._image_field.intensity))
