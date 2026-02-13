@@ -2,19 +2,21 @@ from abc import ABCMeta, abstractproperty
 from typing import Union
 import numpy as np
 from qtpy import QtWidgets, QtCore
+from pathlib import Path
 
 import pymodaq_gui.qt_utils
 from pymodaq_data import DataCalculated
 from pymodaq_gui.plotting.items.roi import RoiInfo
 from pymodaq_utils.utils import ThreadCommand
+from pymodaq_utils.config import GlobalConfig
 
-
-from pymodaq_data.data import DataRaw, DataToExport
+from pymodaq_data.data import DataRaw, DataToExport, DataDim
 from pymodaq_data.h5modules.data_saving import DataToExportSaver
 from pymodaq_data.h5modules.saving import SaveType
 
 from pymodaq_gui.managers.parameter_manager import Parameter
 from pymodaq_gui.utils.custom_app import CustomApp
+from pymodaq_gui.parameter.ioxml import parameter_to_xml_string
 from pymodaq_utils.enums import StrEnum
 from pymodaq_gui.utils.dock import DockArea, Dock
 from pymodaq_gui.utils import QLED
@@ -34,6 +36,7 @@ from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 
 algo_factory = AlgorithmFactory()
 algo_config = AlgoConfig()
+config = GlobalConfig()
 
 class Actions(StrEnum):
 
@@ -109,6 +112,40 @@ class AlgoApp(CustomApp):
     def save_algo_parameters(self):
         if self.save_settings:
             self.config_saver_loader.save_config()
+
+    def save(self, fname: Path = None, where: str = '/RawData', group_name: str = 'Algorithm', title: str = ''):
+        """ Save the fields, algorithm settings  into a hdf5 file
+
+        Parameters
+        ----------
+        fname : Path
+            If specified, add the field in the existing (or new) file. Otherwise open a File dialog to enter a file name
+        where: str
+            the node where the data will be saved
+        """
+        if fname is None:
+            fname = select_file(start_path=config('data', 'data_saving','h5file', 'save_path'),
+                                save=True, ext='h5')  # see daq_utils
+        if fname != '':
+            new_file = not fname.exists()
+
+
+            settings_all = [parameter_to_xml_string(self.settings),
+                            parameter_to_xml_string(self.algorithm.settings)]
+            settings_str = b'<All_settings title="All Settings" type="group">'
+            for set in settings_all:
+                if len(settings_str + set) < 60000:
+                    # size limit for any object header (including all the other attributes) is 64kb
+                    settings_str += set
+                else:
+                    break
+            settings_str += b'</All_settings>'
+
+            with DataToExportSaver(fname, new_file=new_file, save_type=SaveType.custom) as saver:
+                group = saver.add_data_group(where, DataDim.Data2D, title=title, settings_as_xml=settings_str,
+                                             group_name=group_name)
+                saver.add_data(group, self.algorithm.get_fields_to_plot())
+
 
     @property
     def current_phase(self) -> np.ndarray:
@@ -266,21 +303,18 @@ class AlgoApp(CustomApp):
                         checkable=True, icon_checked='repeat_on',
                         icon_checked_color=self.get_theme().green)
 
-        self.add_action('export', 'Export', 'save_as', 'Export data')
-
     def connect_things(self):
         self.connect_action(Actions.STEP, self.compute_phase)
         self.connect_action('compute_fft', lambda: self.compute_fft(update_plots=True))
         self.connect_action(Actions.CONTINUOUS, self.compute_phase_loop)
         self.connect_action('ini_algo', self.ini_algo)
-        self.connect_action('export', self.export_data)
         self.connect_action('reset_phase', lambda: self.define_phase(force_reset=True))
         self.connect_action('algorithms', slot=self.set_algorithm,
                             signal_name='currentTextChanged')
 
     def enable_things(self, enable=True, exclude: tuple[str]= ()):
         """ Given the initialization state of the chosen algorithm enable or not some actions and settings"""
-        for action in (Actions.STEP, Actions.CONTINUOUS, 'reset_phase', 'export'):
+        for action in (Actions.STEP, Actions.CONTINUOUS, 'reset_phase', 'save'):
             if action not in exclude:
                 self.set_action_enabled(action, enable)
         self.set_action_enabled('algorithms', not enable)
@@ -357,13 +391,6 @@ class AlgoApp(CustomApp):
 
     def algo_settings_changed(self):
         self.algo_changed.emit(self.algorithm)
-
-    def export_data(self):
-        if self._current_data is not None:
-            file_path = select_file(save=True, ext='h5', force_save_extension=True)
-            with DataToExportSaver(file_path, save_type=SaveType.custom) as saver:
-                saver.add_data('/RawData', self._current_data, ioxml.parameter_to_xml_string(self._algorithm.settings))
-
 
     def process_output(self, dte: DataToExport):
         self._current_data = dte

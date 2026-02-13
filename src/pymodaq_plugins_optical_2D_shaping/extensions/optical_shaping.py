@@ -1,11 +1,12 @@
 import numpy as np
 from qtpy import QtWidgets, QtCore
+from pathlib import Path
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import ApplyMaskTo
 from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_utils.config import Config
-from pymodaq.utils.data import DataToExport, DataCalculated, DataActuator
+from pymodaq.utils.data import DataToExport, DataCalculated, DataActuator, DataDim
 from pymodaq_utils.math_utils import greater2n
 from pymodaq_data.h5modules.data_saving import DataToExportSaver
 
@@ -16,7 +17,7 @@ from pymodaq_gui.utils.file_io import select_file
 from pymodaq_gui import utils as gutils
 from pymodaq_gui.utils.widgets.tree_toml import TreeFromToml
 from pymodaq_gui.utils.layout import save_layout_state, load_layout_state
-
+from pymodaq_gui.parameter.ioxml import parameter_to_xml_string
 
 from pymodaq.extensions.custom_ext import CustomExt
 from pymodaq.utils.config import get_set_layout_path
@@ -52,7 +53,7 @@ class OpticalShaping(CustomExt):
         self.viewer_fitness: Viewer0D = None
         self.viewer_observable: ViewerDispatcher = None
 
-        self._target_loader: FieldLoaderApp = None
+        self._target_field_loader: FieldLoaderApp = None
         self._input_field_loader: FieldLoaderApp = None
 
         self._object_field: Field = None
@@ -83,11 +84,11 @@ class OpticalShaping(CustomExt):
 
     @property
     def target_field(self) -> Field:
-        return self._target_loader.field
+        return self._target_field_loader.field
 
     def do_things_after_init(self):
         self._input_field_loader.load_field()
-        self._target_loader.load_field()
+        self._target_field_loader.load_field()
 
     def get_slm_slices(self) -> tuple[slice, slice]:
         """ get slices to apply to fields to get only pixels corresponding to the SLM"""
@@ -124,12 +125,14 @@ class OpticalShaping(CustomExt):
 
                 self._shaper.move_abs(DataActuator('phase', data=sizing.unbin_to_real_slm(phase_to_send)))
 
-    def save_phase(self):
-        """ Saves phases: calculated and all corrections into a hdf5 file
+    def save(self, fname: Path = None):
+        """ Save fields: input, object, image, target into a hdf5 file together with settings/metadata
 
-        The shape of the arrays correspond to the shape of the SLM
+        Also save the phase sent to the SLM (cropped/unbined to the SLM shape)
+
         """
-        fname = select_file(save=True, ext='h5', force_save_extension=True)
+        if fname is None:
+            fname = select_file(save=True, ext='h5', force_save_extension=True)
         if fname:
 
             correction_values = self._corrections.get_corrections()
@@ -137,7 +140,7 @@ class OpticalShaping(CustomExt):
             quad_phase_array = self._corrections.compute_focal_phase(correction_values.focal_length)
             linear_phase_array = self._corrections.compute_linear_phase(correction_values.tilt_x, correction_values.tilt_y)
             zernike_phase = self._corrections.compute_zernike_phase(correction_values.zernike)
-            dte = DataToExport('Phases')
+            dte = DataToExport('SLM Phases')
             if self._object_field is not None:
                 dte.append(self._object_field.phase_as_dwa(name='Algo Phase').isig[*self.get_slm_slices()])
 
@@ -145,9 +148,15 @@ class OpticalShaping(CustomExt):
             dte.append(DataCalculated('Linear Phase', data=[linear_phase_array[*self.get_slm_slices()]]),)
             dte.append(DataCalculated('Zernike Phase', data=[zernike_phase[*self.get_slm_slices()]]))
 
+            with DataToExportSaver(fname, metadata={'settings': plugin_config.to_xml_string()}) as h5saver:
+                group = h5saver.add_data_group('/RawData', DataDim.Data2D, title='SLM Phases', group_name='SLM')
+                h5saver.add_data(group, dte)
 
-            with DataToExportSaver(fname) as h5saver:
-                h5saver.add_data('/', dte)
+            self._input_field_loader.save_field(fname, where='/RawData', group_name='Input', title='Input Field')
+            self._target_field_loader.save_field(fname, where='/RawData', group_name='Target', title='Target Field')
+
+            self.algorithm.save(fname, where='/RawData', group_name='Algorithm', title='Algorithm')
+
 
     def update_correction_phase(self, dwa: DataCalculated):
         self._correction_phase = dwa
@@ -174,10 +183,10 @@ class OpticalShaping(CustomExt):
         self.create_dashboard_toolbar(add_break=False)
 
         self._target_dockarea = gutils.DockArea()
-        self._target_loader = FieldLoaderApp(self._target_dockarea,
+        self._target_field_loader = FieldLoaderApp(self._target_dockarea,
                                              modules_manager=self.modules_manager,
                                              title='Target Field Loader')
-        self._target_loader.set_loader_in_settings(
+        self._target_field_loader.set_loader_in_settings(
             plugin_config('target', 'default_loader')[0])
 
 
@@ -270,10 +279,7 @@ class OpticalShaping(CustomExt):
 
     def setup_actions(self):
         logger.debug('Main actions')
-        self.add_action('settings', 'Plugin Settings', 'account_tree',
-                        'Open the plugin configuration file',
-                        checkable=True)
-
+        self.add_action('save', 'Save', 'save_as', 'Save Everything to a file')
         self.add_action('target', 'Target Selection', 'target',
                         'Open the Target FieldLoader window', checkable=True,
                         icon_checked_color=self.get_theme().green)
@@ -301,8 +307,7 @@ class OpticalShaping(CustomExt):
                         checkable=True, toolbar='dashboard',
                         icon_color=self.get_theme().red,
                         icon_checked_color=self.get_theme().green)
-        self.add_action('save_phase', 'Save', 'save_as',
-                    'Save Phases to a file', toolbar='dashboard')
+
         if self.dashboard is not None:
             self.add_action('add_corrections', 'Add Corrections', 'add_circle',
                             'Add Focal and Zernike polynomials as individual actuators in Dashboard',
@@ -322,13 +327,13 @@ class OpticalShaping(CustomExt):
         self.update_target_loader_from_algo(self._algorithm.algorithm)
         self._algorithm.object_field_signal.connect(self.update_object)
         self._input_field_loader.field_signal.connect(self._algorithm.set_input_field)
-        self._target_loader.field_signal.connect(self._algorithm.set_target_field)
+        self._target_field_loader.field_signal.connect(self._algorithm.set_target_field)
 
         self.intermediate_viewer.roi_select_signal.connect(
             lambda roi: self._algorithm.update_intermediate_slices(roi.to_slices()))
         self.show_set_target_roi_select()
 
-        for viewer in (self._target_loader.amp_viewer, self._target_loader.phase_viewer):
+        for viewer in (self._target_field_loader.amp_viewer, self._target_field_loader.phase_viewer):
             viewer.roi_select_signal.connect(lambda roi: self._algorithm.update_target_slices(roi.to_slices()))
 
         if layout_path.joinpath('shaping.dock').is_file():
@@ -336,30 +341,30 @@ class OpticalShaping(CustomExt):
 
     def show_set_target_roi_select(self):
         slices = self._algorithm.constrains_slices(eval(self._algorithm.settings[ApplyMaskTo.TARGET, 'slices']))
-        self._target_loader.amp_viewer.view.set_action_checked('ROIselect', True)
+        self._target_field_loader.amp_viewer.view.set_action_checked('ROIselect', True)
         pos = [slices[0].start, slices[1].start]
         size = [slices[0].stop - slices[0].start, slices[1].stop - slices[0].start]
-        self._target_loader.amp_viewer.view.show_ROI_select(
+        self._target_field_loader.amp_viewer.view.show_ROI_select(
             size=size[::-1],
             pos=pos[::-1])
 
     def connect_things(self):
         logger.debug('connecting things')
-        self.connect_action('settings', self.show_config)
         self.connect_action('show_other_plots', self.show_other_plots)
         self.connect_action('show_intermediate', self.show_intermediate_field)
 
         self.connect_action('target', self.show_target)
         self.connect_action('input', self.show_input)
 
-        self._target_loader.field_signal.connect(self.plot_target)
+        self._target_field_loader.field_signal.connect(self.plot_target)
 
         self.connect_action('corrections', self.show_corrections)
         self._corrections.phase_changed.connect(self.update_correction_phase)
         if self.dashboard is not None:
             self.connect_action('add_corrections', self.add_corrections_actuators)
 
-        self.connect_action('save_phase', self.save_phase)
+        self.connect_action('save', lambda: self.save())
+        self.config_changed.connect(self.do_things_after_config_changed)
 
     def plot_fields(self, dte: DataToExport):
         metrics = dte.remove(dte.get_data_from_name('metrics'))
@@ -410,22 +415,17 @@ class OpticalShaping(CustomExt):
         needed_pixel_size = sizing.get_effective_needed_field_size()
 
         field_size = (pixel_size * needed_pixel_size[0], pixel_size * needed_pixel_size[1])
-        self._target_loader.update_pixels(algo.get_target_pixels_size(field_size))
+        self._target_field_loader.update_pixels(algo.get_target_pixels_size(field_size))
 
-    def show_config(self, show=True):
-        if show:
-            config_tree = TreeFromToml(PluginConfig(), capitalize=False)
-            res = config_tree.show_dialog()
-            self.set_action_checked('settings', False)
-            if res:
-                self._input_field_loader.updated_slm(
-                    plugin_config('SLM', 'default_slm')[0])
-                self._input_field_loader.update_apply_mask(size=self.slm_shape, apply=True)
-                self._input_field_loader.loader.load_field(notify=True)
+    def do_things_after_config_changed(self):
+        self._input_field_loader.updated_slm(
+            plugin_config('SLM', 'default_slm')[0])
+        self._input_field_loader.update_apply_mask(size=self.slm_shape, apply=True)
+        self._input_field_loader.loader.load_field(notify=True)
 
-                self._target_loader.updated_slm(
-                    plugin_config('SLM', 'default_slm')[0])
-                self.update_target_loader_from_algo(self.algorithm.algorithm) #will reload the target
+        self._target_field_loader.updated_slm(
+            plugin_config('SLM', 'default_slm')[0])
+        self.update_target_loader_from_algo(self.algorithm.algorithm) #will reload the target
 
     def show_target(self, show=True):
         self._target_dockarea.setVisible(show)
