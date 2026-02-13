@@ -175,12 +175,6 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     def set_phase_in_object_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
         if phase.shape == self._object_field.shape:
             phase = phase.copy()
-            if self.parent_app.settings['smoothing', 'apply_smoothing']:
-                phase = gaussian_filter(phase, sigma=(
-                    self.parent_app.settings['smoothing', 'sigma_y'],
-                    self.parent_app.settings['smoothing', 'sigma_x']
-                ))
-
             self._object_field.phase = phase
             self._object_field.amplitude = (
                     self._input_field.amplitude.copy() *
