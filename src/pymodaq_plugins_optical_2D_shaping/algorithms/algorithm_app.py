@@ -314,7 +314,7 @@ class AlgoApp(CustomApp):
 
     def enable_things(self, enable=True, exclude: tuple[str]= ()):
         """ Given the initialization state of the chosen algorithm enable or not some actions and settings"""
-        for action in (Actions.STEP, Actions.CONTINUOUS, 'reset_phase', 'save'):
+        for action in (Actions.STEP, Actions.CONTINUOUS, 'reset_phase'):
             if action not in exclude:
                 self.set_action_enabled(action, enable)
         self.set_action_enabled('algorithms', not enable)
