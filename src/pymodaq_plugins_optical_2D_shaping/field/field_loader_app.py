@@ -1,16 +1,17 @@
 from typing import Tuple, Union
+from pathlib import Path
 import numpy as np
 from qtpy import QtWidgets, QtCore
 from skimage.transform import rescale, resize
 from scipy.ndimage import gaussian_filter
 from pyqtgraph import ROI as pgROI
 
-from pymodaq_utils.config import Config
+from pymodaq_utils.config import GlobalConfig
 from pymodaq_utils.math_utils import normalize, greater2n
 
-from pymodaq_data import DataToExport, DataCalculated
+from pymodaq_data import DataToExport, DataCalculated, DataDim
 from pymodaq_data.h5modules.saving import H5SaverLowLevel
-from pymodaq_data.h5modules.data_saving import DataSaverLoader
+from pymodaq_data.h5modules.data_saving import DataSaverLoader, GroupType
 
 from pymodaq_gui.plotting.items.roi import RectROI
 from pymodaq_gui.managers.parameter_manager import Parameter
@@ -28,7 +29,7 @@ from pymodaq_plugins_optical_2D_shaping.utilities.sizing import (get_effective_n
                                                                  get_effective_slm_size,
                                                                  get_effective_area_pos_size_in_pxls)
 
-config_utils = Config()
+config = GlobalConfig()
 field_loader_factory = LoaderFactory()
 
 
@@ -181,11 +182,22 @@ class FieldLoaderApp(CustomApp):
                 self.save_field()
                 param.setValue(False)
 
-    def save_field(self):
-        pass
-        file_name = select_file(start_path=config_utils('data_saving','h5file', 'save_path'),
+    def save_field(self, fname: Path = None, where: str = '/RawData', group_name: str = 'Field', title: str = ''):
+        """ Save the field and the metadata used to produce it into a hdf5 file
+
+        Parameters
+        ----------
+        fname : Path
+            If specified, add the field in the existing (or new) file. Otherwise open a File dialog to enter a file name
+        where: str
+            the node where the data will be saved
+        """
+        if fname is None:
+            fname = select_file(start_path=config('data', 'data_saving','h5file', 'save_path'),
                                 save=True, ext='h5')  # see daq_utils
-        if file_name != '':
+        if fname != '':
+            new_file = not fname.exists()
+
             dwa = DataCalculated('Field',
                                  data=[
                                      self.field.amplitude,
@@ -205,8 +217,10 @@ class FieldLoaderApp(CustomApp):
                     break
             settings_str += b'</All_settings>'
 
-            with DataSaverLoader(file_name, new_file=True) as saver:
-                saver.add_data('/RawData/', dwa, settings=settings_str)
+            with DataSaverLoader(fname, new_file=new_file) as saver:
+                group = saver.add_data_group(where, DataDim.Data2D, title=title, settings_as_xml=settings_str,
+                                             group_name=group_name)
+                saver.add_data(group, dwa)
 
     def update_apply_mask(self, size: tuple[int, int],
                           center: tuple[int, int] = None,
