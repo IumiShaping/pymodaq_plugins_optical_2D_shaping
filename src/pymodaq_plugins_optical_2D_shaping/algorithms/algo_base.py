@@ -9,7 +9,7 @@ from scipy.ndimage import gaussian_filter
 from pymodaq_data import Q_, DataRaw, DataToExport
 from pymodaq_gui.managers.parameter_manager import ParameterManager
 
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import (AlgoType, ApplyMaskTo, TargetPhase,
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import (AlgoType, ApplyMaskTo,
                                                                  LensSetup)
 from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping.utilities import sizing
