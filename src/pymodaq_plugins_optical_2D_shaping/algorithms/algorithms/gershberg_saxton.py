@@ -16,8 +16,10 @@ from pymodaq_data import Q_
 from pymodaq_gui.parameter import Parameter
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo, AlgoType
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import LensSetup, ApplyMaskTo, AlgoType
+from pymodaq_plugins_optical_2D_shaping.algorithms import AlgoBase
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
+from pymodaq_plugins_optical_2D_shaping.field import Field
 
 
 if TYPE_CHECKING:
@@ -62,8 +64,6 @@ class GbSax(AlgoBase):
         if not self._algo_init:
             self._algo_init = True
             self.do_things_after_set_target()
-
-            self.define_input_phase()
 
     def do_things_after_set_input(self):
         """ Apply the initial phase to the object field """

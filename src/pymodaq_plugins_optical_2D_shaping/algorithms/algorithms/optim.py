@@ -20,9 +20,11 @@ from pymodaq_gui.parameter import Parameter
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.loss import LossFactory
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo, TargetPhase
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import LensSetup, ApplyMaskTo, TargetPhase
+from pymodaq_plugins_optical_2D_shaping.algorithms import AlgoBase
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithms.torch_base import TorchBase
+from pymodaq_plugins_optical_2D_shaping.field import Field
 
 
 import torch

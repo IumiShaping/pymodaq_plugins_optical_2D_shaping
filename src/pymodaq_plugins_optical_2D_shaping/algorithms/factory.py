@@ -5,8 +5,7 @@ from typing import Callable
 
 
 from pymodaq_utils.logger import set_logger, get_module_name
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase
-
+from pymodaq_plugins_optical_2D_shaping.algorithms.algo_base import AlgoBase
 
 logger = set_logger(get_module_name(__file__))
 
