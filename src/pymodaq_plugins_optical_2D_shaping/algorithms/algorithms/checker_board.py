@@ -9,19 +9,17 @@ from typing import Union, Tuple, List
 
 import numpy as np
 from copy import deepcopy
-from qtpy import QtWidgets
-from zernpy.calculations.calc_psfs_check import pixel_size
 
 from pymodaq_utils.logger import set_logger, get_module_name
 
 from pymodaq_utils import math_utils as mutils
-from pymodaq_gui import utils as gutils
-from pymodaq_data import Q_, DataToExport
-from pymodaq_gui.plotting.data_viewers import ViewerDispatcher, Viewer2D
+from pymodaq_data import Q_
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo, AlgoType
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import LensSetup, ApplyMaskTo, AlgoType
+from pymodaq_plugins_optical_2D_shaping.algorithms import AlgoBase
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
+from pymodaq_plugins_optical_2D_shaping.field import Field
 
 logger = set_logger(get_module_name(__file__))
 plugin_config = PluginConfig()

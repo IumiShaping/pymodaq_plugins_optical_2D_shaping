@@ -16,9 +16,10 @@ from pymodaq_utils import math_utils as mutils
 from pymodaq_data import Q_
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field
+from pymodaq_plugins_optical_2D_shaping.algorithms import AlgoBase
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithms.gershberg_saxton import GbSax
+from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_utils.math_utils import gauss2D
 
 

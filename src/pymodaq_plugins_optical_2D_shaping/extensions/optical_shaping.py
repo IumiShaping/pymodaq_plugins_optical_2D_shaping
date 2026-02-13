@@ -23,7 +23,7 @@ from pymodaq.extensions.custom_ext import CustomExt
 from pymodaq.utils.config import get_set_layout_path
 
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
-from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp, AlgoBase
+from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
 from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, Field, Q_
 from pymodaq_plugins_optical_2D_shaping.utilities.corrections import Correction
 from pymodaq_plugins_optical_2D_shaping.algorithms import AlgorithmFactory, AlgoBase

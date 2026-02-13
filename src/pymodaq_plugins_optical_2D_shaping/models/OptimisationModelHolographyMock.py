@@ -14,9 +14,7 @@ from skimage.io import imread
 from skimage.color import rgb2gray
 
 from pymodaq_plugins_optical_2D_shaping.utils import OptimisationModelGeneric, DataToActuatorOpti
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase
-from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory
-
+from pymodaq_plugins_optical_2D_shaping.algorithms import algo_factory, AlgoBase
 
 if TYPE_CHECKING:
     from pymodaq_plugins_optical_2D_shaping.extensions.optical_shaping import OpticalShaping

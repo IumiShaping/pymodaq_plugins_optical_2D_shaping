@@ -50,7 +50,7 @@ class Correction(CustomApp):
 
         self._zernike_ui: ZernikeUI = None
         self._zernike_coeffs = ZernikeCoeffs()
-        self.zernike_values: dict[np.ndarray] = {}
+        self.zernike_values: dict[str, np.ndarray] = {}
         self.setup_ui()
 
         self.beam_fwhm_sb.setValue(beam_fwhm.m_as('mm'))
@@ -147,8 +147,8 @@ class Correction(CustomApp):
         self._zernike_ui.sliders[f'{n}{m}'].setValue(value)
 
     def setup_actions(self):
-        self.add_action('show_phase', 'Show Phase', 'show', tip='Display the correction phase in a 2D Viewer',
-                        checkable=True, toolbar=self._toolbar)
+        self.add_action('show_phase', 'Show Phase', 'visibility', tip='Display the correction phase in a 2D Viewer',
+                        checkable=True, toolbar=self._toolbar, icon_checked='visibility_off')
         self.add_widget('beam_fwhm_label', QtWidgets.QLabel('Beam FWHM: '), toolbar=self._toolbar)
         self.add_widget('beam_fwhm', self.beam_fwhm_sb, toolbar=self._toolbar,
                         tip='Input beam FWHM in Intensity')
@@ -156,7 +156,7 @@ class Correction(CustomApp):
         self.add_widget('unity_radius', self.unit_radius_sb, toolbar=self._toolbar,
                         tip='Unity radius for Zernike polynomials, '
                             'expressed as a multiple factor of the Input Beam FWHM')
-        self.add_action('reset', 'Reset', 'Redo')
+        self.add_action('reset', 'Reset', 'refresh')
 
     def connect_things(self):
         self._zernike_ui.slider_changed_sig.connect(self.update_zernike)
@@ -164,7 +164,7 @@ class Correction(CustomApp):
         self.tilt_y.valueChanged.connect(self.emit_corrections)
         self.focal_length.valueChanged.connect(self.emit_corrections)
 
-        self.connect_action('show_phase', self.viewer_widget.setVisible)
+        self.connect_action('show_phase', lambda show:self.viewer_widget.setVisible(show))
         self.connect_action('reset', self.reset)
 
         self.connect_action('unity_radius', self.compute_zernike_base,

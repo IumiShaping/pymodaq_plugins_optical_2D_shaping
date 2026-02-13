@@ -1,1 +1,2 @@
-from .factory import AlgorithmFactory, AlgoBase  # leave it here as it is used elsewhere
+from .factory import AlgorithmFactory  # noqa F403
+from .algo_base import AlgoBase

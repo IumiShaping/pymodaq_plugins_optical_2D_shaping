@@ -15,8 +15,10 @@ from pymodaq_data import Q_, DataToExport
 
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo, AlgoType
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import LensSetup, ApplyMaskTo, AlgoType
+from pymodaq_plugins_optical_2D_shaping.algorithms import AlgoBase
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
+from pymodaq_plugins_optical_2D_shaping.field import Field
 
 
 if TYPE_CHECKING:

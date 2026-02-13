@@ -17,9 +17,12 @@ from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_gui.parameter import Parameter
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoBase, Field, LensSetup, ApplyMaskTo
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import LensSetup, ApplyMaskTo
+from pymodaq_plugins_optical_2D_shaping.algorithms import AlgoBase
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
+from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithms.torch_base import TorchBase
+
 import torch
 from torchmin import minimize
 

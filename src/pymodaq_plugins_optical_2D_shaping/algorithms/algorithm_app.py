@@ -25,8 +25,10 @@ from pymodaq_gui.parameter import ioxml
 from pymodaq_gui.parameter import utils as putils
 from pymodaq_gui.config_saver_loader import ConfigSaverLoader
 
-from pymodaq_plugins_optical_2D_shaping.algorithms import AlgorithmFactory, AlgoBase
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import TargetPhase, ApplyMaskTo, LensSetup
+from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
+from pymodaq_plugins_optical_2D_shaping.algorithms.algo_base import AlgoBase
+from pymodaq_plugins_optical_2D_shaping.algorithms.ini_phase import PhaseFactory, PhaseBase
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import ApplyMaskTo, LensSetup
 from pymodaq_plugins_optical_2D_shaping.utilities.masking import MaskType
 from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
@@ -35,6 +37,7 @@ from pymodaq_plugins_optical_2D_shaping.algorithms.algo_config import AlgoConfig
 from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 
 algo_factory = AlgorithmFactory()
+phase_factory = PhaseFactory()
 algo_config = AlgoConfig()
 config = GlobalConfig()
 
@@ -47,24 +50,15 @@ class Actions(StrEnum):
 
 class AlgoApp(CustomApp):
     save_settings = True
-    params = [{'title': 'Target Phase', 'name': 'target_phase_group', 'type': 'group',
+    params = [
+
+        {'title': 'Target Phase', 'name': 'target_phase_group', 'type': 'group',
          'children': [
-             {'title': 'Target Phase', 'name': 'target_phase', 'type': 'list',
-              'limits': TargetPhase.values(), 'value': str(TargetPhase.QUADRATIC_SHIFT),
-              },
-             {'title': 'Target Phase', 'name': 'params', 'type': 'group',
-              'tip': 'The phase is built from this expression: R (p**2 + q**2) + D (p cos θ + q sin θ) where p and q are'
-                     'the normalized pixel indexes',
-              'children': [
-                  {'title': 'Quadratic Amplitude ', 'name': 'quad_amp', 'type': 'float', 'value': 1.},
-                  {'title': 'Shift Amplitude', 'name': 'shift_amp', 'type': 'float', 'value': 1.},
-              ]},
+             {'title': 'Target Phase', 'name': 'target_phase_factory', 'type': 'list',
+              'value': phase_factory.phases[0],
+              'limits': phase_factory.phases},
+             {'title': 'Phase Parameters', 'name': 'phase_params', 'type': 'group', 'children': []},
          ]},
-              {'title': 'Object Phase Smoothing', 'name': 'smoothing', 'type': 'group', 'children': [
-                  {'title': 'Apply:', 'name': 'apply_smoothing', 'type': 'bool', 'value': False},
-                  {'title': 'Sigma X (pxl)', 'name': 'sigma_x', 'type': 'int', 'value': 10, },
-                  {'title': 'Sigma Y (pxl)', 'name': 'sigma_y', 'type': 'int', 'value': 10, },
-              ]},
         {'title': 'Target Masking', 'name': str(ApplyMaskTo.TARGET), 'type': 'group', 'children': [
             {'title': 'Apply Mask', 'name': 'apply_mask', 'type': 'bool', 'value': False},
             {'title': 'Mask Type', 'name': 'mask_type', 'type': 'list', 'value': str(MaskType.SQUARE),
@@ -105,6 +99,12 @@ class AlgoApp(CustomApp):
         self.enable_things(False)
 
         self.set_settings_values()
+
+        for phase in phase_factory.phases:
+            self.settings.child('target_phase_group', 'phase_params').addChild(
+                {'title': phase, 'name': phase, 'type': 'group',
+                 'visible': self.settings['target_phase_group', 'target_phase_factory'] == phase,
+                 'children': phase_factory.get_phase(phase).params})
 
     def set_settings_values(self, param: Parameter = None):
         self.config_saver_loader.load_config(param)
@@ -176,7 +176,7 @@ class AlgoApp(CustomApp):
         if self._algorithm is not None:
             self._algorithm.set_object_field(object_field)
             self._algorithm.set_input_field(field)
-            self._algorithm.define_input_phase(self.settings['target_phase_group', 'target_phase'])
+            self.define_phase(force_reset=True)
 
         self._input_field = field
 
@@ -224,6 +224,14 @@ class AlgoApp(CustomApp):
         except ValueError as e:
             self.enable_things(False)
 
+    @property
+    def ini_phase_object(self) -> PhaseBase:
+        return phase_factory.get_phase(
+            self.settings['target_phase_group', 'target_phase_factory'])(
+            self.settings.child('target_phase_group', 'phase_params',
+                                self.settings['target_phase_group', 'target_phase_factory']),
+        self.algorithm)
+
     def ini_algo(self):
         #self.set_action_enabled(Actions.CONTINUOUS, False)
 
@@ -244,6 +252,7 @@ class AlgoApp(CustomApp):
 
             self.runner_thread.start()
 
+            self.define_phase(force_reset=True)
             self.compute_fft(update_plots=True)
 
             self.enable_things()
@@ -331,10 +340,9 @@ class AlgoApp(CustomApp):
 
     def define_phase(self, force_reset=False):
         if self._algorithm is not None:
-            phase = self._algorithm.define_input_phase(self.settings['target_phase_group', 'target_phase'],
-                                                       force_reset=force_reset)
             if force_reset:
-                self._current_phase = phase
+                self._current_phase = self.ini_phase_object.compute_phase()
+                self.algorithm.define_input_phase(self._current_phase)
 
     def compute_fft(self, update_plots=True):
         if self._algorithm is not None:
@@ -386,7 +394,9 @@ class AlgoApp(CustomApp):
         for applied in ApplyMaskTo.values():
             if applied in putils.get_param_path(param):
                self._algorithm.update_mask = True
-
+        if param.name() == 'target_phase_factory':
+            for param_child in self.settings.child('target_phase_group', 'phase_params').children():
+                param_child.show(param.value() == param_child.name() and param_child.hasChildren())
         self.save_algo_parameters()
 
     def algo_settings_changed(self):
