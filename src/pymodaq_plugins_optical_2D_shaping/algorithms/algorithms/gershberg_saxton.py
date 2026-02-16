@@ -43,12 +43,11 @@ class GbSax(AlgoBase):
     SETUP_TYPE = LensSetup.TwoF
     ITERATIVE = True
 
-    params = [{'title': 'Mixing ratio', 'name': 'mixing_ratio', 'type': 'float', 'value': 0.5}]
+    params = []
 
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
         self._algo_init = False
-        self.amplitude_mask: Field = None
 
     def value_changed(self, param: Parameter):
         self.parent_app.algo_settings_changed()
@@ -75,17 +74,7 @@ class GbSax(AlgoBase):
 
     def evolve_field(self):
 
-        if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
-            if self.update_mask:
-                self.amplitude_mask = self.get_mask_field(ApplyMaskTo.TARGET, inner_value=1, outer_value=0)
-                self.update_mask = False
-
-            mask_target = self.amplitude_mask.amplitude
-            mask_noise = np.ones_like(mask_target) - mask_target
-            amplitude = (self.settings['mixing_ratio'] * self._target_field.amplitude * mask_target +
-                         (1-self.settings['mixing_ratio']) * self._image_field.amplitude * mask_noise)
-        else:
-            amplitude = self._target_field.amplitude
+        amplitude = self._target_field.amplitude
 
         field_image_corrected = Field(amplitude=amplitude,
                                       phase=self._image_field.phase,
@@ -99,47 +88,62 @@ class GbSax(AlgoBase):
         self.evolve_field()
 
 
+
+
 @AlgorithmFactory.register_algorithm()
-class GbSaxAdaptiveWeighted(GbSax):
-    """ Implementation of the Weighted Gerchberg-Saxton iterative algorithm to create amplitude modulated
-    image with phase only spatial light modulators in the Fourier plane of a converging lens
+class Projections(GbSax):
+    """ Implementation of the Gerchberg-Saxton with options to implement variants like weighted, ROI, MRAF...
 
     The corresponding experimental setup should define a working light wavelength and a focal length
     of the used lens
 
-    The algorithm is based on paper https://doi.org/10.1364/OE.413723
+    The weighted algorithm is based on paper https://doi.org/10.1364/OE.413723
+    The MRAF algorithm is based on https://doi.org/10.1364/OE.16.002176
+        ROI is restricted to rectangular or elliptical area
 
     """
 
-    ALGO_NAME = 'Weighted Gerchberg-Saxton'
+    ALGO_NAME = 'Projections'
     ITERATIVE = True
 
 
-    params = GbSax.params
+    params = [
+        {'title': 'Weighting', 'name': 'weighting', 'type': 'bool', 'value': False,
+         'tip': 'If True, applies a weighting between calculated output amplitude and target amplitude'},
+        {'title': 'Mixing ratio', 'name': 'mixing_ratio', 'type': 'float', 'value': 1,
+         'tip': 'The mixing ratio correspond to the MRAF hyperparameter. A ROI in the target plane must be selected'
+                'for this to work. A value of 1 corresponds to the standard Gerchberg-Saxton algorithm'},]
 
     def __init__(self, parent: 'AlgoApp' = None):
         super().__init__(parent)
 
+        self.amplitude_mask: Field = None
 
     def evolve_field(self):
-        if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
-            if self.update_mask:
+        if self.update_mask:
+            self.update_mask = False
+            if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
                 self.amplitude_mask = self.get_mask_field(ApplyMaskTo.TARGET, inner_value=1, outer_value=0)
-                self.update_mask = False
 
-            mask_target = self.amplitude_mask.amplitude
-            mask_noise = np.ones_like(mask_target) - mask_target
-            amplitude = (self._target_field.amplitude * mask_target  *
-                         np.sum((np.exp(self._target_field.amplitude - self.image_field.amplitude)) * mask_target) +
-                         self._image_field.amplitude * mask_noise)
+            else:
+                self.amplitude_mask = Field('mask', amplitude=np.ones_like(self._target_field.amplitude))
+
+        mask_target = self.amplitude_mask.amplitude
+        mask_noise = np.ones_like(mask_target) - mask_target
+
+        if self.settings['weighting']:
+            weight = np.sum((np.exp(np.abs(self._target_field.amplitude - self.image_field.amplitude))))
         else:
-            amplitude = self._target_field.amplitude
+            weight = 1
+
+        amplitude = (self.settings['mixing_ratio'] * weight * self._target_field.amplitude * mask_target +
+                     (1-self.settings['mixing_ratio']) * self._image_field.amplitude * mask_noise)
 
         field_image_corrected = Field(amplitude=amplitude,
                                       phase=self._image_field.phase,
                                       pixel_sizes=self._image_field.pixels_sizes)
-        field_object_corrected = self.compute_backward_fft(field_image_corrected)
 
+        field_object_corrected = self.compute_backward_fft(field_image_corrected)
         self.set_phase_in_object_plane(field_object_corrected.phase)
 
 
