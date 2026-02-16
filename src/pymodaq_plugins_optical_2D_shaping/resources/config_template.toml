@@ -46,16 +46,16 @@ default_loader = ["GaussianIntensityLoader"] #will be populated at startup from 
  #first elet in the list used as default
 
     [input.gaussian]
-    fwhm_x = 7.0  #mm
-    fwhm_y = 7.0  #mm
+    fwhm_x = 7000  #um
+    fwhm_y = 7000  #um
 
     [input.laguerre]
-    waist = 1.0  # mm
+    waist = 1000  # um
     radial_index = 3
     azimutal_index = 4
 
     [input.ferris]
-    waist = 0.8  # mm
+    waist = 800  # um
     azimutal_index_1 = 3
     azimutal_index_2 = 11
     alpha = 5e-4
