@@ -7,7 +7,7 @@ from scipy.ndimage import gaussian_filter
 from pyqtgraph import ROI as pgROI
 
 from pymodaq_utils.config import GlobalConfig
-from pymodaq_utils.math_utils import normalize, greater2n
+from pymodaq_utils.math_utils import normalize, greater2n, gauss2D
 
 from pymodaq_data import DataToExport, DataCalculated, DataDim
 from pymodaq_data.h5modules.saving import H5SaverLowLevel
@@ -87,6 +87,10 @@ class FieldLoaderApp(CustomApp):
                  'limits': MaskType.names()},
                 {'title': 'Slices', 'name': 'slices', 'type': 'str',
                  'value': '(slice(338, 757, None), slice(665, 1770, None))'},
+                {'title': 'Boundary', 'name': 'boundary', 'type': 'group', 'children': [
+                    {'title': 'Apply', 'name': 'apply_boundary', 'type': 'bool', 'value': False},
+                    {'title': 'Sharpness', 'name': 'sharpness', 'type': 'int', 'value': 3, }
+                ]},
                 {'title': 'Show On', 'name': 'show_on', 'type': 'list',
                  'value': 'Amplitude', 'limits': ['Amplitude', 'Phase']},
                 {'title': 'Show Mask', 'name': 'show_mask', 'type': 'bool', 'value': False},
@@ -146,7 +150,8 @@ class FieldLoaderApp(CustomApp):
             self.loader = param.value()
 
         elif param.name() in ('flipud', 'fliplr', 'do_scaling', 'scaling', 'aspect_ratio', 'apply_mask',
-                              'apply_smoothing', 'sigma_y', 'sigma_x', 'slices'):
+                              'apply_smoothing', 'sigma_y', 'sigma_x', 'slices', 'boundary', 'apply_boundary',
+                              'sharpness'):
             self.field = self._ini_field.deepcopy()
             self.update_final_size()
             self.update_viewers()
@@ -376,19 +381,24 @@ class FieldLoaderApp(CustomApp):
 
         mask = outer_value * np.ones(shape)
         slices = self.get_mask_as_slices()
-        if self.get_mask_type() == MaskType.SQUARE:
-            mask[*slices] = inner_value
+        y0, x0 = tuple([(_slice.stop + _slice.start) / 2 for _slice in slices])
+        ry, rx = tuple([(_slice.stop - _slice.start) / 2 for _slice in slices])
+
+        x = np.arange(0, shape[1], 1)
+        y = np.arange(0, shape[0], 1)
+
+        if self.settings['utils', 'masking', 'boundary', 'apply_boundary']:
+            mask = gauss2D(x, x0, rx,
+                           y, y0, ry,
+                           self.settings['utils', 'masking', 'boundary', 'sharpness'])
+
         else:
-
-            y0, x0 = tuple([(_slice.stop + _slice.start) / 2 for _slice in slices])
-            ry, rx = tuple([(_slice.stop - _slice.start) / 2 for _slice in slices])
-
-            x = np.arange(0, shape[1], 1)
-            y = np.arange(0, shape[0], 1)
-
-            xx, yy = np.meshgrid(x, y)
-            mask[
-                (xx - x0) ** 2 / rx **2 + (yy - y0) ** 2 / ry **2 <= 1] = inner_value
+            if self.get_mask_type() == MaskType.SQUARE:
+                mask[*slices] = inner_value
+            else:
+                xx, yy = np.meshgrid(x, y)
+                mask[
+                    (xx - x0) ** 2 / rx **2 + (yy - y0) ** 2 / ry **2 <= 1] = inner_value
         return mask
 
     @staticmethod
