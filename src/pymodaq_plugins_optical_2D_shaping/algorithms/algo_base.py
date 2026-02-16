@@ -4,8 +4,9 @@ from typing import Optional, Union, Tuple, TYPE_CHECKING
 import numpy as np
 from pyqtgraph.parametertree import Parameter
 from qtpy import QtWidgets
-from scipy.ndimage import gaussian_filter
 
+
+from pymodaq_utils.math_utils import gauss2D
 from pymodaq_data import Q_, DataRaw, DataToExport
 from pymodaq_gui.managers.parameter_manager import ParameterManager
 
@@ -86,19 +87,18 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         if self.apply_mask(apply_to):
             mask = Field.init_from_field(self._target_field).amplitude * outer_value
             slices = self.get_mask_slices(apply_to)
+
             if self.get_mask_type(apply_to) == MaskType.SQUARE:
                 mask[*slices] = inner_value
             else:
-
+                x = np.arange(0, self._target_field.shape[1], 1)
+                y = np.arange(0, self._target_field.shape[0], 1)
                 y0, x0 = tuple([(_slice.stop + _slice.start) / 2 for _slice in slices])
                 ry, rx = tuple([(_slice.stop - _slice.start) / 2 for _slice in slices])
 
-                x = np.arange(0, self._target_field.shape[1], 1)
-                y = np.arange(0, self._target_field.shape[0], 1)
-
                 xx, yy = np.meshgrid(x, y)
                 mask[
-                    (xx - x0) ** 2 / rx **2 + (yy - y0) ** 2 / ry **2 <= 1] = inner_value
+                    (xx - x0) ** 2 / rx ** 2 + (yy - y0) ** 2 / ry ** 2 <= 1] = inner_value
         else:
             mask = Field.init_from_field(self._target_field).amplitude
         return Field(amplitude=mask)
