@@ -1,24 +1,82 @@
 from numbers import Number
-from typing import Tuple, Union
-
+from typing import Tuple, Union, TYPE_CHECKING, Callable, Iterable
 
 import numpy as np
-from skimage.transform import rescale
+
 
 from pymodaq_plugins_optical_2D_shaping.field import Field, LoaderFactory, FieldLoader
 from pymodaq_gui.parameter import Parameter
 from pymodaq_utils import math_utils as mutils
 from pymodaq_data import Q_, Unit
-from LightPipes import Begin, GaussBeam, Intensity, Phase
-from LightPipes import Field as LPField
+
+from scipy.special import genlaguerre
 
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
+
+
 
 SLM = plugin_config('SLM', 'default_slm')
 
 
 class BaseFieldLoader(FieldLoader):
     with_physical_pixels_size = True
+
+    def compute_grid(self) -> tuple[np.ndarray, np.ndarray]:
+        """ Compute the centered positions on the grid in microns given the value of the pixel width"""
+        x = np.arange(0, self.n_pixel_width, 1) * self.pixel_width   #um
+        x = x-np.mean(x)
+        y = np.arange(0, self.n_pixel_height, 1) * self.pixel_height  #um
+        y = y - np.mean(y)
+        xx, yy = np.meshgrid(x, y)
+        return xx, yy
+
+    @staticmethod
+    def compute_polygon(xx, yy, n_coordinates):
+        """ Compute the location of the pixels within a closed polygon of n points
+
+        The method use the fact that all points situated at the left of any polygone edge are within the polygon. The
+        coordinates should be taken counter-clockwise. See https://stackoverflow.com/questions/2752725/
+        """
+        d = np.full(xx.shape, True)
+        for ind in range(-1, len(n_coordinates) - 1):
+            d = d & (((n_coordinates[ind+1][0] - n_coordinates[ind][0]) * (yy - n_coordinates[ind][1]) -
+                     (xx - n_coordinates[ind][0]) * (n_coordinates[ind+1][1] - n_coordinates[ind][1])) >= 0)
+        return np.where(d, 1, 0)
+
+    def compute_circle(self, xx: np.ndarray, yy: np.ndarray,
+                       x_center: float, y_center: float,
+                       radius: float = 100.):
+        """ Compute the location of the pixels within a circle given its center and its radius """
+        xx_shifted = xx - x_center
+        yy_shifted = yy - y_center
+
+        # Calculate the radial distance from the beam center
+        radial_distance = np.sqrt(xx_shifted ** 2 + yy_shifted ** 2)
+        amplitude = np.where(radial_distance < radius, 1, 0)
+        return amplitude
+
+    @staticmethod
+    def gaussian_fwhm(x: np.ndarray, x0: float, fwhm: float) -> np.ndarray:
+        """ Get a Gaussian amplitude distribution centered in x0 with a full width at half maximum in intensity of fwhm
+
+        Parameters
+        ----------
+        x: np.ndarray
+            distribution on which the gaussian is evaluated (in microns)
+        x0: float
+            center of the gaussian distribution (in micron)
+        fwhm: float
+            full width at half maximum in intensity expressed (in micron)
+
+        Returns
+        -------
+        np.ndarray
+        """
+        return np.exp(- 2 * np.log(2) * ((x - x0) / fwhm) ** 2)
+
+    @staticmethod
+    def normalise(field: np.ndarray) -> np.ndarray:
+        return field /  np.sqrt(np.sum(np.abs(field) ** 2))  # normalisation
 
     def settings_changed(self, param: Parameter):
         field = self.compute_field()
@@ -40,120 +98,26 @@ class GaussianIntensity(BaseFieldLoader):
 
     params = BaseFieldLoader.params + \
         [
-            {'title': 'Beam size x (mm):', 'name': 'beam_size_x', 'type': 'float',
-             'value': plugin_config('input', 'gaussian', 'fwhm_x'), },
-            {'title': 'Beam size y (mm):', 'name': 'beam_size_y', 'type': 'float',
-             'value': plugin_config('input', 'gaussian', 'fwhm_y'), },
+            {'title': 'Beam size x (um):', 'name': 'beam_size_x', 'type': 'float',
+             'value': plugin_config('input', 'gaussian', 'fwhm_x'), 'tip' : 'FWHM in intensity'},
+            {'title': 'Beam size y (um):', 'name': 'beam_size_y', 'type': 'float',
+             'value': plugin_config('input', 'gaussian', 'fwhm_y'), 'tip' : 'FWHM in intensity'},
          ]
 
     def compute_field(self):
 
-        x = Q_(np.arange(0, self.n_pixel_width, 1) * self.pixel_width,
-               'micron')
-        y = Q_(np.arange(0, self.n_pixel_height, 1) * self.pixel_height,
-               'micron')
+        xx, yy = self.compute_grid()
 
         self.progressbar = 30
 
-        amplitude = mutils.gauss2D(
-            x.m_as('mm'), np.mean(x.m_as('mm')),
-            Q_(self.settings['beam_size_x'], 'mm').m_as('mm'),
-            y.m_as('mm'), np.mean(y.m_as('mm')),
-            Q_(self.settings['beam_size_y'], 'mm').m_as('mm'))
+        amplitude = (self.gaussian_fwhm(xx, 0, self.settings['beam_size_x']) *
+                     self.gaussian_fwhm(yy, 0, self.settings['beam_size_y']))
+
+        amplitude = self.normalise(amplitude)
 
         self.progressbar = 60
 
         field = Field('GaussianIntensity', amplitude=amplitude,
-                      pixel_sizes=Q_(np.array((self.pixel_height,
-                                               self.pixel_width)),
-                                     'um'))
-        return field
-
-
-@LoaderFactory.register_loader()
-class TwoCirclesOnLine(BaseFieldLoader):
-
-    LOADER_NAME = 'Two Circles on a Line'
-
-    params = BaseFieldLoader.params + \
-             [
-                 {'title': 'Radius (um):', 'name': 'radius_circle', 'type': 'float',
-                  'value': 300., },
-                 {'title': 'Position x from center (um):', 'name': 'x_from_center', 'type': 'float',
-                  'value': 500., },
-                  {'title': 'Add asymetry (um) :', 'name': 'asymetry', 'type': 'float',
-                  'value': 0.,},
-                 {'title': 'Rotation around center (degree):', 'name': 'rotation_around_center', 'type': 'float',
-                  'value': 0., },
-                {'title': 'linewidth (um):', 'name': 'linewidth', 'type': 'float',
-                  'value': 100., },
-        ]
-
-
-    def circle(self, x_tab: np.ndarray, y_tab: np.ndarray, x_center: float, y_center: float):
-
-        xx, yy = np.meshgrid(x_tab, y_tab)
-        beam_center_rotated = [Q_(x_center, 'um'), Q_(y_center, 'um')]
-        X_shifted = xx - beam_center_rotated[0]
-        Y_shifted = yy - beam_center_rotated[1]
-
-        # Calculate the radial distance from the beam center
-        radial_distance = Q_(np.sqrt(X_shifted**2 + Y_shifted**2), 'um')
-        amplitude = np.where(radial_distance < Q_(self.settings['radius_circle'], 'um'), 255, 0) 
-        
-        return amplitude
-
-    def compute_field(self):
-        x = Q_(np.arange(-self.n_pixel_width/2, self.n_pixel_width/2, 1) * self.pixel_width,
-               'micron')
-        y = Q_(np.arange(-self.n_pixel_height/2, self.n_pixel_height/2, 1) * self.pixel_height,
-               'micron')
-
-        theta = np.radians(Q_(self.settings['rotation_around_center'], 'degree'))
-        R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
-
-        #Circle 1
-        beam_center_unrotated = [Q_(self.settings['x_from_center'], 'um'), Q_(0, 'um')]
-        beam_center_unrotated_magn = [beam_center_unrotated[0].magnitude, beam_center_unrotated[1].magnitude]
-        
-        x1_rot, y1_rot = R@beam_center_unrotated_magn
-        amplitude = self.circle(x, y, x1_rot, y1_rot)
-
-        #Circle 2
-        beam_center_unrotated_magn = [beam_center_unrotated[0].magnitude + Q_(self.settings['asymetry'], 'um').magnitude, beam_center_unrotated[1].magnitude]   
-        x2_rot, y2_rot = -R@beam_center_unrotated_magn
-        amplitude += self.circle(x, y, x2_rot, y2_rot)
-
-        #add line of thickness l between circles
-        x1_idx, y1_idx = int(x[len(x)-1].magnitude + x1_rot), int(y[len(y)-1].magnitude + y1_rot)
-        x2_idx, y2_idx = int(x[len(x)-1].magnitude + x2_rot), int(y[len(y)-1].magnitude + y2_rot)
-        num_points = int(max(abs(x2_idx - x1_idx)/self.pixel_width, abs(y2_idx - y1_idx)/self.pixel_height))
-        
-
-        if Q_(self.settings['linewidth'], 'um') < Q_(self.pixel_height, 'um'):
-            #Check if the linewidth is smaller than the pixel size
-            # If so, the linewidth is set to be 0
-            self.settings['linewidth'] = 0
-
-        
-        #Convert the linewidth (which is in um) in number of pixel
-        l = int(self.settings['linewidth']/self.pixel_height)
-
-        t_values = np.linspace(0, 1, num_points)
-        x_line = ((x1_idx * (1 - t_values) + x2_idx * t_values) / self.pixel_width).astype(int)
-        y_line = ((y1_idx * (1 - t_values) + y2_idx * t_values) / self.pixel_height).astype(int)
-        dx_range = np.arange(-l // 2, l // 2 + 1)
-        dy_range = np.arange(-l // 2, l // 2 )
-
-        for x, y in zip(x_line, y_line):
-            x_offsets, y_offsets = np.meshgrid(dx_range, dy_range, indexing='ij')
-            x_offsets = (x + x_offsets).ravel()  # Flatten for valid indexing
-            y_offsets = (y + y_offsets).ravel()
-            
-            mask = (0 <= y_offsets) & (y_offsets < self.n_pixel_height) & (0 <= x_offsets) & (x_offsets < self.n_pixel_width)
-            amplitude[y_offsets[mask], x_offsets[mask]] = 255
-
-        field = Field('2circles_on_line', amplitude=amplitude,
                       pixel_sizes=Q_(np.array((self.pixel_height,
                                                self.pixel_width)),
                                      'um'))
@@ -178,46 +142,40 @@ class DoubleGaussian(BaseFieldLoader):
                   'value': 0., },
              ]
 
-    def Gaussian_with_center(self, x_tab: np.ndarray, y_tab: np.ndarray, x0: float, y0: float, sigma_x: float,
-                             sigma_y: float):
-        X, Y = np.meshgrid(x_tab.magnitude, y_tab.magnitude)
-        return np.exp(-((X - x0) ** 2 / (2 * sigma_x ** 2) + (Y - y0) ** 2 / (2 * sigma_y ** 2)))
+
 
     def compute_field(self):
-        x = Q_(np.arange(-self.n_pixel_width / 2, self.n_pixel_width / 2, 1) * self.pixel_width,
-               'micron')
-        y = Q_(np.arange(-self.n_pixel_height / 2, self.n_pixel_height / 2, 1) * self.pixel_height,
-               'micron')
+
+        xx, yy = self.compute_grid()
 
         self.progressbar = 15
 
         theta = np.radians(Q_(self.settings['rotation_around_center'], 'degree'))
-        R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+        rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
 
         self.progressbar = 30
 
         # Gaussian 1
-        beam_center_unrotated = [Q_(self.settings['x_from_center'], 'um'), Q_(0, 'um')]
-        beam_center_unrotated_magn = [beam_center_unrotated[0].magnitude, beam_center_unrotated[1].magnitude]
+        beam_center_unrotated = [self.settings['x_from_center'], 0.]
 
         self.progressbar = 45
 
-        x1_rot, y1_rot = R @ beam_center_unrotated_magn
-        amplitude = self.Gaussian_with_center(x, y, x1_rot, y1_rot, Q_(self.settings['sigma_x'], 'um').magnitude,
-                                              Q_(self.settings['sigma_y'], 'um').magnitude)
+        x1_rot, y1_rot = rotation_matrix @ beam_center_unrotated
+        amplitude = (self.gaussian_fwhm(xx, x1_rot, self.settings['sigma_x']) *
+                     self.gaussian_fwhm(yy, y1_rot, self.settings['sigma_y']))
         self.progressbar = 60
 
         # Gaussian 2
         beam_center_unrotated_magn = [
-            beam_center_unrotated[0].magnitude + Q_(self.settings['asymetry'], 'um').magnitude,
-            beam_center_unrotated[1].magnitude]
+            beam_center_unrotated[0] + self.settings['asymetry'],
+            beam_center_unrotated[1]]
 
         self.progressbar = 80
-        x2_rot, y2_rot = -R @ beam_center_unrotated_magn
-        amplitude += self.Gaussian_with_center(x, y, x2_rot, y2_rot, Q_(self.settings['sigma_x'], 'um').magnitude,
-                                               Q_(self.settings['sigma_y'], 'um').magnitude)
+        x2_rot, y2_rot = -rotation_matrix @ beam_center_unrotated_magn
+        amplitude += (self.gaussian_fwhm(xx, x2_rot, self.settings['sigma_x']) *
+                     self.gaussian_fwhm(yy, y2_rot, self.settings['sigma_y']))
 
-        field = Field('Double_gaussian', amplitude=amplitude,
+        field = Field('Double_gaussian', amplitude=self.normalise(amplitude),
                       pixel_sizes=Q_(np.array((self.pixel_height,
                                                self.pixel_width)),
                                      'um'))
@@ -226,65 +184,48 @@ class DoubleGaussian(BaseFieldLoader):
 
 @LoaderFactory.register_loader()
 class LaguerreGaussian(BaseFieldLoader):
+    """ Calculation based on mathematical expression from 10.61835/gd8 using scipy special Laguerre function"""
 
     LOADER_NAME = 'LaguerreGaussian'
 
     params = BaseFieldLoader.params + \
         [
-            {'title': 'Beam waist (mm):', 'name': 'waist', 'type': 'float',
+            {'title': 'Beam waist (um):', 'name': 'waist', 'type': 'float',
              'value': plugin_config('input', 'laguerre', 'waist'), },
-            {'title': 'Doughnut:', 'name': 'doughnut', 'type': 'bool', 'value': True, },
-
             {'title': 'Radial order :', 'name': 'radial_index', 'type': 'int',
              'value': plugin_config('input', 'laguerre', 'radial_index'), },
             {'title': 'Azimutal order:', 'name': 'azimutal_index', 'type': 'int',
              'value': plugin_config('input', 'laguerre', 'azimutal_index'), },
          ]
 
-    def crop_center(self, img: np.ndarray, cropx: int, cropy: int):
-        y, x = img.shape
-        startx = int(x // 2 - cropx // 2)
-        starty = int(y // 2 - cropy // 2)
-        return img[starty:starty + cropy, startx:startx + cropx]
+    def compute_polynomial(self, m: int , l: int) -> Callable[[np.ndarray], np.ndarray]:
+        return genlaguerre(m, abs(l))
 
-    def compute_field_in(self) -> LPField:
-        n_pixels_max = int(np.sqrt(2) * max(self.n_pixel_width, self.n_pixel_height))
-        size_max = n_pixels_max * max(self.pixel_height,
-                                      self.pixel_width) * 1e-6
-        return Begin(size_max, plugin_config('setup', 'wavelength_nm',) * 1e-9, n_pixels_max)
+    def compute_laguerre(self, m: int, l: int, xx: np.ndarray, yy: np.ndarray, waist_fwhm: float):
+        poly = self.compute_polynomial(m, l)
+        radius = np.sqrt(xx ** 2 + yy ** 2)
+        phi = np.arctan2(yy, xx)
+        waist = waist_fwhm / np.sqrt(2 * np.log(2))
+        return (poly(2 * radius ** 2 / waist ** 2) *
+                self.gaussian_fwhm(radius, 0, waist_fwhm) *
+                np.exp(1j * l * phi) *
+                (np.sqrt(2) * radius / waist) ** abs(l)
+                )
 
     def compute_field(self):
-        field_in = self.compute_field_in()
+        xx, yy = self.compute_grid()
 
         self.progressbar = 20
 
-        lg_field = GaussBeam(field_in, self.settings['waist'] * 1e-3,
-                             LG=True,
-                             n=self.settings['radial_index'],
-                             m=self.settings['azimutal_index'],
-                             doughnut=self.settings['doughnut'],)
-
-        self.progressbar = 40
-        rescale_factor = (self.pixel_width / self.pixel_height, 1)
-        lg_rescaled = (rescale(np.abs(lg_field.field), rescale_factor, anti_aliasing=True) *
-                       np.exp(1j * rescale(np.angle(lg_field.field), rescale_factor, anti_aliasing=True)))
-
-
-        amplitude = self.crop_center(np.abs(lg_rescaled),
-                                     self.n_pixel_width,
-                                     self.n_pixel_height)
-
-        self.progressbar = 60
-
-        phase = self.crop_center(np.angle(lg_rescaled),
-                                 self.n_pixel_width,
-                                 self.n_pixel_height)
-
+        lg_complex = self.compute_laguerre(self.settings['radial_index'],
+                                           self.settings['azimutal_index'],
+                                           xx, yy,
+                                           self.settings['waist'])
         self.progressbar = 80
 
         field = Field('LaguerreGaussian',
-                      amplitude=amplitude,
-                      phase=phase,
+                      amplitude=np.abs(self.normalise(lg_complex)),
+                      phase=np.angle(lg_complex),
                       pixel_sizes=Q_(np.array((self.pixel_height,
                                                self.pixel_width)),
                                      'um'))
@@ -298,7 +239,7 @@ class FerrisWheel(LaguerreGaussian):
 
     params = BaseFieldLoader.params + \
         [
-            {'title': 'Beam waist (mm):', 'name': 'waist', 'type': 'float',
+            {'title': 'Beam waist (um):', 'name': 'waist', 'type': 'float',
              'value': plugin_config('input', 'ferris', 'waist'), },
             {'title': 'Azimutal order 1:', 'name': 'azimutal_index_1', 'type': 'int',
              'value': plugin_config('input', 'ferris', 'azimutal_index_1'), },
@@ -309,46 +250,92 @@ class FerrisWheel(LaguerreGaussian):
          ]
 
     def compute_field(self):
-        self.progressbar = 0
-        field_in = self.compute_field_in()
-        self.progressbar = 15
+        xx, yy = self.compute_grid()
+        self.progressbar = 10
 
-        lg1 = GaussBeam(field_in, self.settings['waist'] * 1e-3,
-                        LG=True, n=0, m=self.settings['azimutal_index_1'],
-                        doughnut=True,)
-        self.progressbar = 30
-        lg2 = GaussBeam(field_in, self.settings['waist'] * 1e-3,
-                        LG=True, n=0, m=self.settings['azimutal_index_2'],
-                        doughnut=True,)
-        self.progressbar = 45
+        field1 = super().compute_laguerre(0, self.settings['azimutal_index_1'], xx, yy,
+                                          self.settings['waist'])
+        self.progressbar = 50
 
-        rescale_factor = (self.pixel_width / self.pixel_height, 1)
+        field2 = super().compute_laguerre(0, self.settings['azimutal_index_2'], xx, yy,
+                                          self.settings['waist'])
+        self.progressbar = 80
 
-        lg1_rescaled = (rescale(np.abs(lg1.field), rescale_factor, anti_aliasing=True) *
-                        np.exp(1j * rescale(np.angle(lg1.field), rescale_factor, anti_aliasing=True)))
-        self.progressbar = 60
+        wheel = field1 + self.settings['alpha'] * field2
 
-        lg2_rescaled = (rescale(np.abs(lg2.field), rescale_factor, anti_aliasing=True) *
-                        np.exp(1j * rescale(np.angle(lg2.field), rescale_factor, anti_aliasing=True)))
-        self.progressbar = 75
+        amplitude = self.normalise(np.abs(wheel))
+        phase = np.angle(wheel)
 
-        amplitude = self.crop_center(np.abs(lg1_rescaled + self.settings['alpha'] * lg2_rescaled),
-                                     self.n_pixel_width,
-                                     self.n_pixel_height)
-        self.progressbar = 90
-        phase = self.crop_center(np.angle(lg1_rescaled + self.settings['alpha'] * lg2_rescaled),
-                                     self.n_pixel_width,
-                                     self.n_pixel_height)
         self.progressbar = 100
 
         field = Field('FerrisWheel',
-                      amplitude=amplitude,
+                      amplitude=self.normalise(amplitude),
                       phase = phase,
                       pixel_sizes=Q_(np.array((self.pixel_height,
                                                self.pixel_width)),
                                      'um'))
         return field
 
+
+@LoaderFactory.register_loader()
+class TwoCirclesOnLine(BaseFieldLoader):
+
+    LOADER_NAME = 'Two Circles on a Line'
+
+    params = BaseFieldLoader.params + \
+             [
+                 {'title': 'Radius (um):', 'name': 'radius_circle', 'type': 'float',
+                  'value': 300., },
+                 {'title': 'Position x from center (um):', 'name': 'x_from_center', 'type': 'float',
+                  'value': 500., },
+                 {'title': 'Add asymetry (um) :', 'name': 'asymetry', 'type': 'float',
+                  'value': 0.,},
+                 {'title': 'Rotation around center (degree):', 'name': 'rotation_around_center', 'type': 'float',
+                  'value': 0., },
+                 {'title': 'linewidth (um):', 'name': 'linewidth', 'type': 'float',
+                  'value': 100., },
+             ]
+
+    def compute_field(self):
+        xx, yy = self.compute_grid()
+
+        theta = np.radians(Q_(self.settings['rotation_around_center'], 'degree'))
+        rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+
+        #Circle 1
+        beam_center_unrotated = np.array([self.settings['x_from_center'], 0.])
+
+        x1_rot, y1_rot = rotation_matrix@beam_center_unrotated
+        amplitude = self.compute_circle(xx, yy, x1_rot, y1_rot, self.settings['radius_circle'])
+
+        #Circle 2
+        beam_center_unrotated2 = np.array([beam_center_unrotated[0] + self.settings['asymetry'],
+                                          beam_center_unrotated[1]])
+        x2_rot, y2_rot = -rotation_matrix@beam_center_unrotated2
+        amplitude += self.compute_circle(xx, yy, x2_rot, y2_rot, self.settings['radius_circle'])
+
+        rectangle_coordinates = [beam_center_unrotated + np.array([0, -self.settings['linewidth'] / 2]),
+                                 beam_center_unrotated + np.array([0, +self.settings['linewidth'] / 2]),
+                                 beam_center_unrotated + np.array([self.settings['asymetry'], 0]) + np.array([0, -self.settings['linewidth'] / 2]),
+                                 beam_center_unrotated + np.array([self.settings['asymetry'], 0]) + np.array([0, self.settings['linewidth'] / 2]),
+                                 ]
+        rotated_coordinates = []
+        for ind, coord in enumerate(rectangle_coordinates):
+            if ind < 2:
+                rot = rotation_matrix
+            else:
+                rot = -rotation_matrix
+            rotated_coordinates.append(rot@coord)
+
+        amplitude += self.compute_polygon(xx, yy, rotated_coordinates)
+
+        amplitude[amplitude > 0] = 1
+
+        field = Field('2circles_on_line', amplitude=amplitude,
+                      pixel_sizes=Q_(np.array((self.pixel_height,
+                                               self.pixel_width)),
+                                     'um'))
+        return field
 
 
 @LoaderFactory.register_loader()
@@ -362,37 +349,23 @@ class RectangleIntensity(BaseFieldLoader):
     ]
 
     def compute_field(self):
-        # Axes of the target plane
-        x = Q_(np.arange(-self.n_pixel_width / 2, self.n_pixel_width / 2) * self.pixel_width, 'um')
-        y = Q_(np.arange(-self.n_pixel_height / 2, self.n_pixel_height / 2) * self.pixel_height, 'um')
 
-        X, Y = np.meshgrid(x.magnitude, y.magnitude)
-
+        xx, yy = self.compute_grid()
         self.progressbar = 30
 
         # Rectangle parameters
-        L = Q_(self.settings['length'], 'um').magnitude
-        H = Q_(self.settings['height'], 'um').magnitude
-        T = Q_(self.settings['thickness'], 'um').magnitude
 
-        # |X| and |Y|
-        absX = np.abs(X)
-        absY = np.abs(Y)
+        inner_coordinates = [[self.settings['length'] /2 - self.settings['thickness'] /2 , - self.settings['height'] /2  + self.settings['thickness'] /2],
+                             [self.settings['length'] /2 - self.settings['thickness'] /2 , + self.settings['height'] /2  - self.settings['thickness'] /2],
+                             [-self.settings['length'] /2 + self.settings['thickness'] /2 , + self.settings['height'] /2 - self.settings['thickness'] /2],
+                             [-self.settings['length'] /2 + self.settings['thickness'] /2 , - self.settings['height'] /2  + self.settings['thickness'] /2],]
+        outer_coordinates = [[self.settings['length'] /2 , - self.settings['height'] /2 ],
+                             [self.settings['length'] /2 , + self.settings['height'] /2 ],
+                             [-self.settings['length'] /2 , + self.settings['height'] /2 ],
+                             [-self.settings['length'] /2 , - self.settings['height'] /2 ],]
 
-        # mask for the rectangle "external borders to external"
-        inside_outer = (absX <= L/2) & (absY <= H/2)
-
-        # mask for the rectangle "internal borders to internal"
-        inside_inner = (absX <= (L/2 - T)) & (absY <= (H/2 - T))
-
-        self.progressbar = 60
-
-        # mask = external - internal
-        border_mask = inside_outer & (~inside_inner)
-
-        amplitude = np.zeros_like(X)
-        amplitude[border_mask] = 255
-
+        amplitude = self.compute_polygon(xx, yy, outer_coordinates)
+        amplitude -= self.compute_polygon(xx, yy, inner_coordinates)
         self.progressbar = 90
 
         field = Field(
