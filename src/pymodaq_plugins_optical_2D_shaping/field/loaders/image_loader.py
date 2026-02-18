@@ -27,7 +27,7 @@ logger = set_logger(get_module_name(__file__))
 @LoaderFactory.register_loader()
 class ImageFileLoader(FieldLoader):
 
-    LOADER_NAME = 'ImageFileLoader'
+    LOADER_NAME = 'ImageFiles'
 
     params = FieldLoader.params + \
         [{'title': 'Amplitude:', 'name': 'amplitude', 'type': 'group', 'children': [

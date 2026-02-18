@@ -12,7 +12,7 @@ from pymodaq_plugins_optical_2D_shaping.field.utils import (FieldLoader, LoadTyp
 from pymodaq_plugins_optical_2D_shaping.field.factory import LoaderFactory
 
 if TYPE_CHECKING:
-    from pymodaq.utils.modules_manager import ModulesManager
+    from pymodaq.utils.managers.modules_manager import ModulesManager
 
 logger = set_logger(get_module_name(__file__))
 
@@ -22,7 +22,7 @@ logger = set_logger(get_module_name(__file__))
 @LoaderFactory.register_loader()
 class DashboardLoader(FieldLoader):
 
-    LOADER_NAME = 'DashboardLoader'
+    LOADER_NAME = 'Dashboard'
 
     params = [{'title': 'Detectors', 'name': 'detectors', 'type': 'list', 'limits': []}]
 

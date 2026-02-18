@@ -94,7 +94,7 @@ class BaseFieldLoader(FieldLoader):
 @LoaderFactory.register_loader()
 class GaussianIntensity(BaseFieldLoader):
 
-    LOADER_NAME = 'GaussianIntensityLoader'
+    LOADER_NAME = 'GaussianIntensity'
 
     params = BaseFieldLoader.params + \
         [
@@ -126,7 +126,7 @@ class GaussianIntensity(BaseFieldLoader):
 
 @LoaderFactory.register_loader()
 class DoubleGaussian(BaseFieldLoader):
-    LOADER_NAME = 'DoubleGaussianLoader'
+    LOADER_NAME = 'DoubleGaussian'
 
     params = BaseFieldLoader.params + \
              [
@@ -280,7 +280,7 @@ class FerrisWheel(LaguerreGaussian):
 @LoaderFactory.register_loader()
 class TwoCirclesOnLine(BaseFieldLoader):
 
-    LOADER_NAME = 'Two Circles on a Line'
+    LOADER_NAME = 'TwoCirclesOnALine'
 
     params = BaseFieldLoader.params + \
              [
@@ -340,7 +340,7 @@ class TwoCirclesOnLine(BaseFieldLoader):
 
 @LoaderFactory.register_loader()
 class RectangleIntensity(BaseFieldLoader):
-    LOADER_NAME = 'RectangleIntensityLoader'
+    LOADER_NAME = 'RectangleIntensity'
 
     params = BaseFieldLoader.params + [
         {'title': 'Width (um):', 'name': 'length', 'type': 'float', 'value': 1000., 'suffix': 'um'},

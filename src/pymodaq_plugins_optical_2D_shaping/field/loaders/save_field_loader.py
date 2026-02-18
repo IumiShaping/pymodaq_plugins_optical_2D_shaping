@@ -22,7 +22,7 @@ logger = set_logger(get_module_name(__file__))
 @LoaderFactory.register_loader()
 class SavedFieldLoader(FieldLoader):
 
-    LOADER_NAME = 'SavedFieldLoader'
+    LOADER_NAME = 'SavedField'
     with_physical_pixels_size = True
 
     params = FieldLoader.params + \
