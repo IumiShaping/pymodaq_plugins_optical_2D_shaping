@@ -38,11 +38,11 @@ pixel_size = 36   # in micrometer
 
 
 [target]
-default_loader = ["ImageFileLoader"] #will be populated at startup from the reading of the factory
+default_loader = ["ImageFiles"] #will be populated at startup from the reading of the factory
  #first elet in the list used as default
 
 [input]
-default_loader = ["GaussianIntensityLoader"] #will be populated at startup from the reading of the factory
+default_loader = ["GaussianIntensity"] #will be populated at startup from the reading of the factory
  #first elet in the list used as default
 
     [input.gaussian]
@@ -62,7 +62,7 @@ default_loader = ["GaussianIntensityLoader"] #will be populated at startup from 
 
 
 [algo]
-default_algo = ['Weighted Gerchberg-Saxton']  #will be populated at startup from the reading of the factory
+default_algo = ['Gerchberg-Saxton']  #will be populated at startup from the reading of the factory
  #first elet in the list used as default
 
 [corrections]

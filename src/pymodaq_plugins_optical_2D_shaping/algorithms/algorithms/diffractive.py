@@ -194,8 +194,6 @@ class Arrizon(PhasePattern):
 
 
 
-
-
 diff_factory = PatternFactory()
 
 
@@ -209,7 +207,7 @@ class OE2016(AlgoBase):
     of the used lens
     """
 
-    ALGO_NAME = 'OE2016 - Amplitude diffractive'
+    ALGO_NAME = 'Diffractive'
     ALGOTYPE = AlgoType.AMPLITUDE
     SETUP_TYPE = LensSetup.FourF
     ITERATIVE = False

@@ -4,6 +4,7 @@ from typing import Union
 
 from skimage.io import imread
 from skimage.color import rgb2gray
+from skimage.util import slice_along_axes
 
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq.utils.data import DataFromPlugins, DataToExport, DataRaw
@@ -90,6 +91,13 @@ class ImageFileLoader(FieldLoader):
                                                  load_type=LoadTypeEnum.AMPLITUDE)
             phase = self.load_image_from_name(self.settings['phase', 'file'],
                                               load_type=LoadTypeEnum.PHASE)
+            if ((amplitude is not None and self.settings['amplitude', 'load']) and
+                (phase is not None and self.settings['phase', 'load'])):
+                min_shape = (min(amplitude.shape[0], phase.shape[0]),
+                             min(amplitude.shape[1], phase.shape[1]))
+
+                amplitude = self.slice_centered(amplitude, min_shape)
+                phase = self.slice_centered(phase, min_shape)
 
             self.field = Field(
                 'Image',
@@ -98,4 +106,12 @@ class ImageFileLoader(FieldLoader):
 
         return self.field
 
-
+    @staticmethod
+    def slice_centered(array: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
+        center = np.array(array.shape) // 2
+        shape = np.array(shape)
+        slices = []
+        for ind in range(len(array.shape)):
+            slices.append((center[ind] - shape[ind] // 2,
+                           center[ind] + shape[ind] // 2))
+        return slice_along_axes(array, slices)
