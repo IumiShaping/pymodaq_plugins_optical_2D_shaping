@@ -97,7 +97,7 @@ class TorchBase(AlgoBase):
 
     def do_things_after_set_target(self):
         if self._algo_init:  #make sure target and object have same shape
-            self._target_field.phase = self._target_field.phase / np.max(self._target_field.phase) * np.pi
+            #self._target_field.phase = self._target_field.phase / np.max(self._target_field.phase) * np.pi
             target_tensor = torch.from_numpy(self._target_field.field)
 
             #normalize target_intensity wrt input amplitude
@@ -125,8 +125,8 @@ class TorchBase(AlgoBase):
 
         self.ini_optimizer()
 
-    def do_things_after_set_input(self):
-        self.do_things_after_init()
+    # def do_things_after_set_input(self):
+    #     self.do_things_after_init()
 
     def ini_optimizer(self):
         """ To be reimplemented"""
@@ -145,7 +145,6 @@ class TorchBase(AlgoBase):
             torch.fft.fft2(self._amplitude_tensor * torch.exp(1j * phase_input), norm='forward'
             )
         )
-        self.image_field_array = image_tensor.detach().numpy()
         return image_tensor
 
     def compute_mask(self):
