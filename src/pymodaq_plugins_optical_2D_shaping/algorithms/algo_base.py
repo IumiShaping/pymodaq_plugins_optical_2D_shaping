@@ -175,7 +175,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     def set_phase_in_object_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
         if phase.shape == self._object_field.shape:
             phase = phase.copy()
-            self._object_field.phase = phase
+            self._object_field.phase = phase % (2 * np.pi)
             self._object_field.amplitude = (
                     self._input_field.amplitude.copy() *
                     (induced_amplitude if induced_amplitude is not None else 1))

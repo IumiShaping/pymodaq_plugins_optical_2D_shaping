@@ -13,9 +13,8 @@ from scipy.special import genlaguerre
 
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 
-
-
 SLM = plugin_config('SLM', 'default_slm')
+
 
 
 class BaseFieldLoader(FieldLoader):
@@ -74,10 +73,6 @@ class BaseFieldLoader(FieldLoader):
         """
         return np.exp(- 2 * np.log(2) * ((x - x0) / fwhm) ** 2)
 
-    @staticmethod
-    def normalise(field: np.ndarray) -> np.ndarray:
-        return field /  np.sqrt(np.sum(np.abs(field) ** 2))  # normalisation
-
     def settings_changed(self, param: Parameter):
         field = self.compute_field()
         self.notify_listeners(field)
@@ -112,8 +107,6 @@ class GaussianIntensity(BaseFieldLoader):
 
         amplitude = (self.gaussian_fwhm(xx, 0, self.settings['beam_size_x']) *
                      self.gaussian_fwhm(yy, 0, self.settings['beam_size_y']))
-
-        amplitude = self.normalise(amplitude)
 
         self.progressbar = 60
 
@@ -175,7 +168,7 @@ class DoubleGaussian(BaseFieldLoader):
         amplitude += (self.gaussian_fwhm(xx, x2_rot, self.settings['sigma_x']) *
                      self.gaussian_fwhm(yy, y2_rot, self.settings['sigma_y']))
 
-        field = Field('Double_gaussian', amplitude=self.normalise(amplitude),
+        field = Field('Double_gaussian', amplitude=amplitude,
                       pixel_sizes=Q_(np.array((self.pixel_height,
                                                self.pixel_width)),
                                      'um'))
@@ -224,7 +217,7 @@ class LaguerreGaussian(BaseFieldLoader):
         self.progressbar = 80
 
         field = Field('LaguerreGaussian',
-                      amplitude=np.abs(self.normalise(lg_complex)),
+                      amplitude=np.abs(lg_complex),
                       phase=np.angle(lg_complex),
                       pixel_sizes=Q_(np.array((self.pixel_height,
                                                self.pixel_width)),
@@ -263,13 +256,13 @@ class FerrisWheel(LaguerreGaussian):
 
         wheel = field1 + self.settings['alpha'] * field2
 
-        amplitude = self.normalise(np.abs(wheel))
+        amplitude = np.abs(wheel)
         phase = np.angle(wheel)
 
         self.progressbar = 100
 
         field = Field('FerrisWheel',
-                      amplitude=self.normalise(amplitude),
+                      amplitude=amplitude,
                       phase = phase,
                       pixel_sizes=Q_(np.array((self.pixel_height,
                                                self.pixel_width)),

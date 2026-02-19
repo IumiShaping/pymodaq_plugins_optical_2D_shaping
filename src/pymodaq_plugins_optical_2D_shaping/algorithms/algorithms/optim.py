@@ -74,6 +74,7 @@ class TorchOptim(TorchBase):
             tolerance_change=self.settings['tolerance'],
             history_size=10,
             line_search_fn="strong_wolfe")
+        self._algo_init = True
 
     def closure(self):
         self.optimizer.zero_grad()

@@ -84,11 +84,10 @@ class Minimize(TorchBase):
             return True
 
     def update_data(self, phase):
-        self._image_field = self.scale_target_with_geometry(
-            Field('image', np.abs(self.image_field_array), np.angle(self.image_field_array)))
         phase = phase.detach().numpy().reshape(self.object_field.shape)
         # phase = (phase + np.pi) % (2 * np.pi) - np.pi
         self.set_phase_in_object_plane(phase)
+        self.compute_forward_fft(update_plots=False)
         print(f'{self.iter}')
         self.parent_app.fields_to_plot.emit(self.get_fields_to_plot())
         QtWidgets.QApplication.processEvents()
@@ -117,8 +116,7 @@ class Minimize(TorchBase):
                           tol=self.settings['tolerance'])
 
         self.set_phase_in_object_plane(result.x.detach().numpy())
-        self._image_field = self.scale_target_with_geometry(
-            Field('image', np.abs(self.image_field_array), np.angle(self.image_field_array)))
+        self.compute_forward_fft(update_plots=False)
 
 
 

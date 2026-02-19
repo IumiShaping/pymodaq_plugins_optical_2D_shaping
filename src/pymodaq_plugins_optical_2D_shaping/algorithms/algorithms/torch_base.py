@@ -60,6 +60,7 @@ class TorchBase(AlgoBase):
 
         {'title': 'Loss', 'name': 'loss', 'type': 'list', 'value': loss_factory.losses[0],
          'limits': loss_factory.losses},
+        {'title': 'Loss Value', 'name': 'loss_value', 'type': 'float', 'value': 0.,},
         {'title': 'Loss Parameters', 'name': 'loss_params', 'type': 'group', 'children': []}
     ]
 
@@ -97,11 +98,15 @@ class TorchBase(AlgoBase):
 
     def do_things_after_set_target(self):
         if self._algo_init:  #make sure target and object have same shape
-            self._target_field.phase = self._target_field.phase / np.max(self._target_field.phase) * np.pi
+            #self._target_field.phase = self._target_field.phase / np.max(self._target_field.phase) * np.pi
             target_tensor = torch.from_numpy(self._target_field.field)
 
             #normalize target_intensity wrt input amplitude
             self._target_tensor = self.normalize_intensity_wrt(target_tensor, self._amplitude_tensor)
+
+    def do_things_after_set_input(self):
+        self._object_field.amplitude = self._input_field.amplitude
+        self._amplitude_tensor = torch.from_numpy(self.object_field.amplitude)
 
     @staticmethod
     def compute_intensity_ratio(tensor: torch.Tensor, tensor_ref: torch.Tensor) -> torch.Tensor:
@@ -125,8 +130,8 @@ class TorchBase(AlgoBase):
 
         self.ini_optimizer()
 
-    def do_things_after_set_input(self):
-        self.do_things_after_init()
+    # def do_things_after_set_input(self):
+    #     self.do_things_after_init()
 
     def ini_optimizer(self):
         """ To be reimplemented"""
@@ -145,7 +150,6 @@ class TorchBase(AlgoBase):
             torch.fft.fft2(self._amplitude_tensor * torch.exp(1j * phase_input), norm='forward'
             )
         )
-        self.image_field_array = image_tensor.detach().numpy()
         return image_tensor
 
     def compute_mask(self):
@@ -160,22 +164,12 @@ class TorchBase(AlgoBase):
 
         loss = self._loss.compute_loss(image_tensor * self.mask,
                                        self._target_tensor * self.mask)
-
-        self._calculated_fitness = loss.item()
-        print(self._calculated_fitness)
+        self.settings.child('loss_value').setValue(loss.item())
         return loss
 
 
     def compute_phase(self, do_step=True, ini_phase=None, **kwargs):
         """ To be reimplemented """
         raise NotImplementedError
-
-    @property
-    def fitness(self) -> float:
-        """ Compute fitness with respect to the image_field and target_field """
-        return self._calculated_fitness
-
-
-
 
 

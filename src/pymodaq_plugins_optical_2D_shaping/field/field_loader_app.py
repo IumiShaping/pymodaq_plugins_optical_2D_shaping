@@ -8,6 +8,7 @@ from pyqtgraph import ROI as pgROI
 
 from pymodaq_utils.config import GlobalConfig
 from pymodaq_utils.math_utils import normalize, greater2n, gauss2D
+from pymodaq_utils.enums import StrEnum
 
 from pymodaq_data import DataToExport, DataCalculated, DataDim
 from pymodaq_data.h5modules.saving import H5SaverLowLevel
@@ -32,6 +33,11 @@ from pymodaq_plugins_optical_2D_shaping.utilities.sizing import (get_effective_n
 config = GlobalConfig()
 field_loader_factory = LoaderFactory()
 
+
+class NormaliseTo(StrEnum):
+    NONE = 'none'
+    MAX = 'max'
+    INTENSITY = 'intensity'
 
 
 class FieldLoaderApp(CustomApp):
@@ -82,6 +88,8 @@ class FieldLoaderApp(CustomApp):
                 {'title': 'Sigma X (pxl)', 'name': 'sigma_x', 'type': 'int', 'value': 10,},
                 {'title': 'Sigma Y (pxl)', 'name': 'sigma_y', 'type': 'int', 'value': 10, },
             ]},
+            {'title': 'Normalisation', 'name': 'normalisation', 'type': 'list', 'value': NormaliseTo.MAX,
+             'limits': NormaliseTo.names()},
             {'title': 'Masking', 'name': 'masking', 'type': 'group', 'children': [
                 {'title': 'Mask Type', 'name': 'mask_type', 'type': 'list', 'value': str(MaskType.SQUARE),
                  'limits': MaskType.names()},
@@ -124,6 +132,16 @@ class FieldLoaderApp(CustomApp):
 
         self.loader = field_loader_factory.field_loaders[0]
 
+    @staticmethod
+    def normalise(field: Field, normalise_to = NormaliseTo.MAX):
+        """ Normalise inplace """
+        if normalise_to == NormaliseTo.NONE:
+            pass
+        elif normalise_to == NormaliseTo.MAX:
+            field.amplitude = field.amplitude /  np.max(field.amplitude)
+        elif normalise_to == NormaliseTo.INTENSITY:
+            field.amplitude =  field.amplitude /  np.sqrt(np.sum(field.intensity))
+
     def update_pixels(self, pixel_sizes: Tuple[Q_, Q_]):
         self.settings.child('needed_size', 'pixel_height').setValue(pixel_sizes[0].m_as('um'))
         self.settings.child('needed_size', 'pixel_width').setValue(pixel_sizes[1].m_as('um'))
@@ -151,7 +169,7 @@ class FieldLoaderApp(CustomApp):
 
         elif param.name() in ('flipud', 'fliplr', 'do_scaling', 'scaling', 'aspect_ratio', 'apply_mask',
                               'apply_smoothing', 'sigma_y', 'sigma_x', 'slices', 'boundary', 'apply_boundary',
-                              'sharpness'):
+                              'sharpness', 'normalisation'):
             self.field = self._ini_field.deepcopy()
             self.update_final_size()
             self.update_viewers()
@@ -356,6 +374,8 @@ class FieldLoaderApp(CustomApp):
         npad = self.get_npad_between(needed_shape, self.field.shape)
         if np.any(np.array(npad)):
             self.field = self.field.pad(npad)
+
+        self.normalise(self.field, NormaliseTo[self.settings['utils', 'normalisation']])
 
         if self.settings['utils', 'masking', 'apply_mask']:
 
