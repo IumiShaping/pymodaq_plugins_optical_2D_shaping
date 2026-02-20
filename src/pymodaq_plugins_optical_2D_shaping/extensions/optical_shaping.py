@@ -280,18 +280,23 @@ class OpticalShaping(CustomExt):
     def setup_actions(self):
         logger.debug('Main actions')
         self.add_action('save', 'Save', 'save_as', 'Save Everything to a file')
+        self.toolbar.addSeparator()
         self.add_action('target', 'Target Selection', 'target',
                         'Open the Target FieldLoader window', checkable=True,
                         icon_checked_color=self.get_theme().green)
         self.add_action('input', 'Input Beam Selection', 'input',
                         'Open the InputBeam FieldLoader window', checkable=True,
                         icon_checked_color=self.get_theme().green)
-
         self.add_action('show_other_plots', 'Show Other Plots', 'visibility', checkable=True,
-                        icon_checked='visibility_off')
+                        icon_checked='visibility_off', auto_toolbar=False)
         self.add_action('show_intermediate', 'Show Intermediate', 'visibility', checkable=True,
                         icon_checked='visibility_off', tip='Show Field intensity in intermediate plane')
-
+        self.toolbar.addSeparator()
+        self.add_widget('corr_label', QtWidgets.QLabel('Corrections:'))
+        self.add_action('corrections', 'Corrections', 'build_circle',
+                        tip='Open the Utility window with focal and Zernike correction',
+                        checkable=True)
+        self.toolbar.addSeparator()
         self.get_toolbar('dashboard').addSeparator()
         self.add_action('send_algo_to_shaper', 'Algo to shaper', 'blur_off',
                         icon_color=self.get_theme().red,
@@ -299,9 +304,6 @@ class OpticalShaping(CustomExt):
                         checkable=True, toolbar='dashboard',
                         icon_checked='blur_on', icon_checked_color=self.get_theme().green)
 
-        self.add_action('corrections', 'Corrections', 'build_circle',
-                        tip='Open the Utility window with focal and Zernike correction',
-                        checkable=True, toolbar='dashboard')
         self.add_action('send_correc_to_shaper', 'Correction to shaper', 'deblur',
                         'Send correction phase to the control module called *Shaper*',
                         checkable=True, toolbar='dashboard',
