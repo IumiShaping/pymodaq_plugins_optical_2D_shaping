@@ -42,6 +42,8 @@ class OL2014(AlgoBase):
 
     params = [
         {'title': 'Mask block size (pxls)', 'name': 'block_size', 'type': 'int', 'value': 5, 'min': 1},
+        {'title': 'amplitude divider', 'name': 'divider', 'type': 'float', 'value': 1},
+
     ]
 
     def __init__(self, parent: 'AlgoApp' = None):
@@ -57,7 +59,7 @@ class OL2014(AlgoBase):
 
         calculated_field: Field = deepcopy(self._target_field)
 
-        beta = np.arccos(mutils.normalize(calculated_field.amplitude) / 2)
+        beta = np.arccos(calculated_field.amplitude / np.max(calculated_field.amplitude) / self.settings['divider'])
         theta_field = Field('theta', phase=calculated_field.phase + beta)
         alpha_field = Field('alpha', phase=calculated_field.phase - beta)
 
