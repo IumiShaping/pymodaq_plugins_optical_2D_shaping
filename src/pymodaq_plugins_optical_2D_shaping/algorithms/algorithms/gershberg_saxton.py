@@ -58,7 +58,6 @@ class GbSax(AlgoBase):
             #normalize target_intensity wrt input intensity
             self._target_field = self.normalize_wrt(self._target_field, self._input_field)
 
-
     def do_things_after_init(self):
         if not self._algo_init:
             self._algo_init = True
@@ -86,8 +85,6 @@ class GbSax(AlgoBase):
     def compute_phase(self, do_step=True, **kwargs):
         self.propagate_field()
         self.evolve_field()
-
-
 
 
 @AlgorithmFactory.register_algorithm()

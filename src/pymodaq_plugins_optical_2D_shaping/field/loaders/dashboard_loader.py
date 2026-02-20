@@ -38,10 +38,6 @@ class DashboardLoader(FieldLoader):
             logger.warning('could not load properly the Dashboard Field Loader as'
                            'no modules manager has been passed')
 
-
-
-
-
     def load(self, *args, load_type: LoadTypeEnum = None, **kwargs) -> Field:
         """ Mandatory reimplemented method. Used to load a target to populate the field attribute"""
         if self.modules_manager is not None:

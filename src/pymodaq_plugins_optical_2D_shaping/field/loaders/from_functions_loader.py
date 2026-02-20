@@ -77,7 +77,7 @@ class BaseFieldLoader(FieldLoader):
         field = self.compute_field()
         self.notify_listeners(field)
 
-    def compute_field(self):
+    def compute_field(self) -> Field:
         raise NotImplementedError
 
     def load(self, *args, **kwargs) -> Field:
@@ -99,21 +99,15 @@ class GaussianIntensity(BaseFieldLoader):
              'value': plugin_config('input', 'gaussian', 'fwhm_y'), 'tip' : 'FWHM in intensity'},
          ]
 
-    def compute_field(self):
-
+    def compute_field(self) -> Field:
         xx, yy = self.compute_grid()
-
         self.progressbar = 30
-
         amplitude = (self.gaussian_fwhm(xx, 0, self.settings['beam_size_x']) *
                      self.gaussian_fwhm(yy, 0, self.settings['beam_size_y']))
-
         self.progressbar = 60
-
-        field = Field('GaussianIntensity', amplitude=amplitude,
-                      pixel_sizes=Q_(np.array((self.pixel_height,
-                                               self.pixel_width)),
-                                     'um'))
+        field = Field('GaussianIntensity',
+                      amplitude=amplitude,
+                      pixel_sizes=Q_(np.array((self.pixel_height, self.pixel_width)),'um'))
         return field
 
 
@@ -135,9 +129,7 @@ class DoubleGaussian(BaseFieldLoader):
                   'value': 0., },
              ]
 
-
-
-    def compute_field(self):
+    def compute_field(self) -> Field:
 
         xx, yy = self.compute_grid()
 
@@ -205,7 +197,7 @@ class LaguerreGaussian(BaseFieldLoader):
                 (np.sqrt(2) * radius / waist) ** abs(l)
                 )
 
-    def compute_field(self):
+    def compute_field(self) -> Field:
         xx, yy = self.compute_grid()
 
         self.progressbar = 20
@@ -242,7 +234,7 @@ class FerrisWheel(LaguerreGaussian):
              'value': plugin_config('input', 'ferris', 'alpha'), },
          ]
 
-    def compute_field(self):
+    def compute_field(self) -> Field:
         xx, yy = self.compute_grid()
         self.progressbar = 10
 
@@ -289,7 +281,7 @@ class TwoCirclesOnLine(BaseFieldLoader):
                   'value': 100., },
              ]
 
-    def compute_field(self):
+    def compute_field(self) -> Field:
         xx, yy = self.compute_grid()
 
         theta = np.radians(Q_(self.settings['rotation_around_center'], 'degree'))
@@ -341,7 +333,7 @@ class RectangleIntensity(BaseFieldLoader):
         {'title': 'Edge Thickness (um):', 'name': 'thickness', 'type': 'float', 'value': 200., 'suffix': 'um'},
     ]
 
-    def compute_field(self):
+    def compute_field(self) -> Field:
 
         xx, yy = self.compute_grid()
         self.progressbar = 30
