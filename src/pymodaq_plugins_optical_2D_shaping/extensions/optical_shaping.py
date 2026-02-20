@@ -203,8 +203,8 @@ class OpticalShaping(CustomExt):
         self._corrections = Correction(self._corrections_dockarea,
                                        title='Phase Corrections')
 
-        self.docks['image_field'] = gutils.Dock('Image Plane')
-        self.docks['object_field'] = gutils.Dock('Object Plane')
+        self.docks['image_field'] = gutils.Dock('Output Plane')
+        self.docks['object_field'] = gutils.Dock('Input Plane')
         self.docks['metrics'] = gutils.Dock('Fitness')
         self.dockarea.addDock(self.docks['metrics'], 'left')
         self.dockarea.addDock(self.docks['object_field'], 'right')
