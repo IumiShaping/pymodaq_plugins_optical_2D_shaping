@@ -297,17 +297,18 @@ class OpticalShaping(CustomExt):
                         tip='Open the Utility window with focal and Zernike correction',
                         checkable=True)
         self.toolbar.addSeparator()
-        self.get_toolbar('dashboard').addSeparator()
-        self.add_action('send_algo_to_shaper', 'Algo to shaper', 'blur_off',
+
+        self.add_action('send_algo_to_shaper', 'Algo to shaper', 'grid_off',
                         icon_color=self.get_theme().red,
                         tip='Send calculated phase to the control module called *Shaper*',
                         checkable=True, toolbar='dashboard',
-                        icon_checked='blur_on', icon_checked_color=self.get_theme().green)
+                        icon_checked='grid_on', icon_checked_color=self.get_theme().green)
 
-        self.add_action('send_correc_to_shaper', 'Correction to shaper', 'deblur',
+        self.add_action('send_correc_to_shaper', 'Correction to shaper', 'ink_eraser_off',
                         'Send correction phase to the control module called *Shaper*',
                         checkable=True, toolbar='dashboard',
                         icon_color=self.get_theme().red,
+                        icon_checked='ink_eraser',
                         icon_checked_color=self.get_theme().green)
 
         if self.dashboard is not None:
