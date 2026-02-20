@@ -55,6 +55,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         super().__init__()
 
         self._running = False
+        self.fitness_name: str = ''
 
         self.parent_app = parent
         self._target_field = Field(amplitude=np.zeros(sizing.get_effective_needed_field_size()))
@@ -191,8 +192,15 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         """ Compute fitness with respect to the image_field and target_field
 
         To be subclassed if the given implementation below is not correct for your algorithm"""
+        if self.ALGOTYPE == AlgoType.AMPLITUDE:
+            self.fitness_name = 'NRMSE'
+            return self.rmse
 
-        return self.fidelity
+        elif self.ALGOTYPE == AlgoType.AMPLITUDE_PHASE:
+            self.fitness_name = 'Fidelity Error'
+            return 1 - self.fidelity
+        else:
+            raise TypeError('Algorithm type not supported')
 
     @property
     def fidelity(self) -> float:
@@ -200,17 +208,22 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
             slices = self.get_mask_slices(ApplyMaskTo.TARGET)
         else:
             slices = (...,)
+        return (np.abs(np.sum(np.conj(self._target_field.field[*slices]) * self._image_field.field[*slices]))**2 /
+                (np.sum(self._target_field.intensity[*slices]) * np.sum(self._image_field.intensity[*slices])))
 
-        if self.ALGOTYPE == AlgoType.AMPLITUDE:
-           return (np.sum(np.abs(
-                self._target_field.amplitude[*slices] * self._image_field.amplitude[*slices]) ** 2) /
-                    np.sum(self._target_field.intensity[*slices]**2))
-        elif self.ALGOTYPE == AlgoType.AMPLITUDE_PHASE:
-            return (np.sum(np.abs(
-                np.conj(self._target_field.field[*slices]) * self._image_field.field[*slices])**2) /
-                    np.sum(self._target_field.intensity[*slices]**2))
+    @property
+    def rmse(self) -> float:
+        if self.apply_mask(ApplyMaskTo.TARGET):
+            slices = self.get_mask_slices(ApplyMaskTo.TARGET)
         else:
-            raise TypeError('Algorithm type not supported')
+            slices = (...,)
+
+        norm = np.sum(np.ones(self._target_field.shape)[*slices])
+
+        return np.sqrt(1 / norm * (
+            np.sum(
+                (self._target_field.intensity[*slices] - self._image_field.intensity[*slices]) ** 2) /
+                np.sum(self._image_field.intensity[*slices] ** 2)))
 
     @property
     def efficiency(self) -> float:
@@ -229,12 +242,13 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
                 np.sum(self._image_field.intensity))
 
     def fitness_as_dwa(self):
-        return DataRaw('fitness', data=[np.array([self.fitness])])
+        return DataRaw('fitness', data=[np.array([self.fitness])],
+                       labels=[self.fitness_name])
 
     def metrics_as_dwa(self):
         return DataRaw('metrics', data=[np.array([self.fitness]),
                                         np.array([self.efficiency])],
-                       labels=['fitness', 'efficiency'])
+                       labels=[self.fitness_name, 'efficiency'])
 
     def compute_phase(self, do_step=True, ini_phase: np.ndarray = None, **kwargs):
         """ Compute the phase to apply to SLM given the target object
