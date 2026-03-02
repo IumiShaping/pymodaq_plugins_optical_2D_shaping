@@ -6,7 +6,9 @@ import numpy as np
 from pymodaq_gui.parameter import Parameter
 
 
-from pymodaq.extensions.optimizers_base.utils import OptimizerModelGeneric, individual_as_dta
+from pymodaq.extensions.optimizers_base.models import OptimizerModelGeneric
+from pymodaq.extensions.optimizers_base.utils import individual_as_dta
+
 from pymodaq.utils.data import DataToActuators
 
 from pymodaq_plugins_optical_2D_shaping.hardware.autofocus import AutoFocusFactory

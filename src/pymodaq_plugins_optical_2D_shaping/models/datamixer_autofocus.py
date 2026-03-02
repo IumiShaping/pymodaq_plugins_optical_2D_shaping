@@ -12,6 +12,7 @@ from pymodaq_plugins_optical_2D_shaping.hardware.autofocus import AutoFocusFacto
 
 logger = set_logger(get_module_name(__file__))
 
+
 class AutoFocus(DataMixerModel):
     params = [
         {'title': 'BlurMetric', 'name': 'blur_metric', 'type': 'list',
