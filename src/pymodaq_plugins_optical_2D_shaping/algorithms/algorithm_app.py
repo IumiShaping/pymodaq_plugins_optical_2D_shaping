@@ -24,6 +24,7 @@ from pymodaq_gui.utils.file_io import select_file
 from pymodaq_gui.parameter import ioxml
 from pymodaq_gui.parameter import utils as putils
 from pymodaq_gui.config_saver_loader import ConfigSaverLoader
+from pymodaq_gui.h5modules.saving import H5Saver
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
 from pymodaq_plugins_optical_2D_shaping.algorithms.algo_base import AlgoBase
@@ -33,6 +34,7 @@ from pymodaq_plugins_optical_2D_shaping.utilities.masking import MaskType
 from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 from pymodaq_plugins_optical_2D_shaping.algorithms.algo_config import AlgoConfig
+from pymodaq_plugins_optical_2D_shaping.utilities.h5saving import ShapingSaver
 
 from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 
@@ -46,6 +48,11 @@ class Actions(StrEnum):
     STEP = 'step'
     CONTINUOUS = 'continuous'
     STOP = 'stop'
+    SAVE_CONTINUOUS = 'save_continuous'
+    SHOW_SAVE_SETTINGS = 'show_saving'
+    RESET = 'reset_phase'
+    COMPUTE_FFT = 'compute_fft'
+    SHOW_DATA = 'show_data'
 
 
 class AlgoApp(CustomApp):
@@ -105,6 +112,61 @@ class AlgoApp(CustomApp):
                 {'title': phase, 'name': phase, 'type': 'group',
                  'visible': self.settings['target_phase_group', 'target_phase_factory'] == phase,
                  'children': phase_factory.get_phase(phase).params})
+
+        self.module_and_data_saver: ShapingSaver = None
+        self._h5saver: H5Saver = None
+
+
+    @property
+    def h5saver(self) -> H5Saver:
+        if self._h5saver is None:
+            self._h5saver = H5Saver(save_type=SaveType.custom,
+                                    backend=config('data', 'data_saving', 'backend')[0])
+            for setting_name in ('save_type', 'save_2D', 'do_save', 'backend', 'custom_name', 'close_after_scan',):
+                self._h5saver.settings.child(setting_name).hide()
+        if self._h5saver.h5_file is None:
+            self._h5saver.init_file(update_h5=True)
+        if not self._h5saver.isopen():
+            self._h5saver.init_file(addhoc_file_path=self._h5saver.settings['current_h5_file'])
+        return self._h5saver
+
+    @h5saver.setter
+    def h5saver(self, h5saver_temp: H5Saver):
+        self._h5saver = h5saver_temp
+
+    def show_saver_settings(self, show: bool = True):
+        if self._h5saver is not None:
+            self.h5saver.settings_tree.setVisible(show)
+
+    def close_file(self):
+        if self._h5saver is not None:
+            self._h5saver.close_file()
+
+    def setup_continuous_saving(self):
+        """Configure the objects dealing with the continuous saving mode"""
+        self.module_and_data_saver = ShapingSaver()
+        self.module_and_data_saver.h5saver = self.h5saver
+
+    def do_save_continuous(self, dosave: bool = True):
+        if self._h5saver is None:
+            self.setup_continuous_saving()
+
+            self.h5saver.settings.child('base_name').setValue('Shaping')
+            self.h5saver.settings.child('N_saved').show()
+            self.h5saver.settings.child('N_saved').setValue(0)
+
+        self.h5saver.settings.child('do_save').setValue(dosave)
+
+        if dosave:
+            self.module_and_data_saver.get_set_node(new=True)
+
+    def save_continuous(self, dte: DataToExport):
+        if self._h5saver is not None:
+            self.module_and_data_saver.add_data(dte)
+
+    def quit_fun(self):
+        super().quit_fun()
+        self.close_file()
 
     def set_settings_values(self, param: Parameter = None):
         self.config_saver_loader.load_config(param)
@@ -214,6 +276,7 @@ class AlgoApp(CustomApp):
                 # on the input beam size and resolution
                 self.set_target_field(self._target_field)
             self.set_action_visible(Actions.CONTINUOUS, self._algorithm.ITERATIVE)
+            self.set_action_visible(Actions.SAVE_CONTINUOUS, self._algorithm.ITERATIVE)
 
             self.config_saver_loader.base_path = [self._algorithm.ALGO_NAME]
             self.set_settings_values()
@@ -295,35 +358,55 @@ class AlgoApp(CustomApp):
 
         self.docks['algo_settings'].addWidget(self.settings_widget)
 
+        self.set_menu(QtWidgets.QMenu('Algorithm'))
+
     def setup_actions(self):
         self.add_widget('algorithms', QtWidgets.QComboBox,
                         tip='select the algorithm to compute the phase')
         self.get_action('algorithms').addItems(plugin_config('algo', 'default_algo'))
         self.get_action('algorithms').setCurrentText(plugin_config('algo', 'default_algo')[0])
         self.add_action('ini_algo', 'Init Algo', 'start', checkable=True,
-                        icon_checked_color=self.get_theme().green)
+                        icon_checked_color=self.get_theme().green,
+                        auto_menu=False)
 
-        self.add_action('reset_phase', 'Reset Phase', 'refresh', tip="Reset the SLM phase")
-        self.add_action('compute_fft', 'Compute FFT', 'function', tip="Run a fft of the input phase")
+        self.add_action(Actions.RESET, 'Reset Phase', 'refresh', tip="Reset the SLM phase")
+        self.add_action(Actions.COMPUTE_FFT, 'Compute FFT', 'function', tip="Run a fft of the input phase")
 
         self.add_action(Actions.STEP, 'Step', 'looks_one', tip="Step a loop of the algorithm")
         self.add_action(Actions.CONTINUOUS, 'Continuous', 'repeat',
                         tip="Run continuously the algorithm",
                         checkable=True, icon_checked='repeat_on',
                         icon_checked_color=self.get_theme().green)
+        self.add_action(Actions.SHOW_DATA, 'Continuous', 'bid_landscape',
+                        tip='Display the data after each iteration', checkable=True, checked=True,
+                        icon_checked_color=self.get_theme().green)
+        self.add_action(Actions.SHOW_SAVE_SETTINGS, 'Show Saving Settings', 'account_tree',
+                        tip="Show the Continuous Saving settings",
+                        checkable=True, icon_checked_color=self.get_theme().green,
+                        auto_toolbar=False)
+        self.add_action(Actions.SAVE_CONTINUOUS, 'Save Continuous', 'save_clock',
+                        tip="Save continuously the algorithm output",
+                        checkable=True, icon_checked_color=self.get_theme().green)
+
+    def setup_menu(self, menubar: QtWidgets.QMenuBar = None):
+        pass  # actions auto-affected in setup_actions
 
     def connect_things(self):
         self.connect_action(Actions.STEP, self.compute_phase)
-        self.connect_action('compute_fft', lambda: self.compute_fft(update_plots=True))
+        self.connect_action(Actions.COMPUTE_FFT, lambda: self.compute_fft(update_plots=True))
         self.connect_action(Actions.CONTINUOUS, self.compute_phase_loop)
         self.connect_action('ini_algo', self.ini_algo)
-        self.connect_action('reset_phase', lambda: self.define_phase(force_reset=True))
+        self.connect_action(Actions.RESET, lambda: self.define_phase(force_reset=True))
         self.connect_action('algorithms', slot=self.set_algorithm,
                             signal_name='currentTextChanged')
+        self.connect_action(Actions.SAVE_CONTINUOUS, self.do_save_continuous)
+        self.connect_action(Actions.SHOW_SAVE_SETTINGS, self.show_saver_settings)
+
 
     def enable_things(self, enable=True, exclude: tuple[str]= ()):
         """ Given the initialization state of the chosen algorithm enable or not some actions and settings"""
-        for action in (Actions.STEP, Actions.CONTINUOUS, 'reset_phase'):
+        for action in (Actions.STEP, Actions.CONTINUOUS, Actions.RESET,
+                       Actions.SAVE_CONTINUOUS, Actions.SHOW_SAVE_SETTINGS):
             if action not in exclude:
                 self.set_action_enabled(action, enable)
         self.set_action_enabled('algorithms', not enable)
@@ -412,8 +495,10 @@ class AlgoApp(CustomApp):
                   amplitude=dte.get_data_from_full_name('object/amplitude')[0],
                   phase=dte.get_data_from_full_name('object/phase')[0],
                   pixel_sizes=self._input_field.pixels_sizes))
-
-        self.fields_to_plot.emit(dte)
+        if self.is_action_checked(Actions.SHOW_DATA):
+            self.fields_to_plot.emit(dte)
+        if self.is_action_checked(Actions.SAVE_CONTINUOUS):
+            self.save_continuous(dte)
 
 
 class AlgoRunner(QtCore.QObject):
