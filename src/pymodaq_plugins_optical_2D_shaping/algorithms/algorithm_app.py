@@ -150,19 +150,19 @@ class AlgoApp(CustomApp):
     def do_save_continuous(self, dosave: bool = True):
         if self._h5saver is None:
             self.setup_continuous_saving()
-
             self.h5saver.settings.child('base_name').setValue('Shaping')
             self.h5saver.settings.child('N_saved').show()
-            self.h5saver.settings.child('N_saved').setValue(0)
 
         self.h5saver.settings.child('do_save').setValue(dosave)
 
         if dosave:
+            self.h5saver.settings.child('N_saved').setValue(0)
             self.module_and_data_saver.get_set_node(new=True)
 
     def save_continuous(self, dte: DataToExport):
         if self._h5saver is not None:
             self.module_and_data_saver.add_data(dte)
+            self.h5saver.settings.child('N_saved').setValue(self.h5saver.settings['N_saved'] + 1)
 
     def quit_fun(self):
         super().quit_fun()
@@ -175,7 +175,8 @@ class AlgoApp(CustomApp):
         if self.save_settings:
             self.config_saver_loader.save_config()
 
-    def save(self, fname: Path = None, where: str = '/RawData', group_name: str = 'Algorithm', title: str = ''):
+    def save(self, fname: H5Saver | Path = None, where: str = '/RawData',
+             group_name: str = 'Algorithm', title: str = ''):
         """ Save the fields, algorithm settings  into a hdf5 file
 
         Parameters
@@ -489,16 +490,21 @@ class AlgoApp(CustomApp):
         self._current_data = dte
         self._current_phase: np.ndarray = dte.get_data_from_full_name('object/phase')[0].copy()
 
-
         self.object_field_signal.emit(
             Field('object',
                   amplitude=dte.get_data_from_full_name('object/amplitude')[0],
                   phase=dte.get_data_from_full_name('object/phase')[0],
                   pixel_sizes=self._input_field.pixels_sizes))
+        if self.is_action_checked(Actions.SAVE_CONTINUOUS):
+            dte_to_save = DataToExport('tosave', data=[
+                dte.get_data_from_full_name('object/phase').deepcopy(),
+                dte.get_data_from_full_name('AlgoData/metrics').deepcopy(),
+            ])
+            self.save_continuous(dte_to_save)
+
         if self.is_action_checked(Actions.SHOW_DATA):
             self.fields_to_plot.emit(dte)
-        if self.is_action_checked(Actions.SAVE_CONTINUOUS):
-            self.save_continuous(dte)
+
 
 
 class AlgoRunner(QtCore.QObject):
