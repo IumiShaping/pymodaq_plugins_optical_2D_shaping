@@ -2,6 +2,7 @@ import numpy as np
 from qtpy import QtWidgets, QtCore
 from pathlib import Path
 
+
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import ApplyMaskTo
 from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
@@ -28,6 +29,7 @@ from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoade
 from pymodaq_plugins_optical_2D_shaping.utilities.corrections import Correction
 from pymodaq_plugins_optical_2D_shaping.algorithms import AlgorithmFactory, AlgoBase
 from pymodaq_plugins_optical_2D_shaping.utilities import sizing
+
 
 
 logger = set_logger(get_module_name(__file__))
@@ -63,7 +65,6 @@ class OpticalShaping(CustomExt):
         self.image_viewers: ViewerDispatcher = None
         self.intermediate_viewer: Viewer2D = None
         self.other_viewers: ViewerDispatcher = None
-
 
         self._algorithm: AlgoApp = None
 
@@ -331,6 +332,8 @@ class OpticalShaping(CustomExt):
         self._algorithm.object_field_signal.connect(self.update_object)
         self._input_field_loader.field_signal.connect(self._algorithm.set_input_field)
         self._target_field_loader.field_signal.connect(self._algorithm.set_target_field)
+
+        self.set_menu(self._algorithm.menu)  #adds this to the menu dict (automatically added in the sharedUI)
 
         self.intermediate_viewer.roi_select_signal.connect(
             lambda roi: self._algorithm.update_intermediate_slices(roi.to_slices()))
