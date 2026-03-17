@@ -29,7 +29,7 @@ from pymodaq_gui.h5modules.saving import H5Saver
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
 from pymodaq_plugins_optical_2D_shaping.algorithms.algo_base import AlgoBase
 from pymodaq_plugins_optical_2D_shaping.algorithms.ini_phase import PhaseFactory, PhaseBase
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import ApplyMaskTo, LensSetup
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import ApplyMaskTo, LensSetup, CrossTalk
 from pymodaq_plugins_optical_2D_shaping.utilities.masking import MaskType
 from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
@@ -41,6 +41,7 @@ from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 algo_factory = AlgorithmFactory()
 phase_factory = PhaseFactory()
 algo_config = AlgoConfig()
+
 config = GlobalConfig()
 
 class Actions(StrEnum):
@@ -59,13 +60,18 @@ class AlgoApp(CustomApp):
     save_settings = True
     params = [
 
-        {'title': 'Target Phase', 'name': 'target_phase_group', 'type': 'group',
+        {'title': 'Initial Phase', 'name': 'ini_phase_group', 'type': 'group',
          'children': [
-             {'title': 'Target Phase', 'name': 'target_phase_factory', 'type': 'list',
+             {'title': 'Target Phase', 'name': 'ini_phase_factory', 'type': 'list',
               'value': phase_factory.phases[0],
               'limits': phase_factory.phases},
              {'title': 'Phase Parameters', 'name': 'phase_params', 'type': 'group', 'children': []},
          ]},
+        {'title': 'Pixel Crosstalk:', 'name': 'crosstalk', 'type': 'group', 'children':[
+            {'title': 'Apply:', 'name': 'apply', 'type': 'bool', 'value': plugin_config('algo', 'crosstalk', 'apply')},
+            {'title': 'Value (pxl):', 'name': 'value', 'type': 'float',
+             'value': plugin_config('algo', 'crosstalk', 'value')},
+        ]},
         {'title': 'Target Masking', 'name': str(ApplyMaskTo.TARGET), 'type': 'group', 'children': [
             {'title': 'Apply Mask', 'name': 'apply_mask', 'type': 'bool', 'value': False},
             {'title': 'Mask Type', 'name': 'mask_type', 'type': 'list', 'value': str(MaskType.SQUARE),
@@ -108,9 +114,9 @@ class AlgoApp(CustomApp):
         self.set_settings_values()
 
         for phase in phase_factory.phases:
-            self.settings.child('target_phase_group', 'phase_params').addChild(
+            self.settings.child('ini_phase_group', 'phase_params').addChild(
                 {'title': phase, 'name': phase, 'type': 'group',
-                 'visible': self.settings['target_phase_group', 'target_phase_factory'] == phase,
+                 'visible': self.settings['ini_phase_group', 'ini_phase_factory'] == phase,
                  'children': phase_factory.get_phase(phase).params})
 
         self.module_and_data_saver: ShapingSaver = None
@@ -252,7 +258,8 @@ class AlgoApp(CustomApp):
                 QtWidgets.QApplication.processEvents()
 
             self._algorithm: AlgoBase = \
-                algo_factory.get_algorithm(algo_name)(self)
+                algo_factory.get_algorithm(algo_name)(self, CrossTalk(self.settings['crosstalk', 'apply'],
+                                                                      self.settings['crosstalk', 'value'], ))
 
             #change the chosen setup type (defined by the algo) in the config, to be used elsewhere
             setup_types: list[str] = plugin_config['setup', 'setup_type']
@@ -291,9 +298,9 @@ class AlgoApp(CustomApp):
     @property
     def ini_phase_object(self) -> PhaseBase:
         return phase_factory.get_phase(
-            self.settings['target_phase_group', 'target_phase_factory'])(
-            self.settings.child('target_phase_group', 'phase_params',
-                                self.settings['target_phase_group', 'target_phase_factory']),
+            self.settings['ini_phase_group', 'ini_phase_factory'])(
+            self.settings.child('ini_phase_group', 'phase_params',
+                                self.settings['ini_phase_group', 'ini_phase_factory']),
         self.algorithm)
 
     def ini_algo(self):
@@ -478,9 +485,12 @@ class AlgoApp(CustomApp):
         for applied in ApplyMaskTo.values():
             if applied in putils.get_param_path(param):
                self._algorithm.update_mask = True
-        if param.name() == 'target_phase_factory':
-            for param_child in self.settings.child('target_phase_group', 'phase_params').children():
+        if param.name() == 'ini_phase_factory':
+            for param_child in self.settings.child('ini_phase_group', 'phase_params').children():
                 param_child.show(param.value() == param_child.name() and param_child.hasChildren())
+        if 'crosstalk' in putils.get_param_path(param):
+            self._algorithm.crosstalk = CrossTalk(self.settings['crosstalk', 'apply'],
+                                                  self.settings['crosstalk', 'value'], )
         self.save_algo_parameters()
 
     def algo_settings_changed(self):

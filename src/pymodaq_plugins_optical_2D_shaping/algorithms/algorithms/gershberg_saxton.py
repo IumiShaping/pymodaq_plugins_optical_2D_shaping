@@ -45,7 +45,7 @@ class GbSax(AlgoBase):
 
     params = []
 
-    def __init__(self, parent: 'AlgoApp' = None):
+    def __init__(self, parent: 'AlgoApp' = None, *args, **kwargs):
         super().__init__(parent)
         self._algo_init = False
 
@@ -111,7 +111,7 @@ class Projections(GbSax):
          'tip': 'The mixing ratio correspond to the MRAF hyperparameter. A ROI in the target plane must be selected'
                 'for this to work. A value of 1 corresponds to the standard Gerchberg-Saxton algorithm'},]
 
-    def __init__(self, parent: 'AlgoApp' = None):
+    def __init__(self, parent: 'AlgoApp' = None, *args, **kwargs):
         super().__init__(parent)
 
         self.amplitude_mask: Field = None

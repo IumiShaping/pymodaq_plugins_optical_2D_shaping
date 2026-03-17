@@ -64,7 +64,7 @@ class TorchBase(AlgoBase):
         {'title': 'Loss Parameters', 'name': 'loss_params', 'type': 'group', 'children': []}
     ]
 
-    def __init__(self, parent: 'AlgoApp' = None):
+    def __init__(self, parent: 'AlgoApp' = None, *args, **kwargs):
         super().__init__(parent)
         self._slices: tuple[slice, slice] = None
         self.iter = 0
