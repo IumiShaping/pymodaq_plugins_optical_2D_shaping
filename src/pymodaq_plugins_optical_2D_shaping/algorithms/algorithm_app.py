@@ -29,7 +29,7 @@ from pymodaq_gui.h5modules.saving import H5Saver
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
 from pymodaq_plugins_optical_2D_shaping.algorithms.algo_base import AlgoBase
 from pymodaq_plugins_optical_2D_shaping.algorithms.ini_phase import PhaseFactory, PhaseBase
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import ApplyMaskTo, LensSetup, CrossTalk
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import ApplyMaskTo, LensSetup, CrossTalk, PhaseWrap
 from pymodaq_plugins_optical_2D_shaping.utilities.masking import MaskType
 from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
@@ -67,6 +67,11 @@ class AlgoApp(CustomApp):
               'limits': phase_factory.phases},
              {'title': 'Phase Parameters', 'name': 'phase_params', 'type': 'group', 'children': []},
          ]},
+        {'title': 'Phase Wrap:', 'name': 'phase_wrap', 'type': 'group', 'children': [
+            {'title': 'Apply:', 'name': 'apply', 'type': 'bool', 'value': plugin_config('algo', 'phase_wrap', 'apply')},
+            {'title': 'Value (Pi):', 'name': 'value', 'type': 'int',
+             'value': plugin_config('algo', 'phase_wrap', 'value')},
+        ]},
         {'title': 'Pixel Crosstalk:', 'name': 'crosstalk', 'type': 'group', 'children':[
             {'title': 'Apply:', 'name': 'apply', 'type': 'bool', 'value': plugin_config('algo', 'crosstalk', 'apply')},
             {'title': 'Value (pxl):', 'name': 'value', 'type': 'float',
@@ -258,8 +263,11 @@ class AlgoApp(CustomApp):
                 QtWidgets.QApplication.processEvents()
 
             self._algorithm: AlgoBase = \
-                algo_factory.get_algorithm(algo_name)(self, CrossTalk(self.settings['crosstalk', 'apply'],
-                                                                      self.settings['crosstalk', 'value'], ))
+                algo_factory.get_algorithm(algo_name)(
+                    self,
+                    CrossTalk(self.settings['crosstalk', 'apply'], self.settings['crosstalk', 'value'],),
+                    PhaseWrap(self.settings['phase_wrap', 'apply'], self.settings['phase_wrap', 'value'],),
+                )
 
             #change the chosen setup type (defined by the algo) in the config, to be used elsewhere
             setup_types: list[str] = plugin_config['setup', 'setup_type']
@@ -488,9 +496,13 @@ class AlgoApp(CustomApp):
         if param.name() == 'ini_phase_factory':
             for param_child in self.settings.child('ini_phase_group', 'phase_params').children():
                 param_child.show(param.value() == param_child.name() and param_child.hasChildren())
-        if 'crosstalk' in putils.get_param_path(param):
+        elif 'crosstalk' in putils.get_param_path(param):
             self._algorithm.crosstalk = CrossTalk(self.settings['crosstalk', 'apply'],
                                                   self.settings['crosstalk', 'value'], )
+        elif 'phase_wrap' in putils.get_param_path(param):
+            self._algorithm.phase_wrap = PhaseWrap(self.settings['phase_wrap', 'apply'],
+                                                   self.settings['phase_wrap', 'value'], )
+
         self.save_algo_parameters()
 
     def algo_settings_changed(self):

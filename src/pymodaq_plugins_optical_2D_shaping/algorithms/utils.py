@@ -39,3 +39,12 @@ class CrossTalk:
     value: float = 0.5
 
 
+@dataclasses.dataclass
+class PhaseWrap:
+    apply: bool = True
+    value: int = 2
+
+
+
+
+
