@@ -68,6 +68,10 @@ default_algo = ['Gerchberg-Saxton']  #will be populated at startup from the read
     apply = false
     value = 0.5
 
+    [algo.phase_wrap]
+    apply = false
+    value = 2 # in units of pi
+
 [corrections]
     [corrections.actuators]
     focal_length = true

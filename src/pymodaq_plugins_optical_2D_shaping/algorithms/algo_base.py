@@ -12,7 +12,7 @@ from pymodaq_data import Q_, DataRaw, DataToExport
 from pymodaq_gui.managers.parameter_manager import ParameterManager
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import (AlgoType, ApplyMaskTo,
-                                                                 LensSetup, CrossTalk)
+                                                                 LensSetup, CrossTalk, PhaseWrap)
 from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 from pymodaq_plugins_optical_2D_shaping.utilities.masking import MaskType
@@ -52,12 +52,17 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     params = []
 
 
-    def __init__(self, parent: 'AlgoApp' = None, crosstalk = CrossTalk()):
+    def __init__(self, parent: 'AlgoApp' = None,
+                 crosstalk = CrossTalk(),
+                 phase_wrap = PhaseWrap(),):
+
         super().__init__()
 
         self._running = False
         self.fitness_name: str = ''
+
         self._crosstalk: CrossTalk = crosstalk
+        self._phase_wrap: PhaseWrap = phase_wrap
 
         self.parent_app = parent
         self._target_field = Field(amplitude=np.zeros(sizing.get_effective_needed_field_size()))
@@ -77,6 +82,14 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     @crosstalk.setter
     def crosstalk(self, crosstalk: CrossTalk):
         self._crosstalk = crosstalk
+
+    @property
+    def phase_wrap(self) -> PhaseWrap:
+        return  self._phase_wrap
+
+    @phase_wrap.setter
+    def phase_wrap(self, phase_wrap: PhaseWrap):
+        self._phase_wrap = phase_wrap
 
     def quit(self):
         """ to reimplement if necessary"""
@@ -185,10 +198,11 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     def set_phase_in_object_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
         if phase.shape == self._object_field.shape:
             phase = phase.copy()
+            if self.phase_wrap.apply:
+                phase = phase % (self.phase_wrap.value * np.pi)
             if self.crosstalk.apply:
-                phase = gaussian_filter(phase % (2 * np.pi), self.crosstalk.value)
-            else:
-                phase = phase % (2 * np.pi)
+                phase = gaussian_filter(phase, self.crosstalk.value)
+
             self._object_field.phase = phase
             self._object_field.amplitude = (
                     self._input_field.amplitude.copy() *
