@@ -68,6 +68,9 @@ class AlgoApp(CustomApp):
               'limits': phase_factory.phases},
              {'title': 'Phase Parameters', 'name': 'phase_params', 'type': 'group', 'children': []},
          ]},
+        {'title': 'Stopping Criteria:', 'name': 'stopping', 'expanded': False, 'type': 'group',
+         'children': []},
+
         {'title': 'Phase Wrap:', 'name': 'phase_wrap', 'type': 'group', 'children': [
             {'title': 'Apply:', 'name': 'apply', 'type': 'bool', 'value': plugin_config('algo', 'phase_wrap', 'apply')},
             {'title': 'Value (Pi):', 'name': 'value', 'type': 'int',
