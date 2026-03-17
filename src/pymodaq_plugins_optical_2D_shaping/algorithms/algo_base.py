@@ -221,31 +221,32 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         To be subclassed if the given implementation below is not correct for your algorithm"""
         if self.ALGOTYPE == AlgoType.AMPLITUDE:
             self.fitness_name = 'NRMSE'
-            return self.rmse
+            return self.nrmse
 
         elif self.ALGOTYPE == AlgoType.AMPLITUDE_PHASE:
             self.fitness_name = 'Fidelity Error'
-            return 1 - self.fidelity
+            return 1 - self.fidelity_error
         else:
             raise TypeError('Algorithm type not supported')
 
     @property
-    def fidelity(self) -> float:
+    def fidelity_error(self) -> float:
         if self.apply_mask(ApplyMaskTo.TARGET):
             slices = self.get_mask_slices(ApplyMaskTo.TARGET)
         else:
             slices = (...,)
-        return (np.abs(np.sum(np.conj(self._target_field.field[*slices]) * self._image_field.field[*slices]))**2 /
+        return 1- np.sqrt(np.abs(np.sum(np.conj(self._target_field.field[*slices]) * self._image_field.field[*slices]))**2 /
                 (np.sum(self._target_field.intensity[*slices]) * np.sum(self._image_field.intensity[*slices])))
 
     @property
-    def rmse(self) -> float:
+    def nrmse(self) -> float:
         if self.apply_mask(ApplyMaskTo.TARGET):
             slices = self.get_mask_slices(ApplyMaskTo.TARGET)
         else:
             slices = (...,)
 
-        norm = np.sum(np.ones(self._target_field.shape)[*slices])
+        #norm = np.sum(np.ones(self._target_field.shape)[*slices])
+        norm = 1
 
         return np.sqrt(1 / norm * (
             np.sum(
