@@ -220,7 +220,7 @@ class OE2016(AlgoBase):
         {'title': 'Order N', 'name': 'order_n', 'type': 'int', 'value': 10,}
     ]
 
-    def __init__(self, parent: 'AlgoApp' = None):
+    def __init__(self, parent: 'AlgoApp' = None, *args, **kwargs):
         super().__init__(parent)
 
     def compute_phase(self, do_step=True, **kwargs):

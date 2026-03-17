@@ -46,7 +46,7 @@ class OL2014(AlgoBase):
 
     ]
 
-    def __init__(self, parent: 'AlgoApp' = None):
+    def __init__(self, parent: 'AlgoApp' = None, *args, **kwargs):
         super().__init__(parent)
 
     def compute_phase(self, do_step=True, **kwargs):

@@ -64,6 +64,9 @@ default_loader = ["GaussianIntensity"] #will be populated at startup from the re
 [algo]
 default_algo = ['Gerchberg-Saxton']  #will be populated at startup from the reading of the factory
  #first elet in the list used as default
+    [algo.crosstalk]
+    apply = false
+    value = 0.5
 
 [corrections]
     [corrections.actuators]

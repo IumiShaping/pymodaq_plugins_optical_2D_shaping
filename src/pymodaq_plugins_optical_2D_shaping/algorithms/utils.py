@@ -1,3 +1,4 @@
+import dataclasses
 from typing import TYPE_CHECKING
 
 from pymodaq_utils.logger import set_logger, get_module_name
@@ -30,5 +31,11 @@ class AlgoType(StrEnum):
 class ApplyMaskTo(StrEnum):
     TARGET = 'target_mask'
     INTERMEDIATE = 'intermediate_mask'
+
+
+@dataclasses.dataclass
+class CrossTalk:
+    apply: bool = False
+    value: float = 0.5
 
 
