@@ -51,6 +51,7 @@ class Actions(StrEnum):
     STOP = 'stop'
     SAVE_CONTINUOUS = 'save_continuous'
     SHOW_SAVE_SETTINGS = 'show_saving'
+    SHOW_SAVED_DATA = 'show_saved_data'
     RESET = 'reset_phase'
     COMPUTE_FFT = 'compute_fft'
     SHOW_DATA = 'show_data'
@@ -139,6 +140,7 @@ class AlgoApp(CustomApp):
             self._h5saver.init_file(update_h5=True)
         if not self._h5saver.isopen():
             self._h5saver.init_file(addhoc_file_path=self._h5saver.settings['current_h5_file'])
+
         return self._h5saver
 
     @h5saver.setter
@@ -148,6 +150,10 @@ class AlgoApp(CustomApp):
     def show_saver_settings(self, show: bool = True):
         if self._h5saver is not None:
             self.h5saver.settings_tree.setVisible(show)
+
+    def show_continuous_data(self):
+        if self._h5saver is not None:
+            self.h5saver.show_file_content()
 
     def close_file(self):
         if self._h5saver is not None:
@@ -293,6 +299,7 @@ class AlgoApp(CustomApp):
                 self.set_target_field(self._target_field)
             self.set_action_visible(Actions.CONTINUOUS, self._algorithm.ITERATIVE)
             self.set_action_visible(Actions.SAVE_CONTINUOUS, self._algorithm.ITERATIVE)
+            self.set_action_visible(Actions.SHOW_SAVED_DATA, self._algorithm.ITERATIVE)
 
             self.config_saver_loader.base_path = [self._algorithm.ALGO_NAME]
             self.set_settings_values()
@@ -403,6 +410,9 @@ class AlgoApp(CustomApp):
         self.add_action(Actions.SAVE_CONTINUOUS, 'Save Continuous', 'save_clock',
                         tip="Save continuously the algorithm output",
                         checkable=True, icon_checked_color=self.get_theme().green)
+        self.add_action(Actions.SHOW_SAVED_DATA, 'Show file content', 'folder_data',
+                        tip='Browse the content of the current HDF5 file')
+        self.set_action_visible(Actions.SHOW_SAVED_DATA, False)
 
     def setup_menu(self, menubar: QtWidgets.QMenuBar = None):
         pass  # actions auto-affected in setup_actions
@@ -417,12 +427,14 @@ class AlgoApp(CustomApp):
                             signal_name='currentTextChanged')
         self.connect_action(Actions.SAVE_CONTINUOUS, self.do_save_continuous)
         self.connect_action(Actions.SHOW_SAVE_SETTINGS, self.show_saver_settings)
+        self.connect_action(Actions.SHOW_SAVED_DATA, self.show_continuous_data)
 
 
     def enable_things(self, enable=True, exclude: tuple[str]= ()):
         """ Given the initialization state of the chosen algorithm enable or not some actions and settings"""
         for action in (Actions.STEP, Actions.CONTINUOUS, Actions.RESET,
-                       Actions.SAVE_CONTINUOUS, Actions.SHOW_SAVE_SETTINGS):
+                       Actions.SAVE_CONTINUOUS, Actions.SHOW_SAVE_SETTINGS,
+                       Actions.SHOW_SAVED_DATA):
             if action not in exclude:
                 self.set_action_enabled(action, enable)
         self.set_action_enabled('algorithms', not enable)
@@ -526,7 +538,6 @@ class AlgoApp(CustomApp):
 
         if self.is_action_checked(Actions.SHOW_DATA):
             self.fields_to_plot.emit(dte)
-
 
 
 class AlgoRunner(QtCore.QObject):
