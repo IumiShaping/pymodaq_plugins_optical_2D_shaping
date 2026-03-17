@@ -52,15 +52,12 @@ class OpticalShaping(CustomExt):
     def __init__(self, dockarea, dashboard):
         super().__init__(dockarea, dashboard)
 
-        self.viewer_fitness: Viewer0D = None
-        self.viewer_observable: ViewerDispatcher = None
-
         self._target_field_loader: FieldLoaderApp = None
         self._input_field_loader: FieldLoaderApp = None
 
         self._object_field: Field = None
         self._correction_phase: DataCalculated = None
-
+        self.metrics_viewer:  ViewerDispatcher = None
         self.object_viewers: ViewerDispatcher = None
         self.image_viewers: ViewerDispatcher = None
         self.intermediate_viewer: Viewer2D = None
@@ -206,7 +203,7 @@ class OpticalShaping(CustomExt):
 
         self.docks['image_field'] = gutils.Dock('Output Plane')
         self.docks['object_field'] = gutils.Dock('Input Plane')
-        self.docks['metrics'] = gutils.Dock('Fitness')
+        self.docks['metrics'] = gutils.Dock('Metrics')
         self.dockarea.addDock(self.docks['metrics'], 'left')
         self.dockarea.addDock(self.docks['object_field'], 'right')
         self.dockarea.addDock(self.docks['image_field'], 'bottom', self.docks['object_field'])
@@ -343,7 +340,11 @@ class OpticalShaping(CustomExt):
             viewer.roi_select_signal.connect(lambda roi: self._algorithm.update_target_slices(roi.to_slices()))
 
         if layout_path.joinpath('shaping.dock').is_file():
-            load_layout_state(self.dockarea, layout_path.joinpath('shaping.dock'))
+            try:
+                load_layout_state(self.dockarea, layout_path.joinpath('shaping.dock'))
+            except Exception as e:
+                logger.warning(f'Could not restore layout state: {e}, deleting existing file')
+                layout_path.joinpath('shaping.dock').unlink(missing_ok=True)
 
     def show_set_target_roi_select(self):
         slices = self._algorithm.constrains_slices(eval(self._algorithm.settings[ApplyMaskTo.TARGET, 'slices']))
