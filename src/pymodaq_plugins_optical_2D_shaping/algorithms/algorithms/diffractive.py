@@ -231,17 +231,17 @@ class OE2016(AlgoBase):
                                             gamma=self.settings['gamma'],
                                             order_n = self.settings['order_n'])
 
-        self.set_phase_in_object_plane(diff_phase)
+        self.set_phase_in_modulator_plane(diff_phase)
 
         circ_aperture = self.get_mask_field(apply_to=ApplyMaskTo.INTERMEDIATE, inner_value=1, outer_value=0)
-        self.intermediate_field = self.object_field.fft2() * circ_aperture.amplitude
+        self.intermediate_field = self.modulator_field.fft2() * circ_aperture.amplitude
         self.intermediate_field.calibrate_axes(self.intermediate_pixel_sizes)
         self.intermediate_field.axes = self.intermediate_field.get_axes()
 
-        self._image_field = self.intermediate_field.ifft2()
+        self._output_field = self.intermediate_field.ifft2()
 
-        self.image_field.calibrate_axes(self._target_field.pixels_sizes)
-        self.image_field.axes = self.image_field.get_axes()
+        self.output_field.calibrate_axes(self._target_field.pixels_sizes)
+        self.output_field.axes = self.output_field.get_axes()
 
     def value_changed(self, param):
         self.parent_app.compute_phase()

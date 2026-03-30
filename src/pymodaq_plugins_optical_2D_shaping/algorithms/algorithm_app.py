@@ -96,7 +96,7 @@ class AlgoApp(CustomApp):
     ]
 
     command_runner = QtCore.Signal(ThreadCommand)
-    object_field_signal = QtCore.Signal(Field)
+    modulator_field_signal = QtCore.Signal(Field)
     algo_changed = QtCore.Signal(AlgoBase)
     fields_to_plot = QtCore.Signal(DataToExport)
 
@@ -251,10 +251,10 @@ class AlgoApp(CustomApp):
 
     def set_input_field(self, field: Field):
 
-        object_field = field.deepcopy()
+        modulator_field = field.deepcopy()
 
         if self._algorithm is not None:
-            self._algorithm.set_object_field(object_field)
+            self._algorithm.set_modulator_field(modulator_field)
             self._algorithm.set_input_field(field)
             self.define_phase(force_reset=True)
 
@@ -311,7 +311,7 @@ class AlgoApp(CustomApp):
             self.enable_things(False)
 
     @property
-    def ini_phase_object(self) -> PhaseBase:
+    def ini_phase_modulator(self) -> PhaseBase:
         return phase_factory.get_phase(
             self.settings['ini_phase_group', 'ini_phase_factory'])(
             self.settings.child('ini_phase_group', 'phase_params',
@@ -452,7 +452,7 @@ class AlgoApp(CustomApp):
     def define_phase(self, force_reset=False):
         if self._algorithm is not None:
             if force_reset:
-                self._current_phase = self.ini_phase_object.compute_phase()
+                self._current_phase = self.ini_phase_modulator.compute_phase()
                 self.algorithm.define_input_phase(self._current_phase)
 
     def compute_fft(self, update_plots=True):
@@ -522,16 +522,16 @@ class AlgoApp(CustomApp):
 
     def process_output(self, dte: DataToExport):
         self._current_data = dte
-        self._current_phase: np.ndarray = dte.get_data_from_full_name('object/phase')[0].copy()
+        self._current_phase: np.ndarray = dte.get_data_from_full_name('modulator/phase')[0].copy()
 
-        self.object_field_signal.emit(
-            Field('object',
-                  amplitude=dte.get_data_from_full_name('object/amplitude')[0],
-                  phase=dte.get_data_from_full_name('object/phase')[0],
+        self.modulator_field_signal.emit(
+            Field('modulator',
+                  amplitude=dte.get_data_from_full_name('modulator/amplitude')[0],
+                  phase=dte.get_data_from_full_name('modulator/phase')[0],
                   pixel_sizes=self._input_field.pixels_sizes))
         if self.is_action_checked(Actions.SAVE_CONTINUOUS):
             dte_to_save = DataToExport('tosave', data=[
-                dte.get_data_from_full_name('object/phase').deepcopy(),
+                dte.get_data_from_full_name('modulator/phase').deepcopy(),
                 dte.get_data_from_full_name('AlgoData/metrics').deepcopy(),
             ])
             self.save_continuous(dte_to_save)
