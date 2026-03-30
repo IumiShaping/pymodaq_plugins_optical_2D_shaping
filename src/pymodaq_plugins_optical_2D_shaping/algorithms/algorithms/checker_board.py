@@ -66,8 +66,8 @@ class OL2014(AlgoBase):
         theta_field.phase *= odd_mask
         alpha_field.phase *= even_mask
 
-        self.set_phase_in_object_plane(theta_field.phase + alpha_field.phase)
-        self.intermediate_field = self.object_field.fft2(norm='forward') * np.prod(self.object_field.shape)
+        self.set_phase_in_modulator_plane(theta_field.phase + alpha_field.phase)
+        self.intermediate_field = self.modulator_field.fft2(norm='forward') * np.prod(self.modulator_field.shape)
         if self.apply_mask(apply_to=ApplyMaskTo.INTERMEDIATE):
             circ_aperture = self.get_mask_field(apply_to=ApplyMaskTo.INTERMEDIATE)
             self.intermediate_field.amplitude = self.intermediate_field.amplitude * circ_aperture.amplitude
@@ -75,14 +75,14 @@ class OL2014(AlgoBase):
         self.intermediate_field.calibrate_axes(self.intermediate_pixel_sizes)
         self.intermediate_field.axes = self.intermediate_field.get_axes()
 
-        self._image_field = self.intermediate_field.ifft2(norm='forward')
+        self._output_field = self.intermediate_field.ifft2(norm='forward')
 
         target_pixel_sizes = [((Q_(plugin_config('setup', 'wavelength_nm',), 'nm') *
                                Q_(plugin_config('setup', str(self.SETUP_TYPE), 'focals')[1], 'mm')) /
                                (self.intermediate_pixel_sizes[ind] * theta_field.shape[ind])
                               ).to('um') for ind in range(2)]
-        self.image_field.calibrate_axes(target_pixel_sizes)
-        self.image_field.axes = self.image_field.get_axes()
+        self.output_field.calibrate_axes(target_pixel_sizes)
+        self.output_field.axes = self.output_field.get_axes()
 
     def create_checker_board(self) -> np.ndarray:
 

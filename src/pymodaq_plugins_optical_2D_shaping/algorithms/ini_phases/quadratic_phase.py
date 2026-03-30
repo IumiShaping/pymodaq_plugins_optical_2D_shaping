@@ -29,7 +29,7 @@ class QuadraticPhase(PhaseBase):
 
         r = ((self._compute_quadratic_factor().to_reduced_units().magnitude *  # approximated from two lens computation
               self.settings['quad_amp'])  # manual coefficient to move the shift
-             * 1.75)  # adhoc coefficient to match target size
+             * 1)  # adhoc coefficient to match target size
         xx_quad, yy_quad = np.meshgrid(r[1] * xlin ** 2,
                                        r[0] * ylin ** 2)
         phase = xx_quad + yy_quad
@@ -37,7 +37,7 @@ class QuadraticPhase(PhaseBase):
 
         coeff = self._compute_linear_factor()  # approximated from lens computation
         d = (self.settings['shift_amp']  # manual coefficient to move the shift
-             * 3)  # adhoc coefficient to correctly match target roi position
+             * 1)  # adhoc coefficient to correctly match target roi position
         xxlin, yylin = np.meshgrid(d * coeff[1] * xlin,
                                    d * coeff[0] * ylin)
         phase += xxlin + yylin
@@ -63,7 +63,8 @@ class QuadraticPhase(PhaseBase):
         return focal_quad
 
     def _compute_quadratic_factor(self):
-        pixel_sizes = Q_(np.array([self.algo.input_field_pixels_sizes[ind].magnitude for ind in range(2)]),
+        binning = plugin_config('sizing', 'binning')
+        pixel_sizes = Q_(np.array([self.algo.input_field_pixels_sizes[ind].magnitude / binning for ind in range(2)]),
                          self.algo.input_field_pixels_sizes[0].units)
 
         wavelength = Q_(plugin_config('setup', 'wavelength_nm', ), 'nm')

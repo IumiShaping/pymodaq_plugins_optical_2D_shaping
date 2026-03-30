@@ -69,9 +69,9 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self._input_field = Field(amplitude=np.zeros(sizing.get_effective_needed_field_size()))
         self.intermediate_field: Optional[Field] = None
 
-        self._object_field = Field(amplitude=np.zeros(sizing.get_effective_needed_field_size()))
-        self._object_field.calibrate_axes(self._input_field.pixels_sizes)
-        self._image_field = Field(amplitude=np.zeros(sizing.get_effective_needed_field_size()))
+        self._modulator_field = Field(amplitude=np.zeros(sizing.get_effective_needed_field_size()))
+        self._modulator_field.calibrate_axes(self._input_field.pixels_sizes)
+        self._output_field = Field(amplitude=np.zeros(sizing.get_effective_needed_field_size()))
 
         self.update_mask = True
 
@@ -130,12 +130,12 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         return self.parent_app.get_mask_type(apply_to)
 
     @property
-    def image_field(self) -> Field:
-        return self._image_field
+    def output_field(self) -> Field:
+        return self._output_field
 
     @property
-    def object_field(self) -> Field:
-        return self._object_field
+    def modulator_field(self) -> Field:
+        return self._modulator_field
 
     @property
     def target_field_pixels_sizes(self) -> tuple[Q_, Q_]:
@@ -155,14 +155,12 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
     def define_input_phase(self, phase):
         phase = (phase + np.pi) % (2 * np.pi) - np.pi
-        self.set_phase_in_object_plane(phase)
+        self.set_phase_in_modulator_plane(phase)
 
     def compute_forward_fft(self, update_plots = True):
         """ Compute the forward fft usnig the "forward nomalization and the shape prefactor"""
-        self._image_field = self._object_field.fft2(norm='forward') * np.prod(self._object_field.shape)
-        # self._image_field = self.normalize_wrt(self._object_field.fft2(norm='forward'),
-        #                                        self.object_field)
-        self._image_field = self.scale_target_with_geometry(self._image_field)
+        self._output_field = self._modulator_field.fft2(norm='forward') * np.prod(self._modulator_field.shape)
+        self._output_field = self.scale_target_with_geometry(self._output_field)
 
         if update_plots and self.parent_app is not None:
             self.parent_app.fields_to_plot.emit(self.get_fields_to_plot())
@@ -183,78 +181,79 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     def start(self):
         self._running = True
 
-    def set_object_field(self, field: Field):
-        self._object_field = field
-        self.do_things_after_set_object()
+    def set_modulator_field(self, field: Field):
+        self._modulator_field = field
+        self.do_things_after_set_modulator()
 
     def set_target_field(self, field: Field):
         self._target_field = self.normalize_wrt(field, self._input_field)
-        self._image_field = Field.init_from_field(self._target_field)
+        self._output_field = Field.init_from_field(self._target_field)
         self.do_things_after_set_target()
 
     def set_target_intensity(self, intensity: np.ndarray):
         self._target_field.amplitude = np.sqrt(intensity)
 
-    def set_phase_in_object_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
-        if phase.shape == self._object_field.shape:
+    def set_phase_in_modulator_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
+        if phase.shape == self._modulator_field.shape:
             phase = phase.copy()
             if self.phase_wrap.apply:
                 phase = phase % (self.phase_wrap.value * np.pi)
             if self.crosstalk.apply:
                 phase = gaussian_filter(phase, self.crosstalk.value)
 
-            self._object_field.phase = phase
-            self._object_field.amplitude = (
+            self._modulator_field.phase = phase
+            self._modulator_field.amplitude = (
                     self._input_field.amplitude.copy() *
                     (induced_amplitude if induced_amplitude is not None else 1))
         else:
             raise ValueError('The phase shape is incoherent with the parameters')
 
     @property
-    def intensity_image(self):
-        return self._image_field.intensity
+    def intensity_output(self):
+        return self._output_field.intensity
 
     @property
     def fitness(self) -> float:
-        """ Compute fitness with respect to the image_field and target_field
+        """ Compute fitness with respect to the output_field and target_field
 
         To be subclassed if the given implementation below is not correct for your algorithm"""
         if self.ALGOTYPE == AlgoType.AMPLITUDE:
             self.fitness_name = 'NRMSE'
-            return self.rmse
+            return self.nrmse
 
         elif self.ALGOTYPE == AlgoType.AMPLITUDE_PHASE:
             self.fitness_name = 'Fidelity Error'
-            return 1 - self.fidelity
+            return 1 - self.fidelity_error
         else:
             raise TypeError('Algorithm type not supported')
 
     @property
-    def fidelity(self) -> float:
+    def fidelity_error(self) -> float:
         if self.apply_mask(ApplyMaskTo.TARGET):
             slices = self.get_mask_slices(ApplyMaskTo.TARGET)
         else:
             slices = (...,)
-        return (np.abs(np.sum(np.conj(self._target_field.field[*slices]) * self._image_field.field[*slices]))**2 /
-                (np.sum(self._target_field.intensity[*slices]) * np.sum(self._image_field.intensity[*slices])))
+        return 1- np.sqrt(np.abs(np.sum(np.conj(self._target_field.field[*slices]) * self._output_field.field[*slices])) ** 2 /
+                          (np.sum(self._target_field.intensity[*slices]) * np.sum(self._output_field.intensity[*slices])))
 
     @property
-    def rmse(self) -> float:
+    def nrmse(self) -> float:
         if self.apply_mask(ApplyMaskTo.TARGET):
             slices = self.get_mask_slices(ApplyMaskTo.TARGET)
         else:
             slices = (...,)
 
-        norm = np.sum(np.ones(self._target_field.shape)[*slices])
+        #norm = np.sum(np.ones(self._target_field.shape)[*slices])
+        norm = 1
 
         return np.sqrt(1 / norm * (
-            np.sum(
-                (self._target_field.intensity[*slices] - self._image_field.intensity[*slices]) ** 2) /
-                np.sum(self._image_field.intensity[*slices] ** 2)))
+                np.sum(
+                    (self._target_field.intensity[*slices] - self._output_field.intensity[*slices]) ** 2) /
+                np.sum(self._output_field.intensity[*slices] ** 2)))
 
     @property
     def efficiency(self) -> float:
-        """ Compute efficiency as the ratio between image_field intensity within a given region
+        """ Compute efficiency as the ratio between output_field intensity within a given region
         and total intensity
 
         Meaningfully only for algorithm using a Target defined mask
@@ -265,8 +264,8 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         else:
             slices = (...,)
 
-        return (np.sum(self._image_field.intensity[*slices]) /
-                np.sum(self._image_field.intensity))
+        return (np.sum(self._output_field.intensity[*slices]) /
+                np.sum(self._output_field.intensity))
 
     def fitness_as_dwa(self):
         return DataRaw('fitness', data=[np.array([self.fitness])],
@@ -278,7 +277,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
                        labels=[self.fitness_name, 'efficiency'])
 
     def compute_phase(self, do_step=True, ini_phase: np.ndarray = None, **kwargs):
-        """ Compute the phase to apply to SLM given the target object
+        """ Compute the phase to apply to SLM given the target Field
 
         To be subclassed in real implementation
         """
@@ -287,11 +286,11 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
     def get_fields_to_plot(self) -> DataToExport:
         dte =  DataToExport('AlgoData', data=[
-            self.image_field.amplitude_as_dwa('image'),
-            self.image_field.phase_as_dwa('image'),
+            self.output_field.amplitude_as_dwa('output'),
+            self.output_field.phase_as_dwa('output'),
             self.metrics_as_dwa(),
-            self.object_field.amplitude_as_dwa('object'),
-            self.object_field.phase_as_dwa('object'),
+            self.modulator_field.amplitude_as_dwa('modulator'),
+            self.modulator_field.phase_as_dwa('modulator'),
         ])
         if self.intermediate_field is not None:
             dte.append(self.intermediate_field.intensity_as_dwa('intermediate'))
@@ -309,7 +308,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         """ to reimplement if needed"""
         pass
 
-    def do_things_after_set_object(self):
+    def do_things_after_set_modulator(self):
         """ to reimplement if needed"""
         pass
 
@@ -325,17 +324,17 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         """ Get the expected physical size of the pixels in the target plane given
         the chosen algorithm and physical parameters: focal length, wavelength...
 
-        Here we use either a 4f setup or a 2f setup, so the image field has the same size as the SLM with a ratio given by the focal
+        Here we use either a 4f setup or a 2f setup, so the output field has the same size as the SLM with a ratio given by the focal
         length ratio
 
         """
         if input_size is None:
             input_size = [self._input_field.shape[ind] * self._input_field.pixels_sizes[ind]
                           for ind in range(2)]
-
+        binning = plugin_config('sizing', 'binning')
         if self.SETUP_TYPE == LensSetup.TwoF:
             return [Q_(plugin_config('setup', 'wavelength_nm', ), 'nm') *
-                    Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm') /
+                    Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm') * binning /
                     size for size in input_size]
 
         elif self.SETUP_TYPE == LensSetup.FourF:
@@ -359,18 +358,6 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
             return intermediate_pixel_sizes
         else:
             raise ValueError('Intermediate pixel size can only be computed for 4f setups')
-
-    def get_npad_between_image_object(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
-        """ Get the padding necessary to match object shape and image shape
-
-        If positive, the image shape is bigger than the object
-        If negative, the object shape is bigger than the image
-        """
-        npad_before = ((np.array(self._image_field.shape) -
-                        np.array(self._object_field.shape)) // 2).astype(int)
-        npad_after = (np.array(self._image_field.shape) -
-                        np.array(self._object_field.shape)) - npad_before
-        return (npad_before[0], npad_after[0]), (npad_before[1], npad_after[1])
 
     def value_changed(self, param: Parameter):
         self.parent_app.algo_settings_changed()
