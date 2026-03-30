@@ -331,10 +331,10 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         if input_size is None:
             input_size = [self._input_field.shape[ind] * self._input_field.pixels_sizes[ind]
                           for ind in range(2)]
-
+        binning = plugin_config('sizing', 'binning')
         if self.SETUP_TYPE == LensSetup.TwoF:
             return [Q_(plugin_config('setup', 'wavelength_nm', ), 'nm') *
-                    Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm') /
+                    Q_(plugin_config('setup', self.SETUP_TYPE.value, 'focals')[0], 'mm') * binning /
                     size for size in input_size]
 
         elif self.SETUP_TYPE == LensSetup.FourF:

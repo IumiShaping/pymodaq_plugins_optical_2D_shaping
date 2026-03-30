@@ -422,6 +422,7 @@ class BeamShaping(CustomExt):
         needed_pixel_size = sizing.get_effective_needed_field_size()
 
         field_size = (pixel_size * needed_pixel_size[0], pixel_size * needed_pixel_size[1])
+
         self._target_field_loader.update_pixels(algo.get_target_pixels_size(field_size))
 
     def do_things_after_config_changed(self):
