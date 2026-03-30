@@ -21,7 +21,7 @@ from pymodaq_gui.utils.layout import save_layout_state, load_layout_state
 from pymodaq_gui.parameter.ioxml import parameter_to_xml_string
 
 from pymodaq.extensions.custom_ext import CustomExt
-from pymodaq.utils.config import get_set_layout_path
+from pymodaq_gui.config import get_set_layout_path
 
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
@@ -33,17 +33,17 @@ from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 
 
 logger = set_logger(get_module_name(__file__))
-layout_path = get_set_layout_path()
+layout_path = get_set_layout_path(user=True)
 
 config = Config()
 plugin_config = PluginConfig()
 algo_factory = AlgorithmFactory
 
-EXTENSION_NAME = 'Optical Shaping'
+EXTENSION_NAME = 'BeamShaping'
 CLASS_NAME = 'OpticalShaping'
 
 
-class OpticalShaping(CustomExt):
+class BeamShaping(CustomExt):
     command_runner = QtCore.Signal(utils.ThreadCommand)
 
     params = [
@@ -55,11 +55,11 @@ class OpticalShaping(CustomExt):
         self._target_field_loader: FieldLoaderApp = None
         self._input_field_loader: FieldLoaderApp = None
 
-        self._object_field: Field = None
+        self._modulator_field: Field = None
         self._correction_phase: DataCalculated = None
         self.metrics_viewer:  ViewerDispatcher = None
-        self.object_viewers: ViewerDispatcher = None
-        self.image_viewers: ViewerDispatcher = None
+        self.modulator_viewers: ViewerDispatcher = None
+        self.output_viewers: ViewerDispatcher = None
         self.intermediate_viewer: Viewer2D = None
         self.other_viewers: ViewerDispatcher = None
 
@@ -104,13 +104,13 @@ class OpticalShaping(CustomExt):
         else:
             self._shaper = None
 
-    def update_object(self, field: Field):
-        """ field contains here the object field"""
+    def update_modulator_field(self, field: Field):
+        """ field contains here the modulator field"""
 
         if field is None:
             field = self.input_field
 
-        self._object_field = field
+        self._modulator_field = field
 
         if self._shaper is not None:
             phase_to_send = 0.
@@ -124,7 +124,7 @@ class OpticalShaping(CustomExt):
                 self._shaper.move_abs(DataActuator('phase', data=sizing.unbin_to_real_slm(phase_to_send)))
 
     def save(self, fname: Path = None):
-        """ Save fields: input, object, image, target into a hdf5 file together with settings/metadata
+        """ Save fields: input, modulator, output, target into a hdf5 file together with settings/metadata
 
         Also save the phase sent to the SLM (cropped/unbined to the SLM shape)
 
@@ -139,8 +139,8 @@ class OpticalShaping(CustomExt):
             linear_phase_array = self._corrections.compute_linear_phase(correction_values.tilt_x, correction_values.tilt_y)
             zernike_phase = self._corrections.compute_zernike_phase(correction_values.zernike)
             dte = DataToExport('SLM Phases')
-            if self._object_field is not None:
-                dte.append(self._object_field.phase_as_dwa(name='Algo Phase').isig[*self.get_slm_slices()])
+            if self._modulator_field is not None:
+                dte.append(self._modulator_field.phase_as_dwa(name='Algo Phase').isig[*self.get_slm_slices()])
 
             dte.append(DataCalculated('Quadratic Phase', data=[quad_phase_array[*self.get_slm_slices()]]),)
             dte.append(DataCalculated('Linear Phase', data=[linear_phase_array[*self.get_slm_slices()]]),)
@@ -158,7 +158,7 @@ class OpticalShaping(CustomExt):
 
     def update_correction_phase(self, dwa: DataCalculated):
         self._correction_phase = dwa
-        self.update_object(self._object_field)
+        self.update_modulator_field(self._modulator_field)
 
     @property
     def algorithm(self):
@@ -201,12 +201,12 @@ class OpticalShaping(CustomExt):
         self._corrections = Correction(self._corrections_dockarea,
                                        title='Phase Corrections')
 
-        self.docks['image_field'] = gutils.Dock('Output Plane')
-        self.docks['object_field'] = gutils.Dock('Input Plane')
+        self.docks['output_field'] = gutils.Dock('Output Plane')
+        self.docks['modulator_field'] = gutils.Dock('Modulator Plane')
         self.docks['metrics'] = gutils.Dock('Metrics')
         self.dockarea.addDock(self.docks['metrics'], 'left')
-        self.dockarea.addDock(self.docks['object_field'], 'right')
-        self.dockarea.addDock(self.docks['image_field'], 'bottom', self.docks['object_field'])
+        self.dockarea.addDock(self.docks['modulator_field'], 'right')
+        self.dockarea.addDock(self.docks['output_field'], 'bottom', self.docks['modulator_field'])
 
 
         metrics_area = gutils.DockArea()
@@ -220,13 +220,13 @@ class OpticalShaping(CustomExt):
         self.target_widget.layout().addWidget(target_area)
         self.target_widget.setVisible(False)
 
-        object_area = gutils.DockArea()
-        self.object_viewers = ViewerDispatcher(object_area)
-        self.docks['object_field'].addWidget(object_area)
+        modulator_area = gutils.DockArea()
+        self.modulator_viewers = ViewerDispatcher(modulator_area)
+        self.docks['modulator_field'].addWidget(modulator_area)
 
-        image_area = gutils.DockArea()
-        self.image_viewers = ViewerDispatcher(image_area)
-        self.docks['image_field'].addWidget(image_area)
+        output_area = gutils.DockArea()
+        self.output_viewers = ViewerDispatcher(output_area)
+        self.docks['output_field'].addWidget(output_area)
 
         self.intermediate_widget = QtWidgets.QWidget()
         self.intermediate_viewer = Viewer2D(self.intermediate_widget, title='Intermediate Field Intensity')
@@ -326,7 +326,7 @@ class OpticalShaping(CustomExt):
         self._algorithm.algo_changed.connect(self.update_target_loader_from_algo)
         self._algorithm.fields_to_plot.connect(self.plot_fields)
         self.update_target_loader_from_algo(self._algorithm.algorithm)
-        self._algorithm.object_field_signal.connect(self.update_object)
+        self._algorithm.modulator_field_signal.connect(self.update_modulator_field)
         self._input_field_loader.field_signal.connect(self._algorithm.set_input_field)
         self._target_field_loader.field_signal.connect(self._algorithm.set_target_field)
 
@@ -375,17 +375,17 @@ class OpticalShaping(CustomExt):
 
     def plot_fields(self, dte: DataToExport):
         metrics = dte.remove(dte.get_data_from_name('metrics'))
-        dte_image = DataToExport('image', data=[
-            dte.remove(dte.get_data_from_full_name(full_name)) for full_name in ['image/amplitude', 'image/phase']])
-        dte_object = DataToExport('object', data=[
-            dte.remove(dte.get_data_from_full_name(full_name)) for full_name in ['object/amplitude', 'object/phase']])
+        dte_output = DataToExport('output', data=[
+            dte.remove(dte.get_data_from_full_name(full_name)) for full_name in ['output/amplitude', 'output/phase']])
+        dte_modulator = DataToExport('modulator', data=[
+            dte.remove(dte.get_data_from_full_name(full_name)) for full_name in ['modulator/amplitude', 'modulator/phase']])
         try:
             dwa_intermediate = dte.remove(dte.get_data_from_full_name('intermediate/intensity'))
             self.intermediate_viewer.show_data(dwa_intermediate)
         except ValueError:  # means no intermediate data to plot
             pass
-        self.object_viewers.show_data(dte_object)
-        self.image_viewers.show_data(dte_image)
+        self.modulator_viewers.show_data(dte_modulator)
+        self.output_viewers.show_data(dte_output)
         self.metrics_viewer.show_data(metrics.split_as_dte('Metrics'))
         self.other_viewers.show_data(dte)
 
@@ -475,12 +475,12 @@ def main():
     from pymodaq_gui.qt_utils import mkQApp
     from pymodaq.dashboard import create_load_dashboard
     from pymodaq.utils.gui_utils.loader_utils import create_extension
-    app = mkQApp('OpticalShaping')
+    app = mkQApp('BeamShaping')
 
     win, dashboard = create_load_dashboard()
     win.mainwindow.setVisible(False)
 
-    win_ext, scan = create_extension(dashboard, OpticalShaping)
+    win_ext, scan = create_extension(dashboard, BeamShaping)
     win_ext.show()
 
     sys.exit(app.exec())

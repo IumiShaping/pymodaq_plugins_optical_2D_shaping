@@ -98,7 +98,7 @@ class DAQ_Move_MockHolography(DAQ_Move_base):
         self.target_value = value
         value = self.set_position_with_scaling(value)  # apply scaling if the user specified one
 
-        self.controller.set_phase_in_object_plane(value[0])  # when writing your own plugin replace this line
+        self.controller.set_phase_in_modulator_plane(value[0])  # when writing your own plugin replace this line
         self.emit_status(ThreadCommand('Update_Status', ['Some info you want to log']))
 
     def move_rel(self, value):

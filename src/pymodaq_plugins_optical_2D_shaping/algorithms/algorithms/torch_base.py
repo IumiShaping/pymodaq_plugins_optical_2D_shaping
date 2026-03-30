@@ -105,8 +105,8 @@ class TorchBase(AlgoBase):
             self._target_tensor = self.normalize_intensity_wrt(target_tensor, self._amplitude_tensor)
 
     def do_things_after_set_input(self):
-        self._object_field.amplitude = self._input_field.amplitude
-        self._amplitude_tensor = torch.from_numpy(self.object_field.amplitude)
+        self._modulator_field.amplitude = self._input_field.amplitude
+        self._amplitude_tensor = torch.from_numpy(self.modulator_field.amplitude)
 
     @staticmethod
     def compute_intensity_ratio(tensor: torch.Tensor, tensor_ref: torch.Tensor) -> torch.Tensor:
@@ -118,8 +118,8 @@ class TorchBase(AlgoBase):
 
     def do_things_after_init(self):
         # Initialize phase distribution as trainable parameter
-        self.phase_distribution = self.object_field.phase
-        self._amplitude_tensor = torch.from_numpy(self.object_field.amplitude)
+        self.phase_distribution = self.modulator_field.phase
+        self._amplitude_tensor = torch.from_numpy(self.modulator_field.amplitude)
 
         if not self._algo_init:
             self._algo_init = True
@@ -146,11 +146,11 @@ class TorchBase(AlgoBase):
         self._phase_tensor = torch.tensor(value.copy(), requires_grad=True)
 
     def compute_image_field(self, phase_input: torch.Tensor) -> torch.Tensor:
-        image_tensor = torch.fft.fftshift(
+        output_tensor = torch.fft.fftshift(
             torch.fft.fft2(self._amplitude_tensor * torch.exp(1j * phase_input), norm='forward'
             )
         )
-        return image_tensor
+        return output_tensor
 
     def compute_mask(self):
         if self.apply_mask(apply_to=ApplyMaskTo.TARGET):
@@ -160,9 +160,9 @@ class TorchBase(AlgoBase):
         self.update_mask = False
 
     def compute_loss(self, phase) -> torch.Tensor:
-        image_tensor = self.ratio * self.compute_image_field(phase)
+        output_tensor = self.ratio * self.compute_image_field(phase)
 
-        loss = self._loss.compute_loss(image_tensor * self.mask,
+        loss = self._loss.compute_loss(output_tensor * self.mask,
                                        self._target_tensor * self.mask)
         self.settings.child('loss_value').setValue(loss.item())
         return loss

@@ -73,7 +73,7 @@ class DAQ_2DViewer_MockHolography(DAQ_Viewer_base):
         self.dte_signal.emit(DataToExport(
             'GBSAX',
             data=[DataFromPlugins(name='GBSAX Intensity',
-                                  data=[self.controller.intensity_image],
+                                  data=[self.controller.intensity_output],
                                   dim='Data2D', labels=['Field Object intensity']),
                   ]))
 

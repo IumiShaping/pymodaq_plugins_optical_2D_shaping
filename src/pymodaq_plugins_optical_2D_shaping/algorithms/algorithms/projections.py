@@ -75,12 +75,12 @@ class GbSax(AlgoBase):
 
         amplitude = self._target_field.amplitude
 
-        field_image_corrected = Field(amplitude=amplitude,
-                                      phase=self._image_field.phase,
-                                      pixel_sizes=self._image_field.pixels_sizes)
+        field_output_corrected = Field(amplitude=amplitude,
+                                      phase=self._output_field.phase,
+                                      pixel_sizes=self._output_field.pixels_sizes)
 
-        field_object_corrected = self.compute_backward_fft(field_image_corrected)
-        self.set_phase_in_object_plane(field_object_corrected.phase)
+        field_modulator_corrected = self.compute_backward_fft(field_output_corrected)
+        self.set_phase_in_modulator_plane(field_modulator_corrected.phase)
 
     def compute_phase(self, do_step=True, **kwargs):
         self.propagate_field()
@@ -129,19 +129,19 @@ class Projections(GbSax):
         mask_noise = np.ones_like(mask_target) - mask_target
 
         if self.settings['weighting']:
-            weight = np.sum((np.exp(np.abs(self._target_field.amplitude - self.image_field.amplitude))))
+            weight = np.sum((np.exp(np.abs(self._target_field.amplitude - self.output_field.amplitude))))
         else:
             weight = 1
 
         amplitude = (self.settings['mixing_ratio'] * weight * self._target_field.amplitude * mask_target +
-                     (1-self.settings['mixing_ratio']) * self._image_field.amplitude * mask_noise)
+                     (1-self.settings['mixing_ratio']) * self._output_field.amplitude * mask_noise)
 
-        field_image_corrected = Field(amplitude=amplitude,
-                                      phase=self._image_field.phase,
-                                      pixel_sizes=self._image_field.pixels_sizes)
+        field_output_corrected = Field(amplitude=amplitude,
+                                      phase=self._output_field.phase,
+                                      pixel_sizes=self._output_field.pixels_sizes)
 
-        field_object_corrected = self.compute_backward_fft(field_image_corrected)
-        self.set_phase_in_object_plane(field_object_corrected.phase)
+        field_modulator_corrected = self.compute_backward_fft(field_output_corrected)
+        self.set_phase_in_modulator_plane(field_modulator_corrected.phase)
 
 
 
