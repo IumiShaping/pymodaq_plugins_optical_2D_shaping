@@ -68,7 +68,7 @@ class AlgoApp(CustomApp):
 
         {'title': 'Initial Phase', 'name': 'ini_phase_group', 'type': 'group',
          'children': [
-             {'title': 'Target Phase', 'name': 'ini_phase_factory', 'type': 'list',
+             {'title': 'Phase type:', 'name': 'ini_phase_factory', 'type': 'list',
               'value': phase_factory.phases[0],
               'limits': phase_factory.phases},
              {'title': 'Phase Parameters', 'name': 'phase_params', 'type': 'group', 'children': []},
