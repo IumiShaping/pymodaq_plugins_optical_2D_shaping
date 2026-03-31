@@ -158,7 +158,7 @@ class BeamShaping(CustomExt):
 
     def load(self, fname: Path = None):
         if fname is None:
-            fname = select_file(save=False, ext='h5beam')
+            fname = select_file(save=False, filter="BeamShaping files (*.h5beam *.h5)")
 
         if fname:
             dwa_modulator_amplitude = None
