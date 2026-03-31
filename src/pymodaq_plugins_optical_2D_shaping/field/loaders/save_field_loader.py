@@ -27,7 +27,7 @@ class SavedFieldLoader(FieldLoader):
 
     params = FieldLoader.params + \
             [{'title': 'File path:', 'name': 'file', 'type': 'browsepath',
-             'value': str(cat), 'filetype': True}
+             'value': str(cat), 'filetype': True, 'filter': "Fields (*.h5field)"}
          ]
 
 

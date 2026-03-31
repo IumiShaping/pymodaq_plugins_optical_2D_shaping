@@ -2,14 +2,15 @@ import numpy as np
 from qtpy import QtWidgets, QtCore
 from pathlib import Path
 
-
+from pymodaq_gui.messenger import messagebox
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import ApplyMaskTo
 from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_utils.config import Config
 from pymodaq.utils.data import DataToExport, DataCalculated, DataActuator, DataDim
 from pymodaq_utils.math_utils import greater2n
-from pymodaq_data.h5modules.data_saving import DataToExportSaver
+from pymodaq_data.h5modules.data_saving import DataToExportSaver, DataLoader
+
 
 from pymodaq_gui.plotting.data_viewers.viewer0D import Viewer0D
 from pymodaq_gui.plotting.data_viewers.viewer2D import Viewer2D
@@ -18,14 +19,14 @@ from pymodaq_gui.utils.file_io import select_file
 from pymodaq_gui import utils as gutils
 from pymodaq_gui.utils.widgets.tree_toml import TreeFromToml
 from pymodaq_gui.utils.layout import save_layout_state, load_layout_state
-from pymodaq_gui.parameter.ioxml import parameter_to_xml_string
+from pymodaq_gui.parameter.ioxml import parameter_to_xml_string, xml_string_to_parameter
 
 from pymodaq.extensions.custom_ext import CustomExt
 from pymodaq_gui.config import get_set_layout_path
 
 from pymodaq_plugins_optical_2D_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_optical_2D_shaping.algorithms.algorithm_app import AlgoApp
-from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, Field, Q_
+from pymodaq_plugins_optical_2D_shaping.field.field_loader_app import FieldLoaderApp, FieldLoader, Field, Q_
 from pymodaq_plugins_optical_2D_shaping.utilities.corrections import Correction
 from pymodaq_plugins_optical_2D_shaping.algorithms import AlgorithmFactory, AlgoBase
 from pymodaq_plugins_optical_2D_shaping.utilities import sizing
@@ -130,7 +131,7 @@ class BeamShaping(CustomExt):
 
         """
         if fname is None:
-            fname = select_file(save=True, ext='h5', force_save_extension=True)
+            fname = select_file(save=True, ext='h5beam', force_save_extension=True)
         if fname:
 
             correction_values = self._corrections.get_corrections()
@@ -154,6 +155,93 @@ class BeamShaping(CustomExt):
             self._target_field_loader.save_field(fname, where='/RawData', group_name='Target', title='Target Field')
 
             self.algorithm.save(fname, where='/RawData', group_name='Algorithm', title='Algorithm')
+
+    def load(self, fname: Path = None):
+        if fname is None:
+            fname = select_file(save=False, ext='h5beam')
+
+        if fname:
+            dwa_modulator_amplitude = None
+            dwa_modulator_phase = None
+            dwa_target_amplitude = None
+            dwa_target_phase = None
+            dwa_input_amplitude = None
+            dwa_input_phase = None
+
+            with DataLoader(fname) as loader:
+                algo_settings = xml_string_to_parameter(
+                    loader.h5saver.get_node('/RawData/Algorithm/').attrs['settings'])
+                target_settings = xml_string_to_parameter(
+                    loader.h5saver.get_node('/RawData/Target/').attrs['settings'])
+                input_settings = xml_string_to_parameter(
+                    loader.h5saver.get_node('/RawData/Input/').attrs['settings'])
+
+                for node in loader.walk_nodes('/RawData/Algorithm/Data2D/'):
+                    if 'ARRAY' in node.attrs['CLASS']:
+                        if node.attrs.get('origin', '') == 'modulator' and node.title == 'amplitude':
+                            dwa_modulator_amplitude = loader.load_data(node.path)
+                        elif node.attrs.get('origin', '') == 'modulator' and node.title == 'phase':
+                            dwa_modulator_phase = loader.load_data(node.path)
+                for node in loader.walk_nodes('/RawData/Target/'):
+                    if 'ARRAY' in node.attrs['CLASS']:
+                        if node.attrs.get('label', '') == 'Amplitude':
+                            dwa_target_amplitude = loader.load_data(node.path)
+                        elif node.attrs.get('label', '') == 'Phase':
+                            dwa_target_phase = loader.load_data(node.path)
+                for node in loader.walk_nodes('/RawData/Input/'):
+                    if 'ARRAY' in node.attrs['CLASS']:
+                        if node.attrs.get('label', '') == 'Amplitude':
+                            dwa_input_amplitude = loader.load_data(node.path)
+                        elif node.attrs.get('label', '') == 'Phase':
+                            dwa_input_phase = loader.load_data(node.path)
+            if dwa_modulator_amplitude.shape != sizing.get_effective_needed_field_size():
+                messagebox(
+                    title='Sizing Issue',
+                    text='Could not load this file as the size is not coherent with the current sizing configuration')
+                return
+
+            modulator_field = Field('modulator',
+                                    amplitude=dwa_modulator_amplitude[0],
+                                    phase=dwa_modulator_phase[0],
+                                    pixel_sizes=self.input_field.pixels_sizes,
+                                    )
+            input_field = Field('input',
+                                amplitude=dwa_input_amplitude[0],
+                                phase=dwa_input_phase[0],
+                                pixel_sizes=self.input_field.pixels_sizes,
+                                )
+            target_field = Field('target',
+                                 amplitude=dwa_target_amplitude[0],
+                                 phase=dwa_target_phase[0],
+                                 pixel_sizes=self.target_field.pixels_sizes,)
+
+            with self.algorithm.settings.treeChangeBlocker():
+                self.algorithm.settings.restoreState(
+                    algo_settings.child(self.algorithm.settings_name).saveState())
+            with self.algorithm.algorithm.settings.treeChangeBlocker():
+                self.algorithm.algorithm.settings.restoreState(
+                    algo_settings.child(self.algorithm.algorithm.settings_name).saveState())
+
+            with self._target_field_loader.settings.treeChangeBlocker():
+                self._target_field_loader.settings.restoreState(
+                    target_settings.child(FieldLoaderApp.settings_name).saveState())
+            with self._target_field_loader.loader.settings.treeChangeBlocker():
+                self._target_field_loader.loader.settings.restoreState(
+                    target_settings.child(FieldLoader.settings_name).saveState()
+                )
+
+            with self._input_field_loader.settings.treeChangeBlocker():
+                self._input_field_loader.settings.restoreState(
+                    input_settings.child(FieldLoaderApp.settings_name).saveState())
+            with self._input_field_loader.loader.settings.treeChangeBlocker():
+                self._input_field_loader.loader.settings.restoreState(
+                    input_settings.child(FieldLoader.settings_name).saveState()
+                )
+            self.algorithm.set_input_field(input_field)
+            self.algorithm.set_target_field(target_field)
+            self.update_modulator_field(modulator_field)
+            self.algorithm.algorithm.set_phase_in_modulator_plane(modulator_field.phase)
+            self.algorithm.compute_fft()
 
 
     def update_correction_phase(self, dwa: DataCalculated):
@@ -179,6 +267,7 @@ class BeamShaping(CustomExt):
         pyqtgraph.dockarea.Dock
         """
         self.create_dashboard_toolbar(add_break=False)
+        self.add_menu('file', 'File', menu=self.menubar)
 
         self._target_dockarea = gutils.DockArea()
         self._target_field_loader = FieldLoaderApp(self._target_dockarea,
@@ -277,7 +366,10 @@ class BeamShaping(CustomExt):
 
     def setup_actions(self):
         logger.debug('Main actions')
-        self.add_action('save', 'Save', 'save_as', 'Save Everything to a file')
+        self.add_action('save', 'Save', 'file_save', 'Save Everything to a h5beam file',
+                        menu='file', auto_menu=True)
+        self.add_action('load', 'Load', 'file_open', 'Load fields from a h5beam file',
+                        menu='file', auto_menu=True)
         self.toolbar.addSeparator()
         self.add_action('target', 'Target Selection', 'target',
                         'Open the Target FieldLoader window', checkable=True,
@@ -371,6 +463,7 @@ class BeamShaping(CustomExt):
             self.connect_action('add_corrections', self.add_corrections_actuators)
 
         self.connect_action('save', lambda: self.save())
+        self.connect_action('load', lambda: self.load())
         self.config_changed.connect(self.do_things_after_config_changed)
 
     def plot_fields(self, dte: DataToExport):
