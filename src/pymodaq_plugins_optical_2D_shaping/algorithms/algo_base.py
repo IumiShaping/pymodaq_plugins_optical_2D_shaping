@@ -234,7 +234,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         else:
             slices = (...,)
         return 1- np.sqrt(np.abs(np.sum(np.conj(self._target_field.field[*slices]) * self._output_field.field[*slices])) ** 2 /
-                          (np.sum(self._target_field.intensity[*slices]) * np.sum(self._output_field.intensity[*slices])))
+                          (np.sum(self._target_field.intensity[*slices] ** 2)))
 
     @property
     def nrmse(self) -> float:
@@ -242,14 +242,12 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
             slices = self.get_mask_slices(ApplyMaskTo.TARGET)
         else:
             slices = (...,)
-
-        #norm = np.sum(np.ones(self._target_field.shape)[*slices])
         norm = 1
 
         return np.sqrt(1 / norm * (
                 np.sum(
                     (self._target_field.intensity[*slices] - self._output_field.intensity[*slices]) ** 2) /
-                np.sum(self._output_field.intensity[*slices] ** 2)))
+                np.sum(self._target_field.intensity[*slices] ** 2)))
 
     @property
     def efficiency(self) -> float:
