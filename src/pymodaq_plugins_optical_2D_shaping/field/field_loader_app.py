@@ -217,7 +217,8 @@ class FieldLoaderApp(CustomApp):
         """
         if fname is None:
             fname = select_file(start_path=config('data', 'data_saving','h5file', 'save_path'),
-                                save=True, ext='h5')  # see daq_utils
+                                save=True, ext='h5field',
+                                force_save_extension=True)  # see daq_utils
         if fname != '':
             new_file = not fname.exists()
 
