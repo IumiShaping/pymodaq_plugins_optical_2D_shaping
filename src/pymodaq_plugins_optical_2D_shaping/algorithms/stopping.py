@@ -1,10 +1,17 @@
 from abc import ABC, abstractmethod
+from importlib import import_module
+from pathlib import Path
 from typing import Callable
 
+
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import AlgoType
+from pymodaq_utils.logger import set_logger, get_module_name
 
 
 from pymodaq_gui.parameter import Parameter
+
+
+logger = set_logger(get_module_name(__file__))
 
 
 class StoppingBase(ABC):
@@ -88,78 +95,19 @@ class StoppingFactory:
         return list(self._registry.keys())
 
 
-@StoppingFactory.register_stop()
-class NoneStop(StoppingBase):
-    """ Never automatically stops the algorithm """
-    def tell_stop(self,
-                  iterative_index: int,
-                  fitness: float,
-                  efficiency: float,
-                  *args, **kwargs) -> bool:
-        return False
+def register_stoppings(parent_module_name: str = 'pymodaq_plugins_optical_2D_shaping'):
+    """ Browse modules containing stopping criteria for optical shaping and register them in the factory"""
+    try:
+        stopping_module = import_module(f'{parent_module_name}.algorithms.stoppings')
 
+        stopping_path = Path(stopping_module.__path__[0])
 
-@StoppingFactory.register_stop()
-class Iter(StoppingBase):
-    """ Automatically stops the algorithm after it reached a given number of iteration """
+        for file in stopping_path.iterdir():
+            if file.is_file() and 'py' in file.suffix and file.stem != '__init__':
+                try:
+                    import_module(f'.{file.stem}', stopping_module.__name__)
+                except (ModuleNotFoundError, NotImplementedError) as e:
+                    logger.warning(str(e))
+    except ModuleNotFoundError as e:
+        logger.warning(str(e))
 
-    params = [
-        {'title': 'Niter max:', 'name': 'niter_max', 'type': 'int', 'value': 100}
-    ]
-
-    def tell_stop(self,
-                  iterative_index: int,
-                  fitness: float,
-                  efficiency: float,
-                  *args, **kwargs) -> bool:
-        return iterative_index >= self.settings['niter_max']
-
-
-@StoppingFactory.register_stop()
-class FitnessThreshold(StoppingBase):
-    """ Automatically stops the algorithm when its fitness is below a given threshold"""
-
-    params = [
-        {'title': 'Fitness:', 'name': 'fitness', 'type': 'float', 'value': 0.1}
-    ]
-
-    def tell_stop(self,
-                  iterative_index: int,
-                  fitness: float,
-                  efficiency: float,
-                  *args, **kwargs) -> bool:
-        return fitness <= self.settings['fitness']
-
-
-@StoppingFactory.register_stop()
-class EfficiencyThreshold(StoppingBase):
-    """ Automatically stops the algorithm when its efficiency is above a given threshold and after
-    a given number of iteration"""
-
-    params = [
-        {'title': 'Efficiency:', 'name': 'efficiency', 'type': 'float', 'value': 0.9},
-        {'title': 'Niter max:', 'name': 'niter_max', 'type': 'int', 'value': 100},
-    ]
-
-    def tell_stop(self,
-                  iterative_index: int,
-                  fitness: float,
-                  efficiency: float,
-                  *args, **kwargs) -> bool:
-        return fitness <= self.settings['fitness'] and iterative_index >= self.settings['niter_max']
-
-@StoppingFactory.register_stop()
-class FitnessConvergence(StoppingBase):
-    """ Automatically stops the algorithm when its fitness is below a given threshold"""
-    """ Never automatically stop the algorithm """
-
-    params = [
-        {'title': 'Fitness:', 'name': 'fitness', 'type': 'float', 'value': 0.1}
-    ]
-
-    def tell_stop(self,
-                  iterative_index: int,
-                  fitness: float,
-                  efficiency: float,
-                  *args, **kwargs) -> bool:
-        return fitness <= self.settings['fitness']
