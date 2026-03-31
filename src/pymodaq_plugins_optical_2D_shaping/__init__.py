@@ -8,6 +8,7 @@ config = Config()  # before field loader factory otherwise it will generate an e
 from .field import LoaderFactory, register_loaders
 from .algorithms.factory import AlgorithmFactory, register_algorithms
 from .algorithms.ini_phase import register_phases
+from .algorithms.stopping import register_stoppings
 
 logger = set_logger(get_module_name(__file__))
 
@@ -21,6 +22,13 @@ logger.info('****************************************')
 logger.info('Registering Optical Shaping ini phases')
 register_phases()
 logger.info('****************************************')
+
+
+logger.info('****************************************')
+logger.info('Registering Optical Shaping stopping criteria')
+register_stoppings()
+logger.info('****************************************')
+
 
 logger.info('****************************************')
 logger.info('Registering Optical Shaping Field loaders')

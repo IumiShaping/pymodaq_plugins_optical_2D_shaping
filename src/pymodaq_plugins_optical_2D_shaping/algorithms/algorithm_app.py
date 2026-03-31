@@ -1,6 +1,8 @@
 from abc import ABCMeta, abstractproperty
 from typing import Union
 import numpy as np
+from multipledispatch import dispatch
+from pylablib.devices.IMAQdx.nivision_defs import StoppingCriteria
 from qtpy import QtWidgets, QtCore
 from pathlib import Path
 
@@ -25,10 +27,12 @@ from pymodaq_gui.parameter import ioxml
 from pymodaq_gui.parameter import utils as putils
 from pymodaq_gui.config_saver_loader import ConfigSaverLoader
 from pymodaq_gui.h5modules.saving import H5Saver
+from pymodaq_gui.utils.widgets.spinbox import QSpinBox_ro
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFactory
 from pymodaq_plugins_optical_2D_shaping.algorithms.algo_base import AlgoBase
 from pymodaq_plugins_optical_2D_shaping.algorithms.ini_phase import PhaseFactory, PhaseBase
+from pymodaq_plugins_optical_2D_shaping.algorithms.stopping import StoppingFactory, StoppingBase
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import ApplyMaskTo, LensSetup, CrossTalk, PhaseWrap
 from pymodaq_plugins_optical_2D_shaping.utilities.masking import MaskType
 from pymodaq_plugins_optical_2D_shaping.field import Field
@@ -40,6 +44,7 @@ from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 
 algo_factory = AlgorithmFactory()
 phase_factory = PhaseFactory()
+stopping_factory = StoppingFactory()
 algo_config = AlgoConfig()
 
 config = GlobalConfig()
@@ -68,12 +73,19 @@ class AlgoApp(CustomApp):
               'limits': phase_factory.phases},
              {'title': 'Phase Parameters', 'name': 'phase_params', 'type': 'group', 'children': []},
          ]},
-        {'title': 'Phase Wrap:', 'name': 'phase_wrap', 'type': 'group', 'children': [
+        {'title': 'Stopping Criteria:', 'name': 'stopping', 'expanded': True, 'type': 'group',
+         'children': [
+             {'title': 'Stopping Type', 'name': 'stopping_type', 'type': 'list',
+              'value': stopping_factory.stops[0],
+              'limits': stopping_factory.stops},
+         ]},
+
+        {'title': 'Phase Wrap:', 'name': 'phase_wrap', 'type': 'group', 'expanded': False, 'children': [
             {'title': 'Apply:', 'name': 'apply', 'type': 'bool', 'value': plugin_config('algo', 'phase_wrap', 'apply')},
             {'title': 'Value (Pi):', 'name': 'value', 'type': 'int',
              'value': plugin_config('algo', 'phase_wrap', 'value')},
         ]},
-        {'title': 'Pixel Crosstalk:', 'name': 'crosstalk', 'type': 'group', 'children':[
+        {'title': 'Pixel Crosstalk:', 'name': 'crosstalk', 'type': 'group', 'expanded': False, 'children':[
             {'title': 'Apply:', 'name': 'apply', 'type': 'bool', 'value': plugin_config('algo', 'crosstalk', 'apply')},
             {'title': 'Value (pxl):', 'name': 'value', 'type': 'float',
              'value': plugin_config('algo', 'crosstalk', 'value')},
@@ -124,6 +136,12 @@ class AlgoApp(CustomApp):
                 {'title': phase, 'name': phase, 'type': 'group',
                  'visible': self.settings['ini_phase_group', 'ini_phase_factory'] == phase,
                  'children': phase_factory.get_phase(phase).params})
+
+        for stop in stopping_factory.stops:
+            self.settings.child('stopping').addChild(
+                {'title': stop, 'name': stop, 'type': 'group',
+                 'visible': self.settings['stopping', 'stopping_type'] == stop,
+                 'children': stopping_factory.get_stop_class(stop).params})
 
         self.module_and_data_saver: ShapingSaver = None
         self._h5saver: H5Saver = None
@@ -283,6 +301,9 @@ class AlgoApp(CustomApp):
 
             self.settings.child(str(ApplyMaskTo.INTERMEDIATE)).setOpts(
                 visible=self._algorithm.SETUP_TYPE == LensSetup.FourF)
+            self.settings.child('stopping').setOpts(
+                visible=self._algorithm.ITERATIVE == True)
+
 
             while True:
                 child = self._algo_settings_widget.layout().takeAt(0)
@@ -300,6 +321,7 @@ class AlgoApp(CustomApp):
             self.set_action_visible(Actions.CONTINUOUS, self._algorithm.ITERATIVE)
             self.set_action_visible(Actions.SAVE_CONTINUOUS, self._algorithm.ITERATIVE)
             self.set_action_visible(Actions.SHOW_SAVED_DATA, self._algorithm.ITERATIVE)
+            self._iter_count_widget.setVisible(self._algorithm.ITERATIVE)
 
             self.config_saver_loader.base_path = [self._algorithm.ALGO_NAME]
             self.set_settings_values()
@@ -318,6 +340,14 @@ class AlgoApp(CustomApp):
                                 self.settings['ini_phase_group', 'ini_phase_factory']),
         self.algorithm)
 
+    @property
+    def ini_stopping_criteria(self) -> StoppingBase:
+        return stopping_factory.get_stop_class(self.settings['stopping', 'stopping_type'])(
+            self.settings.child('stopping', self.settings['stopping', 'stopping_type']))
+
+    def update_counter(self, counter: int = 0):
+        self._iter_count_widget.setValue(counter)
+
     def ini_algo(self):
         #self.set_action_enabled(Actions.CONTINUOUS, False)
 
@@ -332,6 +362,8 @@ class AlgoApp(CustomApp):
             self.runner_thread.runner = runner
             runner.algo_output_signal.connect(self.process_output)
             runner.algo_stopped_signal.connect(self._algo_stopped)
+            runner.algo_iter_count.connect(self.update_counter)
+            runner.algo_status.connect(self.update_status)
             self.command_runner.connect(runner.queue_command)
 
             runner.moveToThread(self.runner_thread)
@@ -383,6 +415,11 @@ class AlgoApp(CustomApp):
 
         self.set_menu(QtWidgets.QMenu('Algorithm'))
 
+        self._iter_count_widget = QSpinBox_ro()
+        self._iter_count_widget.setToolTip('Current Iteration Number')
+
+        self.statusbar.addPermanentWidget(self._iter_count_widget)
+
     def setup_actions(self):
         self.add_widget('algorithms', QtWidgets.QComboBox,
                         tip='select the algorithm to compute the phase')
@@ -391,8 +428,8 @@ class AlgoApp(CustomApp):
         self.add_action('ini_algo', 'Init Algo', 'start', checkable=True,
                         icon_checked_color=self.get_theme().green,
                         auto_menu=False)
-
-        self.add_action(Actions.RESET, 'Reset Phase', 'refresh', tip="Reset the SLM phase")
+        self.add_action(Actions.RESET, 'Reset Phase', 'refresh',
+                        tip="Reset the SLM phase to the initial one and the iterative algo counter (if any)")
         self.add_action(Actions.COMPUTE_FFT, 'Compute FFT', 'function', tip="Run a fft of the input phase")
 
         self.add_action(Actions.STEP, 'Step', 'looks_one', tip="Step a loop of the algorithm")
@@ -454,6 +491,7 @@ class AlgoApp(CustomApp):
             if force_reset:
                 self._current_phase = self.ini_phase_modulator.compute_phase()
                 self.algorithm.define_input_phase(self._current_phase)
+                self.command_runner.emit(ThreadCommand(Actions.RESET))
 
     def compute_fft(self, update_plots=True):
         if self._algorithm is not None:
@@ -461,9 +499,15 @@ class AlgoApp(CustomApp):
 
     def compute_phase_loop(self):
         if self.is_action_checked(Actions.CONTINUOUS):
-            self.command_runner.emit(ThreadCommand(Actions.CONTINUOUS, attribute=self._current_phase))
+            self.command_runner.emit(ThreadCommand(Actions.CONTINUOUS,
+                                                   attribute={'ini_phase': self._current_phase,
+                                                              'stopping': self.ini_stopping_criteria}))
+            for child in self.settings.child('stopping').children():
+                child.setOpts(enabled=False)
         else:
             self.command_runner.emit(ThreadCommand(Actions.STOP))
+            for child in self.settings.child('stopping').children():
+                child.setOpts(enabled=True)
 
     def compute_phase(self):
         self.command_runner.emit(ThreadCommand(Actions.STEP, attribute=self._current_phase))
@@ -514,6 +558,10 @@ class AlgoApp(CustomApp):
         elif 'phase_wrap' in putils.get_param_path(param):
             self._algorithm.phase_wrap = PhaseWrap(self.settings['phase_wrap', 'apply'],
                                                    self.settings['phase_wrap', 'value'], )
+        elif param.name() == 'stopping_type':
+            for param_child in self.settings.child('stopping').children():
+                if param_child.name() != param.name():
+                    param_child.show(param.value() == param_child.name() and param_child.hasChildren())
 
         self.save_algo_parameters()
 
@@ -543,6 +591,8 @@ class AlgoApp(CustomApp):
 class AlgoRunner(QtCore.QObject):
     algo_output_signal = QtCore.Signal(DataToExport)
     algo_stopped_signal = QtCore.Signal()
+    algo_iter_count = QtCore.Signal(int)
+    algo_status = QtCore.Signal(str)
 
     def __init__(self, algo: AlgoBase):
         super().__init__()
@@ -550,38 +600,58 @@ class AlgoRunner(QtCore.QObject):
         self.algo: AlgoBase = algo
         self.algo.do_things_after_init()
         self.running = False
+        self._iter_index = 0
 
     def queue_command(self, command: ThreadCommand):
         """
         """
         if command.command == Actions.CONTINUOUS:
-            self.continuous_algo(command.attribute)
+            self.algo_status.emit('Starting Continuous Algorithm')
+            self.continuous_algo(**command.attribute)
 
         elif command.command == Actions.STEP:
+            self.algo_status.emit('Stepping Algorithm')
             self.step_algo(command.attribute)
 
         elif command.command == Actions.STOP:
+            self.algo_status.emit('Stopping Algorithm')
             self.running = False
             self.algo.stop()
 
+        elif command.command == Actions.RESET:
+            self.algo_status.emit('Resetting Phase and Counter')
+            self._iter_index = 0
+
     def step_algo(self, ini_phase: np.ndarray = None):
+        self._iter_index += 1
+        self.algo_iter_count.emit(self._iter_index)
         self.algo.start()
         self.algo.compute_phase(do_step=True, ini_phase=ini_phase)
         self.algo_output_signal.emit(self.algo.get_fields_to_plot())
         self.algo.stop()
         self.algo_stopped_signal.emit()
 
-    def continuous_algo(self, ini_phase: np.ndarray = None):
+    def continuous_algo(self, ini_phase: np.ndarray = None, stopping: StoppingBase = None):
         self.running = True
+        stop_criteria = False
         if self.algo.MANUAL_LOOP:
-            while self.running:
+            while self.running and not stop_criteria:
+                self._iter_index += 1
                 self.algo.start()
                 self.algo.compute_phase(do_step=True, ini_phase=ini_phase)
-                self.algo_output_signal.emit(self.algo.get_fields_to_plot())
+                fields = self.algo.get_fields_to_plot()
+                metrics = [data_array[0] for data_array in fields.get_data_from_name('metrics')]
+                self.algo_output_signal.emit(fields)
+                self.algo_iter_count.emit(self._iter_index)
                 ini_phase = None
                 QtWidgets.QApplication.processEvents()
-                QtCore.QThread.msleep(20)
+                stop_criteria =  stopping.tell_stop(self._iter_index, metrics[0], metrics[1])
+                if stop_criteria:
+                    self.algo_status.emit('Stopping Algorithm due to stopping criteria')
+                #QtCore.QThread.msleep(20)
         else:
+            self._iter_index += 1
+            self.algo_iter_count.emit(self._iter_index)
             self.algo.start()
             self.algo.compute_phase(do_step=False, ini_phase=ini_phase)  # the continuous run is handled by the algo itself. If possible
             #it should update the plots during the course of the initialization... See minimizer.py as an example
