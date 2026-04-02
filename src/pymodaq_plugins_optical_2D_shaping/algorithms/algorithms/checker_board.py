@@ -87,7 +87,7 @@ class OL2014(AlgoBase):
     def create_checker_board(self) -> np.ndarray:
 
         block_size = self.settings['block_size']
-        y, x = np.indices(self._image_field.shape)
+        y, x = np.indices(self._modulator_field.shape)
         mask = ((x // block_size) + (y // block_size)) % 2
         return mask
 
