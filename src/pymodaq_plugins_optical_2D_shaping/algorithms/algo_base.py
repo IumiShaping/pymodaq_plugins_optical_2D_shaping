@@ -12,7 +12,7 @@ from pymodaq_data import Q_, DataRaw, DataToExport
 from pymodaq_gui.managers.parameter_manager import ParameterManager
 
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import (AlgoType, ApplyMaskTo,
-                                                                 LensSetup, CrossTalk, PhaseWrap)
+                                                                 LensSetup, CrossTalk, PhaseManipulation)
 from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 from pymodaq_plugins_optical_2D_shaping.utilities.masking import MaskType
@@ -54,7 +54,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
     def __init__(self, parent: 'AlgoApp' = None,
                  crosstalk = CrossTalk(),
-                 phase_wrap = PhaseWrap(),):
+                 phase_wrap = PhaseManipulation(), ):
 
         super().__init__()
 
@@ -62,7 +62,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self.fitness_name: str = ''
 
         self._crosstalk: CrossTalk = crosstalk
-        self._phase_wrap: PhaseWrap = phase_wrap
+        self._phase_wrap: PhaseManipulation = phase_wrap
 
         self.parent_app = parent
         self._target_field = Field(amplitude=np.zeros(sizing.get_effective_needed_field_size()))
@@ -84,11 +84,11 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
         self._crosstalk = crosstalk
 
     @property
-    def phase_wrap(self) -> PhaseWrap:
+    def phase_manipulation(self) -> PhaseManipulation:
         return  self._phase_wrap
 
-    @phase_wrap.setter
-    def phase_wrap(self, phase_wrap: PhaseWrap):
+    @phase_manipulation.setter
+    def phase_manipulation(self, phase_wrap: PhaseManipulation):
         self._phase_wrap = phase_wrap
 
     def quit(self):
@@ -196,8 +196,11 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     def set_phase_in_modulator_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
         if phase.shape == self._modulator_field.shape:
             phase = phase.copy()
-            if self.phase_wrap.apply:
-                phase = phase % (self.phase_wrap.value * np.pi)
+            if self.phase_manipulation.apply:
+                phase = phase % (self.phase_manipulation.wrap_value * np.pi)
+                phase = (np.round(
+                    phase / (self.phase_manipulation.wrap_value * np.pi) * 2**self.phase_manipulation.dynamic_value) *
+                         (self.phase_manipulation.wrap_value * np.pi) / 2**self.phase_manipulation.dynamic_value)
             if self.crosstalk.apply:
                 phase = gaussian_filter(phase, self.crosstalk.value)
 

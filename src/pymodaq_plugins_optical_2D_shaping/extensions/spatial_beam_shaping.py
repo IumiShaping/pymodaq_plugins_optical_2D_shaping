@@ -3,6 +3,7 @@ from qtpy import QtWidgets, QtCore
 from pathlib import Path
 
 from pymodaq_gui.messenger import messagebox
+from pymodaq_gui.utils.shared_ui import MenuNames
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import ApplyMaskTo
 from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
@@ -98,8 +99,8 @@ class BeamShaping(CustomExt):
                   slice(max(0, center[1] - size[1] // 2), min(shape[1], center[1] + size[1] // 2)))
         return slices
 
-    def do_things_after_preset_set(self, preset_name: str):
-        super().do_things_after_preset_set(preset_name)
+    def do_things_after_experiment_set(self, experiment_name: str):
+        super().do_things_after_experiment_set(experiment_name)
         if self.modules_manager is not None and 'Shaper' in self.modules_manager.actuators_name:
             self._shaper = self.modules_manager.get_mod_from_name('Shaper', 'act')
         else:
@@ -252,7 +253,7 @@ class BeamShaping(CustomExt):
     def algorithm(self):
         return self._algorithm
 
-    def setup_docks(self):
+    def setup_docks_and_widgets(self):
         """
         to be subclassed to setup the docks layout
         for instance:
@@ -266,9 +267,6 @@ class BeamShaping(CustomExt):
         ########
         pyqtgraph.dockarea.Dock
         """
-        self.create_dashboard_toolbar(add_break=False)
-        self.add_menu('file', 'File', menu=self.menubar)
-
         self._target_dockarea = gutils.DockArea()
         self._target_field_loader = FieldLoaderApp(self._target_dockarea,
                                              modules_manager=self.modules_manager,
@@ -326,50 +324,20 @@ class BeamShaping(CustomExt):
         self.other_plots_widget.layout().addWidget(other_area)
         self.other_viewers = ViewerDispatcher(other_area, title='Other Plots')
 
-    def plot_target(self, field: Field):
-        self.target_viewers.show_data(DataToExport('Target', data=[
-            field.intensity_as_dwa(),
-            field.amplitude_as_dwa(),
-            field.phase_as_dwa(),
-        ]))
-
-    def setup_menu(self):
+    def setup_menus_and_toolbars(self, menubar=None):
         """
-        to be subclassed
-        create menu for actions contained into the self.actions_manager, for instance:
 
-        For instance:
-
-        file_menu = self.menubar.addMenu('File')
-        self.actions_manager.affect_to('load', file_menu)
-        self.actions_manager.affect_to('save', file_menu)
-
-        file_menu.addSeparator()
-        self.actions_manager.affect_to('quit', file_menu)
         """
-        pass
-
-    def value_changed(self, param):
-        """ to be subclassed for actions to perform when one of the param's value in self.settings is changed
-
-        For instance:
-        if param.name() == 'do_something':
-            if param.value():
-                print('Do something')
-                self.settings.child('main_settings', 'something_done').setValue(False)
-
-        Parameters
-        ----------
-        param: (Parameter) the parameter whose value just changed
-        """
-        ...
+        self.create_dashboard_toolbar(add_break=False)
+        self.add_menu(MenuNames.FILE, MenuNames.FILE.capitalize(),
+                      menu=self.menubar)
 
     def setup_actions(self):
         logger.debug('Main actions')
         self.add_action('save', 'Save', 'file_save', 'Save Everything to a h5beam file',
-                        menu='file', auto_menu=True)
+                        menu=MenuNames.FILE, auto_menu=True)
         self.add_action('load', 'Load', 'file_open', 'Load fields from a h5beam file',
-                        menu='file', auto_menu=True)
+                        menu=MenuNames.FILE, auto_menu=True)
         self.toolbar.addSeparator()
         self.add_action('target', 'Target Selection', 'target',
                         'Open the Target FieldLoader window', checkable=True,
@@ -408,6 +376,30 @@ class BeamShaping(CustomExt):
                             )
 
         logger.debug('actions set')
+
+
+    def plot_target(self, field: Field):
+        self.target_viewers.show_data(DataToExport('Target', data=[
+            field.intensity_as_dwa(),
+            field.amplitude_as_dwa(),
+            field.phase_as_dwa(),
+        ]))
+
+
+    def value_changed(self, param):
+        """ to be subclassed for actions to perform when one of the param's value in self.settings is changed
+
+        For instance:
+        if param.name() == 'do_something':
+            if param.value():
+                print('Do something')
+                self.settings.child('main_settings', 'something_done').setValue(False)
+
+        Parameters
+        ----------
+        param: (Parameter) the parameter whose value just changed
+        """
+        ...
 
     def do_things_after_ui_setup(self):
         self.mainwindow.removeToolBarBreak(self.get_toolbar('dashboard'))

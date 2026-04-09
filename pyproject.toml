@@ -18,7 +18,6 @@ dependencies = [
     'opencv-python',
     'pymodaq_gui>5.0.11',
     'zernpy',
-    'pytorch-minimize',
 ]
 
 
@@ -51,6 +50,11 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Visualization",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: User Interfaces",
+]
+
+[project.optional-dependencies]
+pytorch = [
+    'pytorch-minimize',
 ]
 
 [build-system]

@@ -40,9 +40,10 @@ class CrossTalk:
 
 
 @dataclasses.dataclass
-class PhaseWrap:
+class PhaseManipulation:
     apply: bool = True
-    value: int = 2
+    wrap_value: int = 2
+    dynamic_value: int = 8
 
 
 

@@ -32,7 +32,7 @@ from pymodaq_plugins_optical_2D_shaping.algorithms.factory import AlgorithmFacto
 from pymodaq_plugins_optical_2D_shaping.algorithms.algo_base import AlgoBase
 from pymodaq_plugins_optical_2D_shaping.algorithms.ini_phase import PhaseFactory, PhaseBase
 from pymodaq_plugins_optical_2D_shaping.algorithms.stopping import StoppingFactory, StoppingBase
-from pymodaq_plugins_optical_2D_shaping.algorithms.utils import ApplyMaskTo, LensSetup, CrossTalk, PhaseWrap
+from pymodaq_plugins_optical_2D_shaping.algorithms.utils import ApplyMaskTo, LensSetup, CrossTalk, PhaseManipulation
 from pymodaq_plugins_optical_2D_shaping.utilities.masking import MaskType
 from pymodaq_plugins_optical_2D_shaping.field import Field
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
@@ -79,10 +79,13 @@ class AlgoApp(CustomApp):
               'limits': stopping_factory.stops},
          ]},
 
-        {'title': 'Phase Wrap:', 'name': 'phase_wrap', 'type': 'group', 'expanded': False, 'children': [
-            {'title': 'Apply:', 'name': 'apply', 'type': 'bool', 'value': plugin_config('algo', 'phase_wrap', 'apply')},
-            {'title': 'Value (Pi):', 'name': 'value', 'type': 'int',
-             'value': plugin_config('algo', 'phase_wrap', 'value')},
+        {'title': 'Phase Manipulation:', 'name': 'phase_manipulation', 'type': 'group', 'expanded': False, 'children': [
+            {'title': 'Apply:', 'name': 'apply', 'type': 'bool', 'value': plugin_config('algo', 'phase_manipulation', 'apply')},
+            {'title': 'Value (Pi):', 'name': 'wrap_value', 'type': 'int',
+             'value': plugin_config('algo', 'phase_manipulation', 'wrap_value')},
+            {'title': 'SLM Dynamic (bits):', 'name': 'dynamic_value', 'type': 'list',
+             'value': plugin_config('algo', 'phase_manipulation', 'dynamic_value')[0],
+             'limits': plugin_config('algo', 'phase_manipulation', 'dynamic_value')},
         ]},
         {'title': 'Pixel Crosstalk:', 'name': 'crosstalk', 'type': 'group', 'expanded': False, 'children':[
             {'title': 'Apply:', 'name': 'apply', 'type': 'bool', 'value': plugin_config('algo', 'crosstalk', 'apply')},
@@ -289,7 +292,9 @@ class AlgoApp(CustomApp):
                 algo_factory.get_algorithm(algo_name)(
                     self,
                     CrossTalk(self.settings['crosstalk', 'apply'], self.settings['crosstalk', 'value'],),
-                    PhaseWrap(self.settings['phase_wrap', 'apply'], self.settings['phase_wrap', 'value'],),
+                    PhaseManipulation(self.settings['phase_manipulation', 'apply'],
+                                      self.settings['phase_manipulation', 'wrap_value'],
+                                      int(self.settings['phase_manipulation', 'dynamic_value']),),
                 )
 
             #change the chosen setup type (defined by the algo) in the config, to be used elsewhere
@@ -554,9 +559,9 @@ class AlgoApp(CustomApp):
         elif 'crosstalk' in putils.get_param_path(param):
             self._algorithm.crosstalk = CrossTalk(self.settings['crosstalk', 'apply'],
                                                   self.settings['crosstalk', 'value'], )
-        elif 'phase_wrap' in putils.get_param_path(param):
-            self._algorithm.phase_wrap = PhaseWrap(self.settings['phase_wrap', 'apply'],
-                                                   self.settings['phase_wrap', 'value'], )
+        elif 'phase_manipulation' in putils.get_param_path(param):
+            self._algorithm.phase_manipulation = PhaseManipulation(self.settings['phase_manipulation', 'apply'],
+                                                                   self.settings['phase_manipulation', 'wrap_value'], )
         elif param.name() == 'stopping_type':
             for param_child in self.settings.child('stopping').children():
                 if param_child.name() != param.name():
@@ -659,7 +664,7 @@ class AlgoRunner(QtCore.QObject):
 
 def main():
     from pathlib import Path
-    from pymodaq.utils.daq_utils import get_set_preset_path
+    from pymodaq.utils.daq_utils import get_set_experiment_path
     from pymodaq_utils.math_utils import normalize_to
 
     from skimage.io import imread
