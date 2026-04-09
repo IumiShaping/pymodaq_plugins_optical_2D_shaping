@@ -9,7 +9,7 @@ from pymodaq_gui.parameter import Parameter
 from pymodaq_utils import math_utils as mutils
 from pymodaq_data import Q_, Unit
 
-from scipy.special import genlaguerre
+from scipy.special import genlaguerre, hermite
 
 from pymodaq_plugins_optical_2D_shaping import config as plugin_config
 
@@ -358,4 +358,282 @@ class RectangleIntensity(BaseFieldLoader):
             amplitude=amplitude,
             pixel_sizes=Q_(np.array((self.pixel_height, self.pixel_width)), 'um')
         )
+        return field
+
+
+
+@LoaderFactory.register_loader()
+class RectangleIntensity_test(BaseFieldLoader):
+    LOADER_NAME = 'RectangleIntensity_test'
+
+    params = BaseFieldLoader.params + [
+        {'title': 'Width (um):', 'name': 'length', 'type': 'float', 'value': 1000., 'suffix': 'um'},
+        {'title': 'Height (um):', 'name': 'height', 'type': 'float', 'value': 1000., 'suffix': 'um'},
+        {'title': 'Edge Thickness (um):', 'name': 'thickness', 'type': 'float', 'value': 200., 'suffix': 'um'},
+        {'title': 'Rotation (deg):', 'name': 'theta', 'type': 'float', 'value': 0.},
+        {'title': 'With linear phase', 'name': 'with_linear_phase', 'type': 'bool', 'value': False},
+        {'title': 'Phase slope X', 'name': 'phase_slope_x', 'type': 'float', 'value': 0.01},
+        {'title': 'Phase slope Y', 'name': 'phase_slope_y', 'type': 'float', 'value': 0.0},
+    ]
+
+    def rotate_coords(self, coords, theta):
+        theta = np.deg2rad(theta)
+
+        R = np.array([
+            [np.cos(theta), -np.sin(theta)],
+            [np.sin(theta),  np.cos(theta)]
+        ])
+
+        coords = np.array(coords)
+        return (R @ coords.T).T.tolist()
+
+    def compute_field(self) -> Field:
+
+        xx, yy = self.compute_grid()
+        self.progressbar = 30
+
+        L = self.settings['length']
+        H = self.settings['height']
+        t = self.settings['thickness']
+
+        inner_coordinates = [
+            [ L/2 - t/2, -H/2 + t/2],
+            [ L/2 - t/2,  H/2 - t/2],
+            [-L/2 + t/2,  H/2 - t/2],
+            [-L/2 + t/2, -H/2 + t/2],
+        ]
+
+        outer_coordinates = [
+            [ L/2, -H/2],
+            [ L/2,  H/2],
+            [-L/2,  H/2],
+            [-L/2, -H/2],
+        ]
+
+        theta = self.settings['theta']
+        inner_coordinates = self.rotate_coords(inner_coordinates, theta)
+        outer_coordinates = self.rotate_coords(outer_coordinates, theta)
+
+        amplitude = self.compute_polygon(xx, yy, outer_coordinates)
+        amplitude -= self.compute_polygon(xx, yy, inner_coordinates)
+
+        self.progressbar = 80
+
+        phase = np.zeros_like(amplitude)
+
+        if self.settings['with_linear_phase']:
+            ax = self.settings['phase_slope_x']
+            ay = self.settings['phase_slope_y']
+
+            linear_phase = ax * xx + ay * yy
+
+            # phase uniquement dans le rectangle
+            phase = linear_phase * amplitude
+
+        self.progressbar = 90
+
+        field = Field(
+            'RectangleIntensity',
+            amplitude=amplitude,
+            phase=phase,
+            pixel_sizes=Q_(np.array((self.pixel_height, self.pixel_width)), 'um')
+        )
+
+        return field
+
+@LoaderFactory.register_loader()
+class HermiteGauss(BaseFieldLoader):
+    LOADER_NAME = 'HermiteGaussLoader'
+
+    params = BaseFieldLoader.params + [
+        {'title': 'Waist (um):', 'name': 'waist', 'type': 'float', 'value': 50., 'suffix': 'um'},
+        {'title': 'Order nx:', 'name': 'nx', 'type': 'int', 'value': 0},
+        {'title': 'Order ny:', 'name': 'ny', 'type': 'int', 'value': 0},
+    ]
+
+    def hermite_gauss(self, X, Y, w0, nx, ny):
+        """
+        Hermite-Gauss mode HG(nx, ny) at z = 0
+        """
+        x = np.sqrt(2) * X / w0
+        y = np.sqrt(2) * Y / w0
+
+        Hx = hermite(nx)(x)
+        Hy = hermite(ny)(y)
+
+        field = (
+                Hx * Hy
+                * np.exp(-(X ** 2 + Y ** 2) / w0 ** 2)
+        )
+
+        amplitude = np.abs(field)
+        phase = np.angle(field)
+
+        return amplitude, phase
+
+    def compute_field(self):
+        # Axes of the target plane
+        x = Q_(np.arange(-self.n_pixel_width / 2, self.n_pixel_width / 2) * self.pixel_width, 'um')
+        y = Q_(np.arange(-self.n_pixel_height / 2, self.n_pixel_height / 2) * self.pixel_height, 'um')
+
+        X, Y = np.meshgrid(x.magnitude, y.magnitude)
+
+        self.progressbar = 30
+
+        # Parameters
+        w0 = Q_(self.settings['waist'], 'um').magnitude
+        nx = self.settings['nx']
+        ny = self.settings['ny']
+
+        self.progressbar = 60
+
+        amplitude, phase = self.hermite_gauss(X, Y, w0, nx, ny)
+
+        self.progressbar = 90
+
+        field = Field(
+            'HermiteGauss',
+            amplitude=amplitude,
+            phase=phase,
+            pixel_sizes=Q_(np.array((self.pixel_height, self.pixel_width)), 'um')
+        )
+
+        return field
+
+
+
+@LoaderFactory.register_loader()
+class DoubleLG(BaseFieldLoader):
+    LOADER_NAME = 'DoubleLGLoader'
+
+    params = BaseFieldLoader.params + [
+        {'title': 'Waist 1 (um):', 'name': 'waist1', 'type': 'float', 'value': 50., 'suffix': 'um'},
+        {'title': 'p1:', 'name': 'p1', 'type': 'int', 'value': 0},
+        {'title': 'l1:', 'name': 'l1', 'type': 'int', 'value': 1},
+
+        {'title': 'Waist 2 (um):', 'name': 'waist2', 'type': 'float', 'value': 50., 'suffix': 'um'},
+        {'title': 'p2:', 'name': 'p2', 'type': 'int', 'value': 0},
+        {'title': 'l2:', 'name': 'l2', 'type': 'int', 'value': -1},
+
+        {'title': 'Beam separation d (um):', 'name': 'd', 'type': 'float', 'value': 100., 'suffix': 'um'},
+    ]
+
+    def laguerre_gauss(self, X, Y, w0, p, l):
+        """
+        LG mode at z = 0
+        """
+        r = np.sqrt(X**2 + Y**2)
+        phi = np.arctan2(Y, X)
+
+        rho = 2 * r**2 / w0**2
+        Lpl = genlaguerre(p, np.abs(l))(rho)
+
+        amplitude = (
+            (np.sqrt(2) * r / w0)**np.abs(l)
+            * Lpl
+            * np.exp(-r**2 / w0**2)
+        )
+
+        phase = l * phi
+
+        return amplitude, phase
+
+    def compute_field(self):
+        # Axes of the target plane
+        x = Q_(np.arange(-self.n_pixel_width / 2, self.n_pixel_width / 2) * self.pixel_width, 'um')
+        y = Q_(np.arange(-self.n_pixel_height / 2, self.n_pixel_height / 2) * self.pixel_height, 'um')
+
+        X, Y = np.meshgrid(x.magnitude, y.magnitude)
+
+        self.progressbar = 20
+
+        # Parameters
+        w1 = Q_(self.settings['waist1'], 'um').magnitude
+        w2 = Q_(self.settings['waist2'], 'um').magnitude
+        d  = Q_(self.settings['d'], 'um').magnitude
+
+        p1 = self.settings['p1']
+        l1 = self.settings['l1']
+        p2 = self.settings['p2']
+        l2 = self.settings['l2']
+
+        # Shifted coordinates
+        X1 = X - d / 2
+        X2 = X + d / 2
+
+        self.progressbar = 50
+
+        # LG beams
+        A1, P1 = self.laguerre_gauss(X1, Y, w1, p1, l1)
+        A2, P2 = self.laguerre_gauss(X2, Y, w2, p2, l2)
+
+        # Complex fields
+        E1 = A1 * np.exp(1j * P1)
+        E2 = A2 * np.exp(1j * P2)
+
+        # Superposition
+        E = E1 + E2
+
+        self.progressbar = 80
+
+        amplitude = np.abs(E)
+        phase = np.angle(E)
+
+        field = Field(
+            'DoubleLG',
+            amplitude=amplitude,
+            phase=phase,
+            pixel_sizes=Q_(np.array((self.pixel_height, self.pixel_width)), 'um')
+        )
+
+        self.progressbar = 100
+        return field
+
+
+
+
+
+@LoaderFactory.register_loader()
+class VortexPhaseIntensity(BaseFieldLoader):
+
+    LOADER_NAME = 'VortexPhaseIntensity'
+
+    params = BaseFieldLoader.params + [
+        {'title': 'Topological charge l:', 'name': 'l', 'type': 'int',
+         'value': 1},
+        {'title': 'Beam waist (um):', 'name': 'waist', 'type': 'float',
+         'value': plugin_config('input', 'gaussian', 'fwhm_x'),
+         'tip': 'FWHM in intensity'}
+    ]
+
+    def compute_field(self) -> Field:
+
+        xx, yy = self.compute_grid()
+        self.progressbar = 20
+
+        l = self.settings['l']
+        waist = self.settings['waist']
+
+        r = np.sqrt(xx**2 + yy**2)
+        theta = np.arctan2(yy, xx)
+
+        self.progressbar = 40
+
+        gaussian = np.exp(-2 * np.log(2) * (r / waist) ** 2)
+
+        phase = l * theta
+        phase_wrapped = np.mod(phase, 2*np.pi)
+
+        phase_intensity = phase_wrapped / (2*np.pi)
+
+        intensity = gaussian * phase_intensity
+
+        self.progressbar = 80
+
+        field = Field(
+            'VortexPhaseIntensity',
+            amplitude=intensity,
+            pixel_sizes=Q_(np.array((self.pixel_height, self.pixel_width)), 'um')
+        )
+
         return field
