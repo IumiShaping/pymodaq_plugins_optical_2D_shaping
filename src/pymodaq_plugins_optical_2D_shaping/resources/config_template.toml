@@ -68,9 +68,10 @@ default_algo = ['Gerchberg-Saxton']  #will be populated at startup from the read
     apply = false
     value = 0.5
 
-    [algo.phase_wrap]
+    [algo.phase_manipulation]
     apply = false
-    value = 2 # in units of pi
+    wrap_value = 2 # in units of pi
+    dynamic_value = [8, 10, 12, 16]
 
 [corrections]
     [corrections.actuators]
