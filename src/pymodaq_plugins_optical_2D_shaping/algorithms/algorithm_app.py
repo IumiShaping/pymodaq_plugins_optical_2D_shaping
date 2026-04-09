@@ -1,8 +1,7 @@
 from abc import ABCMeta, abstractproperty
 from typing import Union
 import numpy as np
-from multipledispatch import dispatch
-from pylablib.devices.IMAQdx.nivision_defs import StoppingCriteria
+
 from qtpy import QtWidgets, QtCore
 from pathlib import Path
 
