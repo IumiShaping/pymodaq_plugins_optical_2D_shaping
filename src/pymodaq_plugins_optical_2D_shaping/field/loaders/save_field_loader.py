@@ -35,7 +35,7 @@ class SavedFieldLoader(FieldLoader):
         """ Mandatory reimplemented method. Used to load a target to populate the field attribute"""
 
         with DataLoader(self.settings['file']) as loader:
-            dwa = loader.load_data('/RawData/Data00', load_all=True)
+            dwa = loader.load_data('/RawData/Field/Data00', load_all=True)
             xaxis = dwa.get_axis_from_index(1)[0]
             yaxis = dwa.get_axis_from_index(0)[0]
             self.field = Field(
