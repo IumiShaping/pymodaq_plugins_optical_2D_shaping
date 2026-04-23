@@ -1,4 +1,4 @@
-from pymodaq_plugins_optical_2D_shaping.setup.factory import ElementFactory
+from pymodaq_plugins_beam_shaping.setup.factory import ElementFactory
 from pymodaq_gui.parameter import Parameter
 
 

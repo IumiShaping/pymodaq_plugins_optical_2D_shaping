@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.fft import fftshift, fft
 
-from pymodaq_plugins_optical_2D_shaping.field import Field
+from pymodaq_plugins_beam_shaping.field import Field
 from time import perf_counter
 
 import torch
