@@ -45,7 +45,7 @@ class DAQ_Move_MockShaper(DAQ_Move_base):
         -------
         float: The position obtained after scaling conversion.
         """
-        return DataActuator('shaper', data=[self.controller.get_slm()])
+        return DataActuator('shaper', data=[self.controller.get_slm_phases()])
 
 
     def close(self):
@@ -101,7 +101,7 @@ class DAQ_Move_MockShaper(DAQ_Move_base):
         value = value[0]
 
         if value.shape == (1,):
-            value = value[0] * np.ones_like(self.controller.get_slm())
+            value = value[0] * np.ones_like(self.controller.get_slm_phases())
         self.controller.apply_grey_scale(value)
         self.emit_status(ThreadCommand('Update_Status', ['Some info you want to log']))
 

@@ -1,5 +1,6 @@
 import numpy as np
 
+from pymodaq_utils.math_utils import find_index
 from pymodaq_utils.utils import ThreadCommand
 from pymodaq_data.data import DataToExport, Axis
 from pymodaq_gui.parameter import Parameter
@@ -23,6 +24,13 @@ class DAQ_2DViewer_MockShaperCamera(DAQ_Viewer_base):
          hardware library.
     """
     params = comon_parameters + [
+        {'title': 'Gaussian FWHM (µm)', 'name': 'gaussian_width', 'type': 'float',
+         'value': ShaperCamera.gaussian_width_ini},
+        {'title': 'Calibration', 'name': 'calibration', 'type': 'group', 'children':[
+            {'title': 'Insert slits', 'name': 'insert_slits', 'type': 'bool', 'value': False},
+            {'title': 'Slit Width (µm)', 'name': 'slit_width', 'type': 'float', 'value': 100},
+            {'title': 'Slit Spacing (µm)', 'name': 'slit_spacing', 'type': 'float', 'value': 500},
+        ],},
     ]
 
     def ini_attributes(self):
@@ -36,8 +44,24 @@ class DAQ_2DViewer_MockShaperCamera(DAQ_Viewer_base):
         param: Parameter
             A given parameter (within detector_settings) whose value has been changed by the user
         """
-        if param.name() == "a_parameter_you've_added_in_self.params":
-            pass
+        if param.name() == "gaussian_width":
+            self.controller.gaussian_width = param.value()
+
+    def get_mask_from_slits(self):
+        xx, yy = ShaperCamera.get_slm_grid()
+        x_axis = xx[0]
+        mask = np.zeros(xx.shape)
+        ind_slit_11 = find_index(x_axis, - self.settings['calibration', 'slit_spacing'] / 2 -
+                                 self.settings['calibration', 'slit_width'])[0][0]
+        ind_slit_12 = find_index(x_axis, - self.settings['calibration', 'slit_spacing'] / 2 )[0][0]
+        ind_slit_21 = find_index(x_axis, self.settings['calibration', 'slit_spacing'] / 2)[0][0]
+        ind_slit_22 = find_index(x_axis, self.settings['calibration', 'slit_spacing'] / 2  +
+                                 self.settings['calibration', 'slit_width'])[0][0]
+
+        mask[:, ind_slit_11: ind_slit_12] = 1
+        mask[:, ind_slit_21: ind_slit_22] = 1
+
+        return mask
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -80,7 +104,8 @@ class DAQ_2DViewer_MockShaperCamera(DAQ_Viewer_base):
             others optionals arguments
         """
 
-        data_array = self.controller.get_camera()
+        data_array = self.controller.get_camera(self.get_mask_from_slits()
+                                                if self.settings['calibration', 'insert_slits'] else None)
         self.dte_signal.emit(DataToExport('FFT data',
                                           data=[DataFromPlugins(name='Mock1', data=[data_array],
                                                                 dim='Data2D', labels=['FFT data'])]))

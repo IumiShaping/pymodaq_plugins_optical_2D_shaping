@@ -1,3 +1,5 @@
+from qtpy import QtWidgets, QtCore
+
 import numpy as np
 import sys
 
@@ -20,27 +22,33 @@ if __name__ == "__main__":
 
     qapp = mkQApp('Calibration')
 
-    win, area = make_window(title='Calibration')
+    win, area = make_window(title='Calibration', flags=None)
+    win.setMinimumSize(QtCore.QSize(1000, 1000))
     dispatcher = ViewerDispatcher(area)
+    win.show()
 
     shaper = Actuator('Shaper')
     camera = Detector('Camera')
 
     shaper_shape = get_slm_size()
 
-    for ind in range(256):
+    qapp.processEvents()
+
+
+    for ind in range(0, 256, 1):
         data = np.zeros(shaper_shape)
         data[:, shaper_shape[1] // 2:] = ind
         shaper.move_abs(DataActuator('Shaper', data=[data])).result()
 
-        dte = camera.snap().result()
+        dwa_camera = camera.snap().result()[0].sum(0)
+        dwa_camera.create_missing_axes()
+        dwa_ft = dwa_camera.ft(axis_units='')
 
-        dwa_ft = dte[0].ft()
-
-
+        dte = DataToExport('Process')
+        dte.append(dwa_camera)
         dte.append(dwa_ft.abs())
 
         dispatcher.show_data(dte)
-
+        qapp.processEvents()
 
     sys.exit(qapp.exec())

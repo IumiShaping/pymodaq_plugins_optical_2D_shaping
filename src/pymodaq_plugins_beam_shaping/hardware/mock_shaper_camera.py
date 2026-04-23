@@ -5,6 +5,9 @@ from pymodaq.utils.data import DataActuator
 from pymodaq_plugins_beam_shaping.utilities.sizing import get_slm_size, get_effective_slm_pixel_size
 
 
+N_PI = 2.2  # dynamic range of the SLM in units of pi
+
+
 def gaussian_fwhm(x: np.ndarray, x0: float, fwhm: float) -> np.ndarray:
     """ Get a Gaussian amplitude distribution centered in x0 with a full width at half maximum in intensity of fwhm
 
@@ -39,19 +42,41 @@ def compute_grid() -> tuple[np.ndarray, np.ndarray]:
 
 
 class ShaperCamera:
+
+    gaussian_width_ini = 7e3
+
     def __init__(self):
         self._slm_values: np.ndarray = np.zeros(get_slm_size())
 
-        xx, yy = compute_grid()
-        self._amplitude = (gaussian_fwhm(xx, 0, 7e3) *
-                           gaussian_fwhm(yy, 0, 7e3))
+        self._gaussian_width: float = None
+        self._amplitude: np.ndarray = None
 
-    def get_slm(self):
+        self.gaussian_width = self.gaussian_width_ini
+
+    def get_slm_phases(self) -> np.ndarray:
         return self._slm_values
 
-    def apply_grey_scale(self, value: np.ndarray):
-        self._slm_values = value
+    @staticmethod
+    def get_slm_grid() -> tuple[np.ndarray, np.ndarray]:
+        return compute_grid()
 
-    def get_camera(self) -> np.ndarray:
-        return np.abs(np.fft.fftshift(np.fft.fft2(np.fft.fftshift(self._amplitude * np.exp(1j * self._slm_values)))) /
+    @property
+    def gaussian_width(self) -> float:
+        return self._gaussian_width
+
+    @gaussian_width.setter
+    def gaussian_width(self, value: float):
+        xx, yy = compute_grid()
+        self._gaussian_width = value
+        self._amplitude = (gaussian_fwhm(xx, 0, self._gaussian_width) *
+                           gaussian_fwhm(yy, 0, self._gaussian_width))
+
+    def apply_grey_scale(self, value: np.ndarray):
+        self._slm_values = value * N_PI * np.pi / 256
+
+    def get_camera(self, amplitude_mask: np.ndarray = None) -> np.ndarray:
+        field = self._amplitude * np.exp(1j * self._slm_values)
+        if amplitude_mask is not None and amplitude_mask.shape == field.shape:
+            field *= amplitude_mask
+        return np.abs(np.fft.fftshift(np.fft.fft2(np.fft.fftshift(field))) /
                       np.sqrt(np.prod(self._slm_values.shape))) ** 2
