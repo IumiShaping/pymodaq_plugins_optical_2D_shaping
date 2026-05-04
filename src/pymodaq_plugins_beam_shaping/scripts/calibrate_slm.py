@@ -35,7 +35,7 @@ if __name__ == "__main__":
     qapp.processEvents()
 
 
-    for ind in range(0, 256, 1):
+    for ind in range(0, 20, 5):
         data = np.zeros(shaper_shape)
         data[:, shaper_shape[1] // 2:] = ind
         shaper.move_abs(DataActuator('Shaper', data=[data])).result()

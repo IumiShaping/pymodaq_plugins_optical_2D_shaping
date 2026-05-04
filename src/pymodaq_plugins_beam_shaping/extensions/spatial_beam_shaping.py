@@ -350,8 +350,10 @@ class BeamShaping(CustomExt):
         self.add_action('show_intermediate', 'Show Intermediate', 'visibility', checkable=True,
                         icon_checked='visibility_off', tip='Show Field intensity in intermediate plane')
         self.toolbar.addSeparator()
-        self.add_widget('corr_label', QtWidgets.QLabel('Corrections:'))
-        self.add_action('corrections', 'Corrections', 'build_circle',
+        self.add_action('calibration', 'Calibration', 'equalizer',
+                        tip='Perform a calibration of the SLM phase wrt the grey levels applied to it.',
+                        checkable=True)
+        self.add_action('corrections', 'Corrections', 'deblur',
                         tip='Open the Utility window with focal and Zernike correction',
                         checkable=True)
         self.toolbar.addSeparator()

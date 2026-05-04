@@ -3,7 +3,7 @@ instruments = true  # true if plugin contains instrument classes (else false, no
 extensions = true  # true if plugins contains dashboard extensions
 models = true  # true if plugins contains pid models
 h5exporters = false  # true if plugin contains custom h5 file exporters
-scanners = false  # true if plugin contains custom scan layout (daq_scan extensions)
+scanners = true  # true if plugin contains custom scan scheme (daq_scan extensions)
 
 [urls]
 package-url = 'https://github.com/IumiShaping/pymodaq_plugins_optical_2D_shaping_private'

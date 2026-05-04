@@ -103,7 +103,8 @@ class DAQ_Move_MockShaper(DAQ_Move_base):
         if value.shape == (1,):
             value = value[0] * np.ones_like(self.controller.get_slm_phases())
         self.controller.apply_grey_scale(value)
-        self.emit_status(ThreadCommand('Update_Status', ['Some info you want to log']))
+        self.current_value = value
+        self.emit_status(ThreadCommand('Update_Status', ['SLM Updated']))
 
     def move_rel(self, value: DataActuator):
         """ Move the actuator to the relative target actuator value defined by value
