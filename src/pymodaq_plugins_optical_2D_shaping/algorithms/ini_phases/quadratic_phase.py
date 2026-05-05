@@ -18,8 +18,18 @@ class QuadraticPhase(PhaseBase):
     see https://doi.org/10.1364/OE.25.011692
     """
     params = [
-        {'title': 'Quadratic Amplitude ', 'name': 'quad_amp', 'type': 'float', 'value': 1.},
-        {'title': 'Shift Amplitude', 'name': 'shift_amp', 'type': 'float', 'value': 1.},
+        {'title': 'Quadratic Amplitude', 'name': 'quadratic', 'type': 'group', 'children': [
+            {'title': 'Auto: ', 'name': 'auto', 'type': 'bool', 'value': True,
+             'tip': 'If True, the X and Y quadratic phase amplotude are computed/updated from the target mask size '},
+            {'title': 'X Quad. ', 'name': 'x_quad', 'type': 'float', 'value': 1.},
+            {'title': 'Y Quad. ', 'name': 'y_quad', 'type': 'float', 'value': 1.},
+        ]},
+        {'title': 'Linear Shift', 'name': 'shift', 'type': 'group', 'children': [
+            {'title': 'Auto: ', 'name': 'auto', 'type': 'bool', 'value': True,
+             'tip': 'If True, the X and Y shift are computed/updated from the target mask position '},
+            {'title': 'X Shift (1/m) ', 'name': 'x_shift', 'type': 'float', 'value': 0.},
+            {'title': 'Y shift (1/m)', 'name': 'y_shift', 'type': 'float', 'value': 0.},
+        ]},
     ]
 
     def compute_phase(self, **kwargs) -> np.ndarray:
@@ -27,19 +37,18 @@ class QuadraticPhase(PhaseBase):
         xlin = np.linspace(-nx // 2, nx // 2, nx, endpoint=True)
         ylin = np.linspace(-ny // 2, ny // 2, ny, endpoint=True)
 
-        r = ((self._compute_quadratic_factor().to_reduced_units().magnitude *  # approximated from two lens computation
-              self.settings['quad_amp'])  # manual coefficient to move the shift
-             * 1)  # adhoc coefficient to match target size
-        xx_quad, yy_quad = np.meshgrid(r[1] * xlin ** 2,
-                                       r[0] * ylin ** 2)
+        if self.settings['quadratic', 'auto']:
+            self._compute_quadratic_factor()
+
+        xx_quad, yy_quad = np.meshgrid(self.settings['quadratic', 'x_quad'] * xlin ** 2,
+                                       self.settings['quadratic', 'y_quad'] * ylin ** 2)
         phase = xx_quad + yy_quad
 
+        if self.settings['shift', 'auto']:
+            self._compute_linear_factor()  # approximated from lens computation
 
-        coeff = self._compute_linear_factor()  # approximated from lens computation
-        d = (self.settings['shift_amp']  # manual coefficient to move the shift
-             * 1)  # adhoc coefficient to correctly match target roi position
-        xxlin, yylin = np.meshgrid(d * coeff[1] * xlin,
-                                   d * coeff[0] * ylin)
+        xxlin, yylin = np.meshgrid(self.settings['shift', 'x_shift'] * xlin,
+                                   self.settings['shift', 'y_shift'] * ylin)
         phase += xxlin + yylin
         return phase
 
@@ -68,7 +77,9 @@ class QuadraticPhase(PhaseBase):
                          self.algo.input_field_pixels_sizes[0].units)
 
         wavelength = Q_(plugin_config('setup', 'wavelength_nm', ), 'nm')
-        return pixel_sizes ** 2 / (wavelength * self.focal_quad()) * np.pi
+        coeff = (pixel_sizes ** 2 / (wavelength * self.focal_quad()) * np.pi).to_reduced_units().magnitude
+        self.settings.child('quadratic', 'x_quad').setValue(coeff[1])
+        self.settings.child('quadratic', 'y_quad').setValue(coeff[0])
 
     def _compute_linear_factor(self):
         if self.algo.apply_mask(ApplyMaskTo.TARGET):
@@ -85,5 +96,8 @@ class QuadraticPhase(PhaseBase):
 
         coeff = (2*np.pi / (wavelength * focal_postSLM))
 
-        return  ((shift_y * coeff * pixel_SLM).to_reduced_units().magnitude,
+        coeff = ((shift_y * coeff * pixel_SLM).to_reduced_units().magnitude,
                  (shift_x * coeff * pixel_SLM).to_reduced_units().magnitude)
+
+        self.settings.child('shift', 'x_shift').setValue(coeff[1])
+        self.settings.child('shift', 'y_shift').setValue(coeff[0])
