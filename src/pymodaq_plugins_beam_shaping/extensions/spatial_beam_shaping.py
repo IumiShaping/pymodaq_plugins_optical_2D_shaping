@@ -142,10 +142,19 @@ class BeamShaping(CustomExt):
                 if (config('beam_shaping', 'SLM', default_slm, 'has_internal_calibration') and
                     config('beam_shaping', 'SLM', default_slm, 'use_internal_calibration')):
                     phase_dwa = DataShaper('phase', data=[phase_to_send], as_grey_levels=False)
+                    self._shaper.move_abs(phase_dwa)
                 else:
-                    phase_dwa = self.calibration.calibrate_phase_to_grey(phase_to_send)
-
-                self._shaper.move_abs(phase_dwa)
+                    try:
+                        phase_dwa = self.calibration.calibrate_phase_to_grey(phase_to_send)
+                        self._shaper.move_abs(phase_dwa)
+                    except NameError as e:
+                        messagebox(title='Calibration',
+                                   text='Calibration File not found, cannot send the data to the Shaper. '
+                                        'You should try to do either:\n'
+                                        '* a new calibration first\n'
+                                        f'* add a calibration file in: {self.calibration.get_calibration_filepath()}\n'
+                                        '* use the shaper internal calibration if possible (see preferences).')
+                        self.set_action_checked('send_algo_to_shaper', False)
 
     def save(self, fname: Path = None):
         """ Save fields: input, modulator, output, target into a hdf5 file together with settings/metadata
