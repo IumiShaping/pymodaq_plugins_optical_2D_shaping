@@ -53,10 +53,13 @@ class BeamShapingCalibration(DAQScan):
             widget.setVisible(show)
 
     def do_things_after_experiment_set(self, experiment_name: str):
+        self.modules_manager.actuators_all = self.dashboard.modules_manager.actuators_all
+        self.modules_manager.detectors_all = self.dashboard.modules_manager.detectors_all
+
         if not ('Shaper' in self.modules_manager.actuators_name and
                 'Camera' in self.modules_manager.detectors_name):
             messagebox(title='Control Modules',
-                       text='To perform Calibration, you should have an actuator'
+                       text='To perform Calibration, you should have an actuator '
                             'named Shaper and a camera named Camera in the DashBoard')
             return
         super().do_things_after_experiment_set(experiment_name)
@@ -108,7 +111,7 @@ class BeamShapingCalibration(DAQScan):
     def connect_things(self):
         super().connect_things()
         self.connect_action('show_options', self.show_widgets)
-        self.connect_action('show_calibration', lambda: self.show_calibration())
+        self.connect_action('show_calibration', self.show_calibration)
         self.scan_done_signal.connect(self.save_calibration)
 
     def save_calibration(self):
@@ -136,7 +139,7 @@ class BeamShapingCalibration(DAQScan):
                         saver.add_data(where=saver.raw_group, data=dwa_calibration)
             except NameError:
                 pass
-        self.show_calibration(dwa_calibration)
+        self.show_calibration(show=True, calibration=dwa_calibration)
 
     @classmethod
     def get_calibration_dwa(cls) -> DataWithAxes:
@@ -149,7 +152,7 @@ class BeamShapingCalibration(DAQScan):
         else:
             raise NameError('Calibration file not found.')
 
-    def show_calibration(self, calibration: DataWithAxes = None):
+    def show_calibration(self, show=True, calibration: DataWithAxes = None):
         if calibration is None:
             try:
                 calibration = self.get_calibration_dwa()
@@ -160,8 +163,9 @@ class BeamShapingCalibration(DAQScan):
                 self.set_action_checked('show_calibration', False)
                 return
 
-        self.phase_viewer.setVisible(True)
-        self.phase_viewer.show_data(calibration)
+        self.phase_viewer.setVisible(show)
+        if show:
+            self.phase_viewer.show_data(calibration)
 
 
 def main():
