@@ -98,11 +98,14 @@ class DAQ_Move_MockShaper(DAQ_Move_base):
         value = self.check_bound(value)
         self.target_value = value
         value = self.set_position_with_scaling(value)
-        value = value[0]
 
         if value.shape == (1,):
-            value = value[0] * np.ones_like(self.controller.get_slm_phases())
-        self.controller.apply_grey_scale(value)
+            value.data = [value[0][0] * np.ones_like(self.controller.get_slm_phases())]
+        if 'as_grey_levels' in value.extra_attributes and value.as_grey_levels:
+            self.controller.apply_grey_scale(value[0])
+        else:
+            self.controller.apply_phase(value[0])
+
         self.current_value = value
         self.emit_status(ThreadCommand('Update_Status', ['SLM Updated']))
 

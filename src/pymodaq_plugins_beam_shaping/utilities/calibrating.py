@@ -3,16 +3,25 @@ from typing import Union, TYPE_CHECKING
 from pathlib import Path
 
 import numpy as np
-from qtpy import QtCore, QtWidgets
+from scipy.interpolate import make_interp_spline, BSpline
 
-from pymodaq_gui.messenger import messagebox, dialog
-from pymodaq_gui.plotting.data_viewers import Viewer1D
+from qtpy import QtWidgets
+
+
 from pymodaq_utils.config import get_set_path, get_set_local_dir
 
 from pymodaq_data import DataWithAxes
 from pymodaq_data.h5modules.data_saving import DataLoader, DataSaverLoader
+
 from pymodaq_gui.utils import DockArea
+from pymodaq_gui.messenger import messagebox, dialog
+from pymodaq_gui.plotting.data_viewers import Viewer1D
+
 from pymodaq.extensions.scan.daq_scan import DAQScan
+
+
+from pymodaq_plugins_beam_shaping.utilities.data import DataShaper
+
 
 if TYPE_CHECKING:
     from pymodaq.dashboard import DashBoard
@@ -29,12 +38,51 @@ def copy_scanner_settings():
 copy_scanner_settings()
 
 
-class BeamShapingCalibration(DAQScan):
-    def __init__(self, parent: Union[DockArea, QtWidgets.QWidget, QtWidgets.QMainWindow],
-                 dashboard: 'DashBoard'):
+class Calibration:
 
-        self.phase_viewer: Viewer1D = None
-        super().__init__(parent, dashboard)
+    def __init__(self):
+
+        self._calibration_dwa: DataWithAxes = None
+        self._interpolator: BSpline = None
+
+    @property
+    def dwa(self) -> DataWithAxes:
+        """ Get the DataWithAxes object storing the calibration curve"""
+        if self._calibration_dwa is None:
+            self._calibration_dwa = self.get_calibration_dwa()
+        return self._calibration_dwa
+
+    @property
+    def interpolator(self) -> BSpline:
+        if self._interpolator is None:
+            phases = self.dwa[0]
+            greys =  self.dwa.axes[0].get_data()
+            self._interpolator = make_interp_spline(phases, greys)
+        return self._interpolator
+
+    def get_grey_from_phase(self, phase_array: np.ndarray) -> np.ndarray:
+        return np.rint(self.interpolator(phase_array)).astype(np.uint8)
+
+    def calibrate_phase_to_grey(self, phase_array: np.ndarray) -> DataShaper:
+        return DataShaper('phase_as_grey_levels',
+                          data=self.get_grey_from_phase(phase_array),
+                          as_grey_levels=True)
+
+    @classmethod
+    def get_calibration_dwa(cls) -> DataWithAxes:
+        if cls.get_calibration_filepath().is_file():
+            with DataLoader(cls.get_calibration_filepath()) as saver:
+                dwa = saver.load_data_from_name_origin(where=saver.raw_group,
+                                                       name='Phase',
+                                                       origin='Calibration')
+            return dwa
+        else:
+            raise NameError('Calibration file not found.')
+
+    @classmethod
+    def get_local_folder(cls, user=False) -> Path:
+        """ Create a local User or system wide folder to store things about this object"""
+        return get_set_path(get_set_local_dir(user=user), 'BeamShaping')
 
     @classmethod
     def get_calibration_folder(cls, user=False) -> Path:
@@ -43,6 +91,28 @@ class BeamShapingCalibration(DAQScan):
     @classmethod
     def get_calibration_filepath(cls) -> Path:
         return cls.get_calibration_folder().joinpath('calibration.h5')
+
+
+class BeamShapingCalibration(DAQScan):
+    def __init__(self, parent: Union[DockArea, QtWidgets.QWidget, QtWidgets.QMainWindow],
+                 dashboard: 'DashBoard'):
+
+        self.phase_viewer: Viewer1D = None
+        super().__init__(parent, dashboard)
+        if dashboard is not None and self.experiment_manager is not None and self.experiment_manager.entry_applied:
+            self.do_things_after_experiment_set(self.experiment_manager.entry)
+    @classmethod
+    def get_local_folder(cls, user=False) -> Path:
+        """ Create a local User or system wide folder to store things about this extension"""
+        return Calibration.get_local_folder(user)
+
+    @classmethod
+    def get_calibration_folder(cls, user=False) -> Path:
+        return Calibration.get_calibration_folder(user)
+
+    @classmethod
+    def get_calibration_filepath(cls) -> Path:
+        return Calibration.get_calibration_filepath()
 
     def do_things_after_ui_setup(self):
         super().do_things_after_ui_setup()
@@ -53,8 +123,7 @@ class BeamShapingCalibration(DAQScan):
             widget.setVisible(show)
 
     def do_things_after_experiment_set(self, experiment_name: str):
-        self.modules_manager.actuators_all = self.dashboard.modules_manager.actuators_all
-        self.modules_manager.detectors_all = self.dashboard.modules_manager.detectors_all
+        super().do_things_after_experiment_set(experiment_name)
 
         if not ('Shaper' in self.modules_manager.actuators_name and
                 'Camera' in self.modules_manager.detectors_name):
@@ -62,13 +131,15 @@ class BeamShapingCalibration(DAQScan):
                        text='To perform Calibration, you should have an actuator '
                             'named Shaper and a camera named Camera in the DashBoard')
             return
-        super().do_things_after_experiment_set(experiment_name)
-        self.scan_manager.entry = 'holography_calibration'
-        self.scan_manager.execute_entry()
 
-        QtWidgets.QApplication.processEvents()
+        if hasattr(self, 'scan_manager'):  #could happen because base class calls do_things_after_experiment_set before
+            # scan_manager is set
+            self.scan_manager.entry = 'holography_calibration'
+            self.scan_manager.execute_entry()
 
-        self.connect_start_stop_step()
+            QtWidgets.QApplication.processEvents()
+
+            self.connect_start_stop_step()
 
     def connect_start_stop_step(self):
         self.connect_action('start_val', self.scanner.scanner.settings.child('start').setValue,
@@ -143,14 +214,7 @@ class BeamShapingCalibration(DAQScan):
 
     @classmethod
     def get_calibration_dwa(cls) -> DataWithAxes:
-        if cls.get_calibration_filepath().is_file():
-            with DataLoader(cls.get_calibration_filepath()) as saver:
-                dwa = saver.load_data_from_name_origin(where=saver.raw_group,
-                                                       name='Phase',
-                                                       origin='Calibration')
-            return dwa
-        else:
-            raise NameError('Calibration file not found.')
+        return Calibration.get_calibration_dwa()
 
     def show_calibration(self, show=True, calibration: DataWithAxes = None):
         if calibration is None:

@@ -11,17 +11,17 @@ import numpy as np
 
 from pymodaq.utils.data import DataActuator
 from pymodaq_data import DataDim, DataCalculated, DataRaw
+
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_utils import math_utils as mutils
 
 from pymodaq_data.data import Axis, DataDistribution, DataToExport
 
-from pymodaq.utils.scanner.scan_selector import Selector
-
 from pymodaq.utils.scanner.scan_factory import ScannerFactory, ScannerBase
 from pymodaq.utils.scanner.scanners._1d_scanners import Scan1DBase
 
 from pymodaq_plugins_beam_shaping.utilities.sizing import get_slm_size
+from pymodaq_plugins_beam_shaping.utilities.data import DataShaper
 
 if TYPE_CHECKING:
     from pymodaq.control_modules.daq_move import DAQ_Move
@@ -93,8 +93,9 @@ class Scan1DCalibration(Scan1DBase):
         data = np.zeros(shaper_shape)
         data[:, shaper_shape[1] // 2:] = self.positions[scan_index, axis_index]
 
-        return DataActuator(self.actuators[0].title, data=[data],
-                            units = self.actuators[0].units)
+        return DataShaper(self.actuators[0].title, data=[data],
+                          units = self.actuators[0].units,
+                          as_grey_levels=True)
 
     @property
     def grey_scale(self) -> np.ndarray:

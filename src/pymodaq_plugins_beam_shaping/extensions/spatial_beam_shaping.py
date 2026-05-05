@@ -2,28 +2,27 @@ import numpy as np
 from qtpy import QtWidgets, QtCore
 from pathlib import Path
 
-from pymodaq_gui.messenger import messagebox
-from pymodaq_gui.utils.shared_ui import MenuToolbarNames
-from pymodaq_plugins_beam_shaping.algorithms.utils import ApplyMaskTo
+from pymodaq.utils.shared_ui import SharedUI
 from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
-from pymodaq_utils.config import Config
-from pymodaq.utils.data import DataToExport, DataCalculated, DataActuator, DataDim
-from pymodaq_utils.math_utils import greater2n
+from pymodaq_utils.config import GlobalConfig
+
 from pymodaq_data.h5modules.data_saving import DataToExportSaver, DataLoader
 
-
-from pymodaq_gui.plotting.data_viewers.viewer0D import Viewer0D
+from pymodaq_gui.messenger import messagebox
+from pymodaq_gui.utils.shared_ui import MenuToolbarNames, SharedUI
+from pymodaq_gui.config import get_set_layout_path
 from pymodaq_gui.plotting.data_viewers.viewer2D import Viewer2D
 from pymodaq_gui.plotting.data_viewers.viewer import ViewerDispatcher
 from pymodaq_gui.utils.file_io import select_file
 from pymodaq_gui import utils as gutils
-from pymodaq_gui.utils.widgets.tree_toml import TreeFromToml
+
 from pymodaq_gui.utils.layout import save_layout_state, load_layout_state
-from pymodaq_gui.parameter.ioxml import parameter_to_xml_string, xml_string_to_parameter
+from pymodaq_gui.parameter.ioxml import  xml_string_to_parameter
 
 from pymodaq.extensions.custom_ext import CustomExt
-from pymodaq_gui.config import get_set_layout_path
+from pymodaq.utils.gui_utils.loader_utils import create_extension
+from pymodaq.utils.data import DataToExport, DataCalculated, DataActuator, DataDim
 
 from pymodaq_plugins_beam_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_beam_shaping.algorithms.algorithm_app import AlgoApp
@@ -31,18 +30,23 @@ from pymodaq_plugins_beam_shaping.field.field_loader_app import FieldLoaderApp, 
 from pymodaq_plugins_beam_shaping.utilities.corrections import Correction
 from pymodaq_plugins_beam_shaping.algorithms import AlgorithmFactory, AlgoBase
 from pymodaq_plugins_beam_shaping.utilities import sizing
-
-
+from pymodaq_plugins_beam_shaping.algorithms.utils import ApplyMaskTo
+from pymodaq_plugins_beam_shaping.utilities.calibrating import BeamShapingCalibration, Calibration
+from pymodaq_plugins_beam_shaping.utilities.data import DataShaper
 
 logger = set_logger(get_module_name(__file__))
 layout_path = get_set_layout_path(user=True)
 
-config = Config()
+config = GlobalConfig()
 plugin_config = PluginConfig()
 algo_factory = AlgorithmFactory
 
 EXTENSION_NAME = 'BeamShaping'
 CLASS_NAME = 'BeamShaping'
+
+
+def create_calibration_scan_app(dashboard) -> tuple[SharedUI, BeamShapingCalibration]:
+    return create_extension(dashboard, BeamShapingCalibration)
 
 
 class BeamShaping(CustomExt):
@@ -69,6 +73,10 @@ class BeamShaping(CustomExt):
 
         self._corrections: Correction = None
 
+        self._calibration_shared_ui: QtWidgets.QMainWindow = None
+        self._calibration_app: BeamShapingCalibration = None
+        self.calibration : Calibration = Calibration()
+
         if self.modules_manager is not None and 'Shaper' in self.modules_manager.actuators_name:
             self._shaper = self.modules_manager.get_mod_from_name('Shaper', 'act')
         else:
@@ -77,6 +85,13 @@ class BeamShaping(CustomExt):
         self.setup_ui()
 
         self.do_things_after_init()
+
+    def update_calibration(self):
+        """ Create a new Calibration object
+
+        Will be triggered if a new calib is done and changed the calibration file
+        """
+        self.calibration = Calibration()
 
     @property
     def input_field(self) -> Field:
@@ -122,8 +137,15 @@ class BeamShaping(CustomExt):
                 if self.is_action_checked('send_correc_to_shaper'):
                     if self._correction_phase is not None:
                         phase_to_send = phase_to_send + self._correction_phase[0][*self.get_slm_slices()]
+                phase_to_send = sizing.unbin_to_real_slm(phase_to_send)
+                default_slm = config('beam_shaping', 'SLM', 'default_slm')[0]
+                if (config('beam_shaping', 'SLM', default_slm, 'has_internal_calibration') and
+                    config('beam_shaping', 'SLM', default_slm, 'use_internal_calibration')):
+                    phase_dwa = DataShaper('phase', data=[phase_to_send], as_grey_levels=False)
+                else:
+                    phase_dwa = self.calibration.calibrate_phase_to_grey(phase_to_send)
 
-                self._shaper.move_abs(DataActuator('phase', data=sizing.unbin_to_real_slm(phase_to_send)))
+                self._shaper.move_abs(phase_dwa)
 
     def save(self, fname: Path = None):
         """ Save fields: input, modulator, output, target into a hdf5 file together with settings/metadata
@@ -460,6 +482,8 @@ class BeamShaping(CustomExt):
         self.connect_action('load', lambda: self.load())
         self.config_changed.connect(self.do_things_after_config_changed)
 
+        self.connect_action('calibration', self.show_calibration)
+
     def plot_fields(self, dte: DataToExport):
         metrics = dte.remove(dte.get_data_from_name('metrics'))
         dte_output = DataToExport('output', data=[
@@ -479,6 +503,14 @@ class BeamShaping(CustomExt):
     def show_corrections(self, show=True):
         self._corrections_dockarea.setVisible(show)
         self._corrections_dockarea.closeEvent = lambda event: self.set_action_checked('corrections', False)
+
+    def show_calibration(self, show=True):
+        if self._calibration_app is None:
+            self._calibration_shared_ui, self._calibration_app = create_calibration_scan_app(self.dashboard)
+            self._calibration_app.scan_done_signal.connect(self.update_calibration)
+
+        self._calibration_shared_ui.show(show)
+        self._calibration_shared_ui.mainwindow.closeEvent = lambda event: self.set_action_checked('calibration', False)
 
     @property
     def slm_shape(self) -> tuple[int, int]:

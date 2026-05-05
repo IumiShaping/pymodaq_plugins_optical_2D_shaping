@@ -74,6 +74,9 @@ class ShaperCamera:
     def apply_grey_scale(self, value: np.ndarray):
         self._slm_values = value * N_PI * np.pi / 256
 
+    def apply_phase(self, value: np.ndarray):
+        self._slm_values = value
+
     def get_camera(self, amplitude_mask: np.ndarray = None) -> np.ndarray:
         field = self._amplitude * np.exp(1j * self._slm_values)
         if amplitude_mask is not None and amplitude_mask.shape == field.shape:

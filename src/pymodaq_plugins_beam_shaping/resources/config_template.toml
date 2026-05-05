@@ -29,13 +29,15 @@ default_slm = ["PLUTO", "LC2012"] #first elet in the list used as default
 width = 1920
 height = 1080
 pixel_size = 8  # in micrometer
-
+has_internal_calibration = true
+use_internal_calibration = false
 
 [SLM.LC2012]
 width = 1024
 height = 768
 pixel_size = 36   # in micrometer
-
+has_internal_calibration = true
+use_internal_calibration = false
 
 [target]
 default_loader = ["ImageFiles"] #will be populated at startup from the reading of the factory
