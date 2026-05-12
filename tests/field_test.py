@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from pymodaq_plugins_optical_2D_shaping.field import Field
+from pymodaq_plugins_beam_shaping.field import Field
 
 
 class TestField:
