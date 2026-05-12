@@ -1,13 +1,30 @@
+from dataclasses import dataclass
+
 import numpy as np
 
 from pymodaq_data import Q_
 
+from pymodaq_plugins_optical_2D_shaping.field.field import Field
 from pymodaq_plugins_optical_2D_shaping.algorithms.ini_phase import PhaseFactory, PhaseBase
 from pymodaq_plugins_optical_2D_shaping.utils import Config
 from pymodaq_plugins_optical_2D_shaping.utilities import sizing
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import LensSetup, ApplyMaskTo
+from pymodaq_utils.math_utils import my_moment
 
 plugin_config = Config()
+
+
+@dataclass
+class FieldSize:
+    x_size: float = None
+    y_size: float = None
+
+    def __init__(self, field: Field):
+        self.x_size = my_moment(field.get_axis_from_index(1)[0].get_data(),
+                                np.sum(field.amplitude, axis=0))[1]
+        self.y_size = my_moment(field.get_axis_from_index(0)[0].get_data(),
+                                np.sum(field.amplitude, axis=1))[1]
+
 
 
 @PhaseFactory.register_phase()
@@ -31,6 +48,11 @@ class QuadraticPhase(PhaseBase):
             {'title': 'Y shift (1/m)', 'name': 'y_shift', 'type': 'float', 'value': 0.},
         ]},
     ]
+
+    def get_input_output_size(self) -> tuple[FieldSize, FieldSize]:
+
+        input_size = FieldSize(self.algo.modulator_field)
+        output_size = FieldSize(self.algo.target_field_pixels_sizes[0])
 
     def compute_phase(self, **kwargs) -> np.ndarray:
         ny, nx = self.algo.shape
