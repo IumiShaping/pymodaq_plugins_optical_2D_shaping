@@ -3,7 +3,7 @@ from qtpy import QtWidgets, QtCore
 from pathlib import Path
 
 from pymodaq_gui.messenger import messagebox
-from pymodaq_gui.utils.shared_ui import MenuNames
+from pymodaq_gui.utils.shared_ui import MenuToolbarNames
 from pymodaq_plugins_optical_2D_shaping.algorithms.utils import ApplyMaskTo
 from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
@@ -329,15 +329,15 @@ class BeamShaping(CustomExt):
 
         """
         self.create_dashboard_toolbar(add_break=False)
-        self.add_menu(MenuNames.FILE, MenuNames.FILE.capitalize(),
+        self.add_menu(MenuToolbarNames.FILE, MenuToolbarNames.FILE.capitalize(),
                       menu=self.menubar)
 
     def setup_actions(self):
         logger.debug('Main actions')
         self.add_action('save', 'Save', 'file_save', 'Save Everything to a h5beam file',
-                        menu=MenuNames.FILE, auto_menu=True)
+                        menu=MenuToolbarNames.FILE, auto_menu=True)
         self.add_action('load', 'Load', 'file_open', 'Load fields from a h5beam file',
-                        menu=MenuNames.FILE, auto_menu=True)
+                        menu=MenuToolbarNames.FILE, auto_menu=True)
         self.toolbar.addSeparator()
         self.add_action('target', 'Target Selection', 'target',
                         'Open the Target FieldLoader window', checkable=True,

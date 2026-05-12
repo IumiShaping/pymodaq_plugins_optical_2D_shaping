@@ -51,8 +51,7 @@ class QuadraticPhase(PhaseBase):
 
     def get_input_output_size(self) -> tuple[FieldSize, FieldSize]:
 
-        input_size = FieldSize(self.algo.modulator_field)
-        output_size = FieldSize(self.algo.target_field_pixels_sizes[0])
+        return FieldSize(self.algo.modulator_field), FieldSize(self.algo.target_field_pixels_sizes[0])
 
     def compute_phase(self, **kwargs) -> np.ndarray:
         ny, nx = self.algo.shape
