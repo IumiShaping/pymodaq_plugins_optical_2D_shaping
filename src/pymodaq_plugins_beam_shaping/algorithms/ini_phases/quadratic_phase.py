@@ -2,12 +2,15 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from pymodaq_utils.math_utils import my_moment
+
 from pymodaq_data import Q_
 
 from pymodaq_plugins_beam_shaping.algorithms.ini_phase import PhaseFactory, PhaseBase
 from pymodaq_plugins_beam_shaping.utils import Config
 from pymodaq_plugins_beam_shaping.utilities import sizing
 from pymodaq_plugins_beam_shaping.algorithms.utils import LensSetup, ApplyMaskTo
+from pymodaq_plugins_beam_shaping.field import Field
 
 plugin_config = Config()
 
@@ -36,14 +39,14 @@ class QuadraticPhase(PhaseBase):
         {'title': 'Quadratic Amplitude', 'name': 'quadratic', 'type': 'group', 'children': [
             {'title': 'Auto: ', 'name': 'auto', 'type': 'bool', 'value': True,
              'tip': 'If True, the X and Y quadratic phase amplotude are computed/updated from the target mask size '},
-            {'title': 'X Quad. ', 'name': 'x_quad', 'type': 'float', 'value': 1.},
-            {'title': 'Y Quad. ', 'name': 'y_quad', 'type': 'float', 'value': 1.},
+            {'title': 'X Quad. (1/µm)² ', 'name': 'x_quad', 'type': 'float', 'value': 1.},
+            {'title': 'Y Quad. (1/µm)²', 'name': 'y_quad', 'type': 'float', 'value': 1.},
         ]},
         {'title': 'Linear Shift', 'name': 'shift', 'type': 'group', 'children': [
             {'title': 'Auto: ', 'name': 'auto', 'type': 'bool', 'value': True,
              'tip': 'If True, the X and Y shift are computed/updated from the target mask position '},
-            {'title': 'X Shift (1/m) ', 'name': 'x_shift', 'type': 'float', 'value': 0.},
-            {'title': 'Y shift (1/m)', 'name': 'y_shift', 'type': 'float', 'value': 0.},
+            {'title': 'X Shift (1/µm) ', 'name': 'x_shift', 'type': 'float', 'value': 0.},
+            {'title': 'Y shift (1/µm)', 'name': 'y_shift', 'type': 'float', 'value': 0.},
         ]},
     ]
 
@@ -52,22 +55,26 @@ class QuadraticPhase(PhaseBase):
         return FieldSize(self.algo.modulator_field), FieldSize(self.algo.target_field_pixels_sizes[0])
 
     def compute_phase(self, **kwargs) -> np.ndarray:
+        binning = plugin_config('sizing', 'binning')
+        pixel_sizes = Q_(np.array([self.algo.input_field_pixels_sizes[ind].magnitude / binning for ind in range(2)]),
+                         self.algo.input_field_pixels_sizes[0].units)
+
         ny, nx = self.algo.shape
-        xlin = np.linspace(-nx // 2, nx // 2, nx, endpoint=True)
-        ylin = np.linspace(-ny // 2, ny // 2, ny, endpoint=True)
+        xlin_um = (np.linspace(-nx // 2, nx // 2, nx, endpoint=True) * pixel_sizes[1]).to('um').magnitude
+        ylin_um = (np.linspace(-ny // 2, ny // 2, ny, endpoint=True) * pixel_sizes[0]).to('um').magnitude
 
         if self.settings['quadratic', 'auto']:
             self._compute_quadratic_factor()
 
-        xx_quad, yy_quad = np.meshgrid(self.settings['quadratic', 'x_quad'] * xlin ** 2,
-                                       self.settings['quadratic', 'y_quad'] * ylin ** 2)
+        xx_quad, yy_quad = np.meshgrid(self.settings['quadratic', 'x_quad'] * xlin_um ** 2,
+                                       self.settings['quadratic', 'y_quad'] * ylin_um ** 2)
         phase = xx_quad + yy_quad
 
         if self.settings['shift', 'auto']:
             self._compute_linear_factor()  # approximated from lens computation
 
-        xxlin, yylin = np.meshgrid(self.settings['shift', 'x_shift'] * xlin,
-                                   self.settings['shift', 'y_shift'] * ylin)
+        xxlin, yylin = np.meshgrid(self.settings['shift', 'x_shift'] * xlin_um,
+                                   self.settings['shift', 'y_shift'] * ylin_um)
         phase += xxlin + yylin
         return phase
 
@@ -113,10 +120,11 @@ class QuadraticPhase(PhaseBase):
         focal_postSLM = Q_(plugin_config('setup', setup_type, 'focals')[0], 'mm')
         wavelength = Q_(plugin_config('setup', 'wavelength_nm'), 'nm')
 
-        coeff = (2*np.pi / (wavelength * focal_postSLM))
+        coeff = (np.atan(shift_y * pixel_SLM / focal_postSLM),
+                 np.atan(shift_x * pixel_SLM / focal_postSLM))
 
-        coeff = ((shift_y * coeff * pixel_SLM).to_reduced_units().magnitude,
-                 (shift_x * coeff * pixel_SLM).to_reduced_units().magnitude)
+        coeff_um_inv = ((shift_y * coeff * pixel_SLM).to('1/um').magnitude,
+                 (shift_x * coeff * pixel_SLM).to('1/um').magnitude)
 
-        self.settings.child('shift', 'x_shift').setValue(coeff[1])
-        self.settings.child('shift', 'y_shift').setValue(coeff[0])
+        self.settings.child('shift', 'x_shift').setValue(coeff_um_inv[1])
+        self.settings.child('shift', 'y_shift').setValue(coeff_um_inv[0])
