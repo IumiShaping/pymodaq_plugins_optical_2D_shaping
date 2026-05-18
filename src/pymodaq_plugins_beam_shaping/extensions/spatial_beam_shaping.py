@@ -39,6 +39,7 @@ layout_path = get_set_layout_path(user=True)
 
 config = GlobalConfig()
 plugin_config = PluginConfig()
+
 algo_factory = AlgorithmFactory
 
 EXTENSION_NAME = 'BeamShaping'

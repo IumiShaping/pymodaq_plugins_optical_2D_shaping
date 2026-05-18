@@ -6,12 +6,13 @@ Created the 31/08/2023
 """
 
 from pathlib import Path
-from pymodaq_utils.config import BaseConfig
+from pymodaq_utils.config import BaseConfig, GlobalConfig
 from pymodaq_utils.logger import set_logger, get_module_name
 
 logger = set_logger(get_module_name(__file__))
 
 
+@GlobalConfig.register()
 class Config(BaseConfig):
     """Main class to deal with configuration values for this plugin"""
     config_template_path = Path(__file__).parent.joinpath('resources/config_template.toml')
