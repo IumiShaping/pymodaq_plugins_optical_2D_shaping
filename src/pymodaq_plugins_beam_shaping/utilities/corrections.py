@@ -6,14 +6,14 @@ from time import perf_counter
 from zernpy import ZernPol
 
 from qtpy import QtWidgets, QtCore, QtGui
-from zernpy.calculations.calc_psfs_check import pixel_size
+
 
 from pymodaq_data import Q_
 from pymodaq.utils.data import DataActuator
 
 from pymodaq_gui.utils.custom_app import CustomApp, Dock, DockArea
 from pymodaq_gui.utils.widgets.widget_bkg import WidgetWithBkg
-from pymodaq_gui.parameter.pymodaq_ptypes.itemselect import ItemSelect
+
 from pymodaq_gui.plotting.data_viewers.viewer2D import Viewer2D
 from pymodaq_gui.utils.widgets.spinbox import SpinBox
 

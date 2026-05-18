@@ -3,6 +3,9 @@ from pymodaq_utils.math_utils import greater2n, is_power_of_two
 from pymodaq_plugins_beam_shaping import config as plugin_config
 
 
+def get_binning() -> int:
+    return plugin_config('sizing', 'binning')
+
 
 def get_effective_needed_field_size() -> tuple[int, int]:
     """ Compute from the configuration values the needed square size of the fields to be used"""
