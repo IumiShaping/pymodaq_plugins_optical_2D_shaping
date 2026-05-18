@@ -66,15 +66,15 @@ class QuadraticPhase(PhaseBase):
         if self.settings['quadratic', 'auto']:
             self._compute_quadratic_factor()
 
-        xx_quad, yy_quad = np.meshgrid(self.settings['quadratic', 'x_quad'] * xlin_um ** 2,
-                                       self.settings['quadratic', 'y_quad'] * ylin_um ** 2)
+        yy_quad, xx_quad = np.meshgrid(self.settings['quadratic', 'y_quad'] * ylin_um ** 2,
+                                       self.settings['quadratic', 'x_quad'] * xlin_um ** 2, indexing='ij')
         phase = xx_quad + yy_quad
 
         if self.settings['shift', 'auto']:
             self._compute_linear_factor()  # approximated from lens computation
 
-        xxlin, yylin = np.meshgrid(self.settings['shift', 'x_shift'] * xlin_um,
-                                   self.settings['shift', 'y_shift'] * ylin_um)
+        yylin, xxlin = np.meshgrid(self.settings['shift', 'y_shift'] * ylin_um,
+                                   self.settings['shift', 'x_shift'] * xlin_um, indexing='ij')
         phase += xxlin + yylin
         return phase
 
@@ -114,17 +114,14 @@ class QuadraticPhase(PhaseBase):
                                       for ind, _slice in enumerate(_slices)])
         else:
             shift_y, shift_x = (0., 0.)
-
-        pixel_SLM = Q_(sizing.get_effective_slm_pixel_size(), 'um')
+        shifts = (shift_y, shift_x)
         setup_type = plugin_config('setup', 'setup_type')[0]
         focal_postSLM = Q_(plugin_config('setup', setup_type, 'focals')[0], 'mm')
         wavelength = Q_(plugin_config('setup', 'wavelength_nm'), 'nm')
 
-        coeff = (np.atan(shift_y * pixel_SLM / focal_postSLM),
-                 np.atan(shift_x * pixel_SLM / focal_postSLM))
+        coeffs_um_inv = [(2 * np.pi / wavelength *
+                          np.sin(np.atan2(shifts[ind] * self.algo.target_field_pixels_sizes[ind], focal_postSLM)))
+                         .to('1/um').magnitude for ind in range(2)]
 
-        coeff_um_inv = ((shift_y * coeff * pixel_SLM).to('1/um').magnitude,
-                 (shift_x * coeff * pixel_SLM).to('1/um').magnitude)
-
-        self.settings.child('shift', 'x_shift').setValue(coeff_um_inv[1])
-        self.settings.child('shift', 'y_shift').setValue(coeff_um_inv[0])
+        self.settings.child('shift', 'x_shift').setValue(coeffs_um_inv[1])
+        self.settings.child('shift', 'y_shift').setValue(coeffs_um_inv[0])
