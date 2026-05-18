@@ -38,9 +38,12 @@ class QuadraticPhase(PhaseBase):
     params = [
         {'title': 'Quadratic Amplitude', 'name': 'quadratic', 'type': 'group', 'children': [
             {'title': 'Auto: ', 'name': 'auto', 'type': 'bool', 'value': True,
-             'tip': 'If True, the X and Y quadratic phase amplotude are computed/updated from the target mask size '},
+             'tip': 'If True, the X and Y quadratic phase amplitude are computed/updated from the target mask size '},
             {'title': 'X Quad. (1/µm)² ', 'name': 'x_quad', 'type': 'float', 'value': 1.},
             {'title': 'Y Quad. (1/µm)²', 'name': 'y_quad', 'type': 'float', 'value': 1.},
+            {'title': 'Coeff', 'name': 'coeff', 'type': 'float', 'value': 1.,
+             'tip': 'A multiplicative coefficient to adjust the initial size in the output plane while still using the '
+                    'Auto mode'},
         ]},
         {'title': 'Linear Shift', 'name': 'shift', 'type': 'group', 'children': [
             {'title': 'Auto: ', 'name': 'auto', 'type': 'bool', 'value': True,
@@ -66,8 +69,8 @@ class QuadraticPhase(PhaseBase):
         if self.settings['quadratic', 'auto']:
             self._compute_quadratic_factor()
 
-        yy_quad, xx_quad = np.meshgrid(self.settings['quadratic', 'y_quad'] * ylin_um ** 2,
-                                       self.settings['quadratic', 'x_quad'] * xlin_um ** 2, indexing='ij')
+        yy_quad, xx_quad = np.meshgrid(self.settings['quadratic', 'y_quad'] / 2 * ylin_um ** 2,
+                                       self.settings['quadratic', 'x_quad'] / 2 * xlin_um ** 2, indexing='ij')
         phase = xx_quad + yy_quad
 
         if self.settings['shift', 'auto']:
@@ -78,34 +81,37 @@ class QuadraticPhase(PhaseBase):
         phase += xxlin + yylin
         return phase
 
-    def focal_quad(self) -> np.ndarray:
-        """ Compute focal to add in order to have all light on the size of the target """
-        focal = Q_(plugin_config('setup', self.algo.SETUP_TYPE.value, 'focals')[0], 'mm')
-        object_size = Q_(np.array(sizing.get_effective_slm_size()) * sizing.get_effective_slm_pixel_size(),
-                         'um')
+    def _compute_quadratic_factor(self):
         if self.algo.apply_mask(ApplyMaskTo.TARGET):
             _slices = self.algo.get_mask_slices(ApplyMaskTo.TARGET)
             size = [(_slice.stop - _slice.start)
-                     // (_slice.step if _slice.step is not None else 1) + 1 for _slice in _slices]
+                    // (_slice.step if _slice.step is not None else 1) + 1 for _slice in _slices]
         else:
             size = self.algo.shape
 
-        target_size = Q_(np.array([self.algo.target_field_pixels_sizes[ind].magnitude *
-                                   size[ind] for ind in range(2)]),
-                         self.algo.target_field_pixels_sizes[0].units)
+        pixel_SLM = Q_(sizing.get_effective_slm_pixel_size(), 'um')
 
-        focal_quad = focal * (object_size / target_size + 1)
-        return focal_quad
+        slm_size = [slm_size * pixel_SLM for slm_size in sizing.get_effective_slm_size()]
+        mask_size_um = Q_.from_list([size[0] * self.algo.target_field_pixels_sizes[0],
+                                     size[1] * self.algo.target_field_pixels_sizes[1]])
 
-    def _compute_quadratic_factor(self):
-        binning = plugin_config('sizing', 'binning')
-        pixel_sizes = Q_(np.array([self.algo.input_field_pixels_sizes[ind].magnitude / binning for ind in range(2)]),
-                         self.algo.input_field_pixels_sizes[0].units)
+        setup_type = plugin_config('setup', 'setup_type')[0]
+        focal_postSLM = Q_(plugin_config('setup', setup_type, 'focals')[0], 'mm')
+        wavelength = Q_(plugin_config('setup', 'wavelength_nm'), 'nm')
 
-        wavelength = Q_(plugin_config('setup', 'wavelength_nm', ), 'nm')
-        coeff = (pixel_sizes ** 2 / (wavelength * self.focal_quad()) * np.pi).to_reduced_units().magnitude
-        self.settings.child('quadratic', 'x_quad').setValue(coeff[1])
-        self.settings.child('quadratic', 'y_quad').setValue(coeff[0])
+        fft_limited_size = Q_.from_list([focal_postSLM * np.tan(
+            np.asin(wavelength / (2 * slm_size[ind]))) for ind in range(2)])
+
+        dk0 = 2* np.pi / wavelength * np.sin(np.atan2(fft_limited_size, focal_postSLM))
+        dkc =  2* np.pi / wavelength * np.sin(np.atan2(mask_size_um, focal_postSLM))
+
+        add_hoc_coeff = 0.175 * sizing.get_binning()
+
+        quad_phase = add_hoc_coeff * self.settings['quadratic', 'coeff'] * (
+                2 * dk0 ** 2 * np.sqrt((dkc / dk0) ** 2 - 1 )).to('1/um**2').magnitude
+
+        self.settings.child('quadratic', 'x_quad').setValue(quad_phase[1])
+        self.settings.child('quadratic', 'y_quad').setValue(quad_phase[0])
 
     def _compute_linear_factor(self):
         if self.algo.apply_mask(ApplyMaskTo.TARGET):
