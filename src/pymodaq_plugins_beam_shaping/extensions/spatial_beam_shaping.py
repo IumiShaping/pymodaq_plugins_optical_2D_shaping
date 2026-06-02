@@ -393,7 +393,7 @@ class BeamShaping(CustomExt):
         self.add_action('show_calibration', 'ShowCalibration',
                         tip='Show the saved calibration curve if any...', auto_toolbar=False,
                         checkable=False, menu='calibration')
-        
+
         self.add_action('corrections', 'Corrections', 'deblur',
                         tip='Open the Utility window with focal and Zernike correction',
                         checkable=True, menu='shaping_tools')
@@ -493,7 +493,7 @@ class BeamShaping(CustomExt):
 
         self._target_field_loader.field_signal.connect(self.plot_target)
 
-        self.connect_action('show_calibration', self.calibration.show_calibration)
+        self.connect_action('show_calibration', lambda: self.calibration.show_calibration(True))
 
         self.connect_action('corrections', self.show_corrections)
         self._corrections.phase_changed.connect(self.update_correction_phase)

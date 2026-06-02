@@ -133,7 +133,6 @@ class Calibration(QtCore.QObject):
                 messagebox(title='Calibration Data',
                            text='Could not load calibration data, '
                                 'you should do a new calibration')
-                self.set_action_checked('show_calibration', False)
                 return
 
         self.phase_viewer.setVisible(show)
@@ -222,10 +221,10 @@ class BeamShapingCalibration(DAQScan):
         self.add_action('show_options', 'Show Scanner Options', 'build_circle', tip='Show options', checkable=True)
         self.toolbar.addSeparator()
         self.add_action('show_calibration', 'Show Calibration', 'visibility',
-                            'Show/Hide the Calibration Viewer', checkable=True,
-                            icon_color=self.get_theme().green,
-                            icon_checked='visibility_off',
-                            icon_checked_color=self.get_theme().red)
+                        tip='Show/Hide the Calibration Viewer', checkable=True,
+                        icon_color=self.get_theme().green,
+                        icon_checked='visibility_off',
+                        icon_checked_color=self.get_theme().red)
 
     def connect_things(self):
         super().connect_things()
@@ -272,26 +271,16 @@ class BeamShapingCalibration(DAQScan):
                         saver.add_data(where=saver.raw_group, data=dwa_calibration)
             except NameError:
                 pass
-        self.show_calibration(show=True, calibration=dwa_calibration)
+        self.show_calibration(show=True, calibration_dwa=dwa_calibration)
 
     @classmethod
     def get_calibration_dwa(cls) -> DataWithAxes:
         return Calibration.get_calibration_dwa()
 
-    def show_calibration(self, show=True, calibration: DataWithAxes = None):
-        if calibration is None:
-            try:
-                calibration = self.get_calibration_dwa()
-            except NameError:
-                messagebox(title='Calibration Data',
-                           text='Could not load calibration data, '
-                                'you should do a new calibration')
-                self.set_action_checked('show_calibration', False)
-                return
-
-        self.phase_viewer.setVisible(show)
-        if show:
-            self.phase_viewer.show_data(calibration)
+    @staticmethod
+    def show_calibration(show=True, calibration_dwa: DataWithAxes = None):
+        calibration = Calibration()
+        calibration.show_calibration(show=show, calibration=calibration_dwa)
 
 
 def main():
