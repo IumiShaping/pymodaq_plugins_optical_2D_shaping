@@ -363,6 +363,10 @@ class BeamShaping(CustomExt):
         self.create_dashboard_toolbar(add_break=False)
         self.add_menu(MenuToolbarNames.FILE, MenuToolbarNames.FILE.capitalize(),
                       parent_menu=self.menubar)
+        self.add_menu(MenuToolbarNames.TOOLS, MenuToolbarNames.TOOLS.capitalize(),
+                      parent_menu=self.menubar)
+        self.add_menu('shaping_tools', 'Shaping', parent_menu=MenuToolbarNames.TOOLS, )
+        self.add_menu('calibration', 'Calibration', parent_menu='shaping_tools', )
 
     def setup_actions(self):
         logger.debug('Main actions')
@@ -373,35 +377,41 @@ class BeamShaping(CustomExt):
         self.toolbar.addSeparator()
         self.add_action('target', 'Target Selection', 'target',
                         'Open the Target FieldLoader window', checkable=True,
-                        icon_checked_color=self.get_theme().green)
+                        icon_checked_color=self.get_theme().green, menu='shaping_tools')
         self.add_action('input', 'Input Beam Selection', 'input',
                         'Open the InputBeam FieldLoader window', checkable=True,
-                        icon_checked_color=self.get_theme().green)
+                        icon_checked_color=self.get_theme().green, menu='shaping_tools')
         self.add_action('show_other_plots', 'Show Other Plots', 'visibility', checkable=True,
                         icon_checked='visibility_off', auto_toolbar=False)
         self.add_action('show_intermediate', 'Show Intermediate', 'visibility', checkable=True,
-                        icon_checked='visibility_off', tip='Show Field intensity in intermediate plane')
+                        icon_checked='visibility_off', tip='Show Field intensity in intermediate plane',
+                        menu='shaping_tools')
         self.toolbar.addSeparator()
         self.add_action('calibration', 'Calibration', 'equalizer',
                         tip='Perform a calibration of the SLM phase wrt the grey levels applied to it.',
-                        checkable=True)
+                        checkable=True, menu='calibration')
+        self.add_action('show_calibration', 'ShowCalibration',
+                        tip='Show the saved calibration curve if any...', auto_toolbar=False,
+                        checkable=False, menu='calibration')
+
         self.add_action('corrections', 'Corrections', 'deblur',
                         tip='Open the Utility window with focal and Zernike correction',
-                        checkable=True)
+                        checkable=True, menu='shaping_tools')
         self.toolbar.addSeparator()
 
         self.add_action('send_algo_to_shaper', 'Algo to shaper', 'grid_off',
                         icon_color=self.get_theme().red,
                         tip='Send calculated phase to the control module called *Shaper*',
                         checkable=True, toolbar='dashboard',
-                        icon_checked='grid_on', icon_checked_color=self.get_theme().green)
+                        icon_checked='grid_on', icon_checked_color=self.get_theme().green,
+                        menu='shaping_tools')
 
         self.add_action('send_correc_to_shaper', 'Correction to shaper', 'ink_eraser_off',
                         'Send correction phase to the control module called *Shaper*',
                         checkable=True, toolbar='dashboard',
                         icon_color=self.get_theme().red,
                         icon_checked='ink_eraser',
-                        icon_checked_color=self.get_theme().green)
+                        icon_checked_color=self.get_theme().green, menu='shaping_tools')
 
         if self.dashboard is not None:
             self.add_action('add_corrections', 'Add Corrections', 'add_circle',
@@ -483,6 +493,8 @@ class BeamShaping(CustomExt):
 
         self._target_field_loader.field_signal.connect(self.plot_target)
 
+        self.connect_action('show_calibration', lambda: self.calibration.show_calibration(True))
+
         self.connect_action('corrections', self.show_corrections)
         self._corrections.phase_changed.connect(self.update_correction_phase)
         if self.dashboard is not None:
@@ -492,7 +504,7 @@ class BeamShaping(CustomExt):
         self.connect_action('load', lambda: self.load())
         self.config_changed.connect(self.do_things_after_config_changed)
 
-        self.connect_action('calibration', self.show_calibration)
+        self.connect_action('calibration', self.open_calibration_app)
 
     def plot_fields(self, dte: DataToExport):
         metrics = dte.remove(dte.get_data_from_name('metrics'))
@@ -514,7 +526,7 @@ class BeamShaping(CustomExt):
         self._corrections_dockarea.setVisible(show)
         self._corrections_dockarea.closeEvent = lambda event: self.set_action_checked('corrections', False)
 
-    def show_calibration(self, show=True):
+    def open_calibration_app(self, show=True):
         if self._calibration_app is None:
             self._calibration_shared_ui, self._calibration_app = create_calibration_scan_app(self.dashboard)
             self._calibration_app.scan_done_signal.connect(self.update_calibration)

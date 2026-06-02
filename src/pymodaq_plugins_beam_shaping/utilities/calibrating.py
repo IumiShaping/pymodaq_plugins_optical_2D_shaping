@@ -4,11 +4,13 @@ from pathlib import Path
 
 import numpy as np
 from scipy.interpolate import make_interp_spline, BSpline
+from scipy.signal import savgol_filter
 
-from qtpy import QtWidgets
+from qtpy import QtWidgets, QtCore
 
 
 from pymodaq_utils.config import get_set_path, get_set_local_dir
+from pymodaq_utils.logger import set_logger, get_module_name
 
 from pymodaq_data import DataWithAxes
 from pymodaq_data.h5modules.data_saving import DataLoader, DataSaverLoader
@@ -27,6 +29,9 @@ if TYPE_CHECKING:
     from pymodaq.dashboard import DashBoard
 
 
+logger = set_logger(get_module_name(__file__))
+
+
 def copy_scanner_settings():
     import shutil
     from pymodaq.extensions.scan.scan_manager import ScanManager
@@ -38,12 +43,20 @@ def copy_scanner_settings():
 copy_scanner_settings()
 
 
-class Calibration:
+def check_monotonic(phases: np.ndarray) -> bool:
+    return np.all(np.diff(phases) >= 0.)
+
+
+class Calibration(QtCore.QObject):
 
     def __init__(self):
-
+        super().__init__()
         self._calibration_dwa: DataWithAxes = None
         self._interpolator: BSpline = None
+        self._valid_phase_range: tuple[float, float] = None
+
+        self.phase_viewer = Viewer1D(title='Phase')
+        self.phase_viewer.parent.setVisible(False)
 
     @property
     def dwa(self) -> DataWithAxes:
@@ -53,14 +66,34 @@ class Calibration:
         return self._calibration_dwa
 
     @property
+    def valid_phase_range(self) -> tuple[float, float]:
+        return self._valid_phase_range
+
+    @property
     def interpolator(self) -> BSpline:
         if self._interpolator is None:
             phases = self.dwa[0]
+            for ind in range(5, 11, 2):
+                if check_monotonic(phases):
+                    break
+                else:
+                    phases = savgol_filter(phases, window_length=ind, polyorder=3)
+            if not check_monotonic(phases):
+                raise ValueError('The calibration phases is not monotonically increasing.'
+                                 'It should be to create BSplines')
+            self._valid_phase_range = (phases.min(), phases.max())
             greys =  self.dwa.axes[0].get_data()
             self._interpolator = make_interp_spline(phases, greys)
         return self._interpolator
 
+
     def get_grey_from_phase(self, phase_array: np.ndarray) -> np.ndarray:
+        """ get the Grey levels from the Bspline interpolation
+
+        Valid phase range is between 0 and 2pi mapped to [0-255] grey levels
+        """
+        phase_array = phase_array % (2*np.pi)
+
         return np.rint(self.interpolator(phase_array)).astype(np.uint8)
 
     def calibrate_phase_to_grey(self, phase_array: np.ndarray) -> DataShaper:
@@ -91,6 +124,20 @@ class Calibration:
     @classmethod
     def get_calibration_filepath(cls) -> Path:
         return cls.get_calibration_folder().joinpath('calibration.h5')
+
+    def show_calibration(self, show=True, calibration: DataWithAxes = None):
+        if calibration is None:
+            try:
+                calibration = self.get_calibration_dwa()
+            except NameError:
+                messagebox(title='Calibration Data',
+                           text='Could not load calibration data, '
+                                'you should do a new calibration')
+                return
+
+        self.phase_viewer.setVisible(show)
+        if show:
+            self.phase_viewer.show_data(calibration)
 
 
 class BeamShapingCalibration(DAQScan):
@@ -174,10 +221,10 @@ class BeamShapingCalibration(DAQScan):
         self.add_action('show_options', 'Show Scanner Options', 'build_circle', tip='Show options', checkable=True)
         self.toolbar.addSeparator()
         self.add_action('show_calibration', 'Show Calibration', 'visibility',
-                            'Show/Hide the Calibration Viewer', checkable=True,
-                            icon_color=self.get_theme().green,
-                            icon_checked='visibility_off',
-                            icon_checked_color=self.get_theme().red)
+                        tip='Show/Hide the Calibration Viewer', checkable=True,
+                        icon_color=self.get_theme().green,
+                        icon_checked='visibility_off',
+                        icon_checked_color=self.get_theme().red)
 
     def connect_things(self):
         super().connect_things()
@@ -198,38 +245,42 @@ class BeamShapingCalibration(DAQScan):
                 # remove nav indexes
                 dwa_calibration.nav_indexes = ()  # empty tuple
 
-                do_save = True
+                for ind in range(5, 11, 2):
+                    if check_monotonic(dwa_calibration[0]):
+                        break
+                    else:
+                        logger.warning('Your calibration is not monotonically increasing.\n'
+                                       'smoothing it to attempt to get it monotonical')
+                        dwa_calibration[0] = savgol_filter(dwa_calibration[0], window_length=ind, polyorder=3)
+                if not check_monotonic(dwa_calibration[0]):
+                    messagebox(title='',
+                               text='Your calibration is not monotonically increasing.\n'
+                                    'Cannot save it')
+                    do_save = False
+                else:
+                    do_save = True
                 if self.get_calibration_filepath().is_file():
                     do_save = dialog(title='Calibration File Overwrite',
                                  message='Calibration file exists, do you want '
                                          'to overwrite it?')
                     if do_save:
-                        self.get_calibration_filepath().unlink()
+                        self.get_calibration_filepath().unlink(missing_ok=True)
                 if do_save:
-                    with DataSaverLoader(self.get_calibration_filepath()) as saver:
+                    with DataSaverLoader(self.get_calibration_filepath(),
+                                         new_file=True) as saver:
                         saver.add_data(where=saver.raw_group, data=dwa_calibration)
             except NameError:
                 pass
-        self.show_calibration(show=True, calibration=dwa_calibration)
+        self.show_calibration(show=True, calibration_dwa=dwa_calibration)
 
     @classmethod
     def get_calibration_dwa(cls) -> DataWithAxes:
         return Calibration.get_calibration_dwa()
 
-    def show_calibration(self, show=True, calibration: DataWithAxes = None):
-        if calibration is None:
-            try:
-                calibration = self.get_calibration_dwa()
-            except NameError:
-                messagebox(title='Calibration Data',
-                           text='Could not load calibration data, '
-                                'you should do a new calibration')
-                self.set_action_checked('show_calibration', False)
-                return
-
-        self.phase_viewer.setVisible(show)
-        if show:
-            self.phase_viewer.show_data(calibration)
+    @staticmethod
+    def show_calibration(show=True, calibration_dwa: DataWithAxes = None):
+        calibration = Calibration()
+        calibration.show_calibration(show=show, calibration=calibration_dwa)
 
 
 def main():
