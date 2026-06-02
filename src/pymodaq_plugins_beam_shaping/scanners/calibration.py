@@ -48,6 +48,7 @@ class Scan1DCalibration(Scan1DBase):
 
     def __init__(self, actuators: List['DAQ_Move'] = None, display_units=True, **_ignored):
         super().__init__(actuators=actuators, display_units=display_units)
+        self.index_max_fft: int = None
 
     def process_data(self, dte: DataToExport) -> DataToExport:
         """ Process Acquired data if the boolean class attribute *do_process_data* is set to True
@@ -65,12 +66,16 @@ class Scan1DCalibration(Scan1DBase):
             dwa_camera_1d = dte[ind_lineout]
         else:
             dwa_camera_1d = dte.get_data_from_dim(DataDim.Data2D)[0].sum(0)
-        dwa_camera_1d.create_missing_axes()
-        dwa_camera_1d.add_extra_attribute(do_save=False)
-        dwa_ft = dwa_camera_1d.ft(axis_units='')
-        index_max = np.argmax(np.abs(dwa_ft.isig[dwa_ft.size//2+10::][0]))
+        dwa_to_compute = dwa_camera_1d.deepcopy()
+        dwa_to_compute[0] -= np.mean(dwa_to_compute[0][0])
+        dwa_to_compute = dwa_to_compute.pad(2**15 - dwa_to_compute.size//2)
+        dwa_to_compute.create_missing_axes()
+        dwa_to_compute.add_extra_attribute(do_save=False)
+        dwa_ft = dwa_to_compute.ft(axis_units='')
+        if self.index_max_fft is None:
+            self.index_max_fft = np.argmax(np.abs(dwa_ft.isig[dwa_ft.size//2+1000::][0]))
 
-        phase = np.angle(dwa_ft.isig[index_max + dwa_ft.size//2+10][0][0])
+        phase = np.angle(dwa_ft.isig[self.index_max_fft + dwa_ft.size//2+1000][0][0])
         dwa_phase = DataCalculated('Phase', data=[np.atleast_1d(phase)], labels=['Phase'], origin='Scanner')
         dwa_phase.add_extra_attribute(do_save=True)
 
@@ -90,8 +95,9 @@ class Scan1DCalibration(Scan1DBase):
 
         """
         shaper_shape = get_slm_size()
-        data = np.zeros(shaper_shape)
+        data = np.zeros(shaper_shape, dtype=np.uint8)
         data[:, shaper_shape[1] // 2:] = self.positions[scan_index, axis_index]
+        data = data.astype(np.uint8)
 
         return DataShaper(self.actuators[0].title, data=[data],
                           units = self.actuators[0].units,
@@ -103,6 +109,8 @@ class Scan1DCalibration(Scan1DBase):
                                           self.settings['step'])
 
     def set_scan(self):
+        self.index_max_fft: int = None
+
         self.get_info_from_positions(self.grey_scale)
 
         self.n_axes = 1
