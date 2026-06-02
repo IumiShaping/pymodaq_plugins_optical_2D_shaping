@@ -6,7 +6,7 @@ import numpy as np
 from scipy.interpolate import make_interp_spline, BSpline
 from scipy.signal import savgol_filter
 
-from qtpy import QtWidgets
+from qtpy import QtWidgets, QtCore
 
 
 from pymodaq_utils.config import get_set_path, get_set_local_dir
@@ -47,13 +47,16 @@ def check_monotonic(phases: np.ndarray) -> bool:
     return np.all(np.diff(phases) >= 0.)
 
 
-class Calibration:
+class Calibration(QtCore.QObject):
 
     def __init__(self):
-
+        super().__init__()
         self._calibration_dwa: DataWithAxes = None
         self._interpolator: BSpline = None
         self._valid_phase_range: tuple[float, float] = None
+
+        self.phase_viewer = Viewer1D(title='Phase')
+        self.phase_viewer.parent.setVisible(False)
 
     @property
     def dwa(self) -> DataWithAxes:
@@ -82,7 +85,6 @@ class Calibration:
             greys =  self.dwa.axes[0].get_data()
             self._interpolator = make_interp_spline(phases, greys)
         return self._interpolator
-
 
 
     def get_grey_from_phase(self, phase_array: np.ndarray) -> np.ndarray:
@@ -122,6 +124,21 @@ class Calibration:
     @classmethod
     def get_calibration_filepath(cls) -> Path:
         return cls.get_calibration_folder().joinpath('calibration.h5')
+
+    def show_calibration(self, show=True, calibration: DataWithAxes = None):
+        if calibration is None:
+            try:
+                calibration = self.get_calibration_dwa()
+            except NameError:
+                messagebox(title='Calibration Data',
+                           text='Could not load calibration data, '
+                                'you should do a new calibration')
+                self.set_action_checked('show_calibration', False)
+                return
+
+        self.phase_viewer.setVisible(show)
+        if show:
+            self.phase_viewer.show_data(calibration)
 
 
 class BeamShapingCalibration(DAQScan):
