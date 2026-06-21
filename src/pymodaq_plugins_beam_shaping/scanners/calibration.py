@@ -46,8 +46,8 @@ class Scan1DCalibration(Scan1DBase):
     n_axes = 1
     distribution = DataDistribution.uniform
 
-    def __init__(self, actuators: List['DAQ_Move'] = None, display_units=True, **_ignored):
-        super().__init__(actuators=actuators, display_units=display_units)
+    def __init__(self, actuators: List['DAQ_Move'] = None, settings=None, **_ignored):
+        super().__init__(actuators=actuators, settings=settings)
         self.index_max_fft: int = None
 
     def process_data(self, dte: DataToExport) -> DataToExport:

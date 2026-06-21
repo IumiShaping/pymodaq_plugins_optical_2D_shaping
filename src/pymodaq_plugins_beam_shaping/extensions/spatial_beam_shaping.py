@@ -57,7 +57,7 @@ class BeamShaping(CustomExt):
     ]
 
     def __init__(self, dockarea, dashboard):
-        super().__init__(dockarea, dashboard)
+        super().__init__(dockarea, dashboard, add_toolbar_break=False)
 
         self._target_field_loader: FieldLoaderApp = None
         self._input_field_loader: FieldLoaderApp = None
