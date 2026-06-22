@@ -107,7 +107,7 @@ class Projections(GbSax):
     params = [
         {'title': 'Weighting', 'name': 'weighting', 'type': 'bool', 'value': False,
          'tip': 'If True, applies a weighting between calculated output amplitude and target amplitude'},
-        {'title': 'Mixing ratio', 'name': 'mixing_ratio', 'type': 'float', 'value': 0.5,
+        {'title': 'Mixing ratio', 'name': 'mixing_ratio', 'type': 'float', 'value': 0.5, 'limits': [0., 1.],
          'tip': 'The mixing ratio correspond to the MRAF hyperparameter. A ROI in the target plane must be selected'
                 'for this to work. A value of 1 corresponds to the standard Gerchberg-Saxton algorithm'},]
 
