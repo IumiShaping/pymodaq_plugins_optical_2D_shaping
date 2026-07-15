@@ -2,14 +2,12 @@ from abc import ABCMeta
 from typing import Optional, Union, Tuple, TYPE_CHECKING
 
 import numpy as np
-from scipy.ndimage.filters import gaussian_filter
-from pyqtgraph.parametertree import Parameter
+from scipy.ndimage import gaussian_filter
 from qtpy import QtWidgets
 
 
-from pymodaq_utils.math_utils import gauss2D
 from pymodaq_data import Q_, DataRaw, DataToExport
-from pymodaq_gui.managers.parameter_manager import ParameterManager
+from pymodaq_gui.managers.parameter_manager import ParameterManager, Parameter
 
 from pymodaq_plugins_beam_shaping.algorithms.utils import (AlgoType, ApplyMaskTo,
                                                            LensSetup, CrossTalk, PhaseManipulation)

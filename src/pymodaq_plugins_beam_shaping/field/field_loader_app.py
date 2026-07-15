@@ -76,7 +76,8 @@ class FieldLoaderApp(CustomApp):
             {'title': 'Flip ud', 'name': 'flipud', 'type': 'bool', 'value': False},
             {'title': 'Flip lr', 'name': 'fliplr', 'type': 'bool', 'value': False},
             {'title': 'Sizing', 'name': 'sizing', 'type': 'group', 'children': [
-                {'title': 'Scaling', 'name': 'scaling', 'type': 'float', 'value': 1., },
+                {'title': 'Scaling', 'name': 'scaling', 'type': 'float', 'value': 1.,
+                 'min': 0.0001},
                 {'title': 'Do Scaling', 'name': 'do_scaling', 'type': 'bool', 'value': True},
                 {'title': 'Keep aspect ratio', 'name': 'aspect_ratio', 'type': 'bool',
                  'value': True},
