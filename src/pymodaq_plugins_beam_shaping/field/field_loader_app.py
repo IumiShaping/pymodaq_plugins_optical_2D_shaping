@@ -28,7 +28,7 @@ from pymodaq_plugins_beam_shaping.utilities.masking import MaskType
 from pymodaq_plugins_beam_shaping.utilities.sizing import (
     get_effective_needed_field_size, get_effective_slm_pixel_size,
     get_effective_slm_size, get_effective_area_pos_size_in_pxls,
-    pixelize, crop_field, get_npad_between)
+    pixelize_array, crop_field, get_npad_between, pixelize_field)
 
 config = GlobalConfig()
 field_loader_factory = LoaderFactory()
@@ -374,9 +374,7 @@ class FieldLoaderApp(CustomApp):
                                                       ratio * self.settings['utils', 'sizing', 'scaling'])
         if self.settings['utils', 'pixelating', 'do_pixelize']:
             factor = int(self.settings['utils', 'pixelating', 'binning'])
-            _field_temp = self.field.deepcopy()
-            self.field.amplitude = pixelize(_field_temp.amplitude, factor)
-            self.field.phase = pixelize(_field_temp.phase, factor)
+            self.field = pixelize_field(self.field, factor)
 
         self.settings.child('utils', 'sizing', 'height').setValue(self.field.shape[0])
         self.settings.child('utils', 'sizing', 'width').setValue(self.field.shape[1])

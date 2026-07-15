@@ -101,14 +101,20 @@ def crop_array(array: np.ndarray,
     return np.pad(cropped_array, get_npad_between(size, cropped_array.shape),
                   mode='edge')
 
-def pixelize(data: np.ndarray, bin_factor: int) -> np.ndarray:
-    if np.all(np.array(data.shape) // bin_factor == np.array(data.shape) / bin_factor):
-        binned_data = downscale_local_mean(data, bin_factor)
+def pixelize_field(field: 'Field', n_pixels: int):
+    field_tmp = field.deepcopy()
+    field_tmp.amplitude = pixelize_array(field_tmp.amplitude, n_pixels)
+    field_tmp.phase = pixelize_array(field_tmp.phase, n_pixels)
+    return field_tmp
+
+def pixelize_array(data: np.ndarray, n_pixels: int) -> np.ndarray:
+    if np.all(np.array(data.shape) // n_pixels == np.array(data.shape) / n_pixels):
+        binned_data = downscale_local_mean(data, n_pixels)
     else:
-        binned_data = rescale(data, 1 / bin_factor)
+        binned_data = rescale(data, 1 / n_pixels)
     pixelated_array = np.repeat(
-        np.repeat(binned_data, bin_factor, axis=0),
-        bin_factor, axis=1)
+        np.repeat(binned_data, n_pixels, axis=0),
+        n_pixels, axis=1)
     return crop_array(pixelated_array, data.shape)
 
 def get_effective_area_pos_size_in_pxls() -> tuple[np.ndarray, np.ndarray]:
