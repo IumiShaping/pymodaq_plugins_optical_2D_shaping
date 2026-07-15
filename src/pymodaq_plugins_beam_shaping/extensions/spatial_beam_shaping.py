@@ -132,21 +132,22 @@ class BeamShaping(CustomExt):
 
     @zoom_factor.setter
     def zoom_factor(self, value: int):
-        if self._zoom_factor + value > 0:
-            self._zoom_factor += value
-        self.set_action_enabled('zoom_out', self._zoom_factor == 1)
+        if value > 0:
+            self._zoom_factor = value
+        self.set_action_enabled('zoom_out', self._zoom_factor > 1)
+
+    def _apply_zoom(self):
+        if self._modulator_field is not None:
+            self.send_phase_to_shaper(sizing.pixelize_field(self._modulator_field,
+                                                            self.zoom_factor))
 
     def zoom_in(self):
         self.zoom_factor += 1
-        if self._modulator_field is not None:
-            #todo apply some binning to a copy of the field
-            self.send_phase_to_shaper(self._modulator_field)
+        self._apply_zoom()
 
     def zoom_out(self):
         self.zoom_factor -= 1
-        if self._modulator_field is not None:
-            # todo apply some binning to a copy of the field
-            self.send_phase_to_shaper(self._modulator_field)
+        self._apply_zoom()
 
     def bin_array(self, data: np.ndarray, bin_factor: int) -> np.ndarray:
         bins = mutils.linspace_step(0, (data.shape[0] // bin_factor) - 1, bin_factor)
@@ -555,11 +556,14 @@ class BeamShaping(CustomExt):
 
         self.connect_action('calibration', self.open_calibration_app)
 
-        self.connect_action('send_algo_to_shaper', self.get_action('zoom_in').setEnabled)
-        self.connect_action('send_algo_to_shaper', self.get_action('zoom_out').setEnabled)
+        self.connect_action('send_algo_to_shaper', self.enable_zoom)
 
         self.connect_action('zoom_in', self.zoom_in)
         self.connect_action('zoom_out', self.zoom_out)
+
+    def enable_zoom(self):
+        self.set_action_enabled('zoom_in', self.is_action_checked('send_algo_to_shaper'))
+        self.set_action_enabled('zoom_out', self.is_action_checked('send_algo_to_shaper'))
 
     def plot_fields(self, dte: DataToExport):
         metrics = dte.remove(dte.get_data_from_name('metrics'))
