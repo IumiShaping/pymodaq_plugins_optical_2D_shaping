@@ -373,7 +373,7 @@ class FieldLoaderApp(CustomApp):
             self.field.phase = self.rescale_normalize(_field_temp.phase,
                                                       ratio * self.settings['utils', 'sizing', 'scaling'])
         if self.settings['utils', 'pixelating', 'do_pixelize']:
-            factor = self.settings['utils', 'pixelating', 'binning']
+            factor = int(self.settings['utils', 'pixelating', 'binning'])
             _field_temp = self.field.deepcopy()
             self.field.amplitude = pixelize(_field_temp.amplitude, factor)
             self.field.phase = pixelize(_field_temp.phase, factor)
