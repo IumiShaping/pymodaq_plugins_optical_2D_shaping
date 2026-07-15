@@ -28,7 +28,7 @@ from pymodaq_plugins_beam_shaping.utilities.masking import MaskType
 from pymodaq_plugins_beam_shaping.utilities.sizing import (
     get_effective_needed_field_size, get_effective_slm_pixel_size,
     get_effective_slm_size, get_effective_area_pos_size_in_pxls,
-    pixelize)
+    pixelize, crop_field, get_npad_between)
 
 config = GlobalConfig()
 field_loader_factory = LoaderFactory()
@@ -381,7 +381,7 @@ class FieldLoaderApp(CustomApp):
         self.settings.child('utils', 'sizing', 'height').setValue(self.field.shape[0])
         self.settings.child('utils', 'sizing', 'width').setValue(self.field.shape[1])
 
-        self.field = self.crop(self.field, needed_shape)
+        self.field = crop_field(self.field, needed_shape)
 
         npad = self.get_npad_between(needed_shape, self.field.shape)
         if np.any(np.array(npad)):
@@ -444,27 +444,13 @@ class FieldLoaderApp(CustomApp):
             return array_normalized
 
     @staticmethod
-    def crop(field: Field, size: tuple[int, int], center: tuple[int, int] = None):
-        shape = np.array(field.shape)
-        if center is None:
-            center = tuple(shape // 2)
-
-        slices = (slice(max(0, center[0] - size[0] // 2), min(shape[0], center[0] + size[0] // 2)),
-                  slice(max(0, center[1] - size[1] // 2), min(shape[1], center[1] + size[1] // 2)))
-        return field.isig[*slices]
-
-    @staticmethod
     def get_npad_between(first_shape, second_shape):
         """ Get the padding necessary to match object shape and image shape
 
         If positive, the image shape is bigger than the object
         If negative, the object shape is bigger than the image
         """
-        npad_before = ((np.array(first_shape) -
-                        np.array(second_shape)) // 2).astype(int)
-        npad_after = (np.array(first_shape) -
-                        np.array(second_shape)) - npad_before
-        return (npad_before[0], npad_after[0]), (npad_before[1], npad_after[1])
+        return get_npad_between(first_shape, second_shape)
 
     @property
     def loader(self):
