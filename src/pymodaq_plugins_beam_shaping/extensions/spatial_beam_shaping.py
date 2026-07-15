@@ -189,13 +189,6 @@ class BeamShaping(CustomExt):
                                         '* use the shaper internal calibration if possible (see preferences).')
                         self.set_action_checked('send_algo_to_shaper', False)
 
-    def send_raw_input_to_shaper(self):
-        field = self.input_field
-        self._modulator_field = field
-
-        self.send_phase_to_shaper(field, send_to_shaper=self.is_action_checked('send_algo_to_shaper'),
-                                  with_corrections=False)
-
     def save(self, fname: Path = None):
         """ Save fields: input, modulator, output, target into a hdf5 file together with settings/metadata
 
@@ -445,11 +438,6 @@ class BeamShaping(CustomExt):
                         icon_checked='grid_on', icon_checked_color=self.get_theme().green,
                         menu='shaping_tools')
 
-        self.add_action('send_input_to_shaper', 'Input to shaper', 'jump_to_element',
-                        enabled=False,
-                        tip='Send Raw input to the control module called *Shaper*',
-                        toolbar='dashboard', menu='shaping_tools')
-
         self.add_action('send_correc_to_shaper', 'Correction to shaper', 'ink_eraser_off',
                         'Send correction phase to the control module called *Shaper*',
                         checkable=True, toolbar='dashboard',
@@ -558,11 +546,9 @@ class BeamShaping(CustomExt):
 
         self.connect_action('calibration', self.open_calibration_app)
 
-        self.connect_action('send_algo_to_shaper', self.get_action('send_input_to_shaper').setEnabled)
         self.connect_action('send_algo_to_shaper', self.get_action('zoom_in').setEnabled)
         self.connect_action('send_algo_to_shaper', self.get_action('zoom_out').setEnabled)
 
-        self.connect_action('send_input_to_shaper', self.send_raw_input_to_shaper)
         self.connect_action('zoom_in', self.zoom_in)
         self.connect_action('zoom_out', self.zoom_out)
 
