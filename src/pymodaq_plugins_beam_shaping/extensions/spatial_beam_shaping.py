@@ -6,6 +6,7 @@ from pymodaq.utils.shared_ui import SharedUI
 from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_utils.config import GlobalConfig
+from pymodaq_utils import math_utils as mutils
 
 from pymodaq_data.h5modules.data_saving import DataToExportSaver, DataLoader
 
@@ -146,6 +147,14 @@ class BeamShaping(CustomExt):
         if self._modulator_field is not None:
             # todo apply some binning to a copy of the field
             self.send_phase_to_shaper(self._modulator_field)
+
+    def bin_array(self, data: np.ndarray, bin_factor: int) -> np.ndarray:
+        bins = mutils.linspace_step(0, (data.shape[0] // bin_factor) - 1, bin_factor)
+        indices = np.digitize(data, bins)
+        occ = np.bincount(indices, minlength=len(bins) + 1)
+        occwy = np.bincount(indices, weights=data, minlength=len(bins) + 1)
+        bin_means = np.true_divide(occwy, occ)
+        return bin_means
 
     def update_modulator_field(self, field: Field):
         """ field contains here the modulator field"""

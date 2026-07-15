@@ -1,4 +1,6 @@
 import numpy as np
+from skimage.transform import downscale_local_mean, rescale
+
 from pymodaq_utils.math_utils import greater2n, is_power_of_two
 from pymodaq_plugins_beam_shaping import config as plugin_config
 
@@ -55,6 +57,9 @@ def unbin_to_real_slm(phase: np.ndarray, binning: int = None) -> np.ndarray:
         binning = plugin_config('sizing', 'binning')
     return np.repeat(np.repeat(phase, binning, axis=0), binning, axis=1)
 
+def pixelize(data: np.ndarray, bin_factor: int) -> np.ndarray:
+    binned_data = rescale(data, 1 / bin_factor)
+    return np.repeat(np.repeat(binned_data, bin_factor, axis=0), bin_factor, axis=1)
 
 def get_effective_area_pos_size_in_pxls() -> tuple[np.ndarray, np.ndarray]:
     """ Get the position and size of the effective area image of the SLM in pixels

@@ -25,10 +25,10 @@ from pymodaq_plugins_beam_shaping import config as plugin_config
 from pymodaq_plugins_beam_shaping.field import Field, Q_, LoaderFactory, FieldLoader
 from pymodaq_plugins_beam_shaping.utilities.masking import MaskType
 
-from pymodaq_plugins_beam_shaping.utilities.sizing import (get_effective_needed_field_size,
-                                                           get_effective_slm_pixel_size,
-                                                           get_effective_slm_size,
-                                                           get_effective_area_pos_size_in_pxls)
+from pymodaq_plugins_beam_shaping.utilities.sizing import (
+    get_effective_needed_field_size, get_effective_slm_pixel_size,
+    get_effective_slm_size, get_effective_area_pos_size_in_pxls,
+    pixelize)
 
 config = GlobalConfig()
 field_loader_factory = LoaderFactory()
@@ -82,6 +82,11 @@ class FieldLoaderApp(CustomApp):
                  'value': True},
                 {'title': 'Height', 'name': 'height', 'type': 'int', 'value': 0, 'readonly': True},
                 {'title': 'Width', 'name': 'width', 'type': 'int', 'value': 0, 'readonly': True},
+            ]},
+            {'title': 'Pixelating', 'name': 'pixelating', 'type': 'group', 'children': [
+                {'title': 'Binning', 'name': 'binning', 'type': 'float', 'value': 1.,
+                 'min': 1.},
+                {'title': 'Do Pixelize', 'name': 'do_pixelize', 'type': 'bool', 'value': False},
             ]},
             {'title': 'Smoothing', 'name': 'smoothing', 'type': 'group', 'children': [
                 {'title': 'Apply:', 'name': 'apply_smoothing', 'type': 'bool', 'value': False},
@@ -167,7 +172,8 @@ class FieldLoaderApp(CustomApp):
         if param.name() == 'loader':
             self.loader = param.value()
 
-        elif param.name() in ('flipud', 'fliplr', 'do_scaling', 'scaling', 'aspect_ratio', 'apply_mask',
+        elif param.name() in ('flipud', 'fliplr', 'do_scaling', 'do_pixelize', 'scaling',
+                              'binning', 'aspect_ratio', 'apply_mask',
                               'apply_smoothing', 'sigma_y', 'sigma_x', 'slices', 'boundary', 'apply_boundary',
                               'sharpness', 'normalisation'):
             self.field = self._ini_field.deepcopy()
@@ -366,6 +372,11 @@ class FieldLoaderApp(CustomApp):
                                                           ratio * self.settings['utils', 'sizing', 'scaling'])
             self.field.phase = self.rescale_normalize(_field_temp.phase,
                                                       ratio * self.settings['utils', 'sizing', 'scaling'])
+        if self.settings['utils', 'pixelating', 'do_pixelize']:
+            factor = self.settings['utils', 'pixelating', 'binning']
+            _field_temp = self.field.deepcopy()
+            self.field.amplitude = pixelize(_field_temp.amplitude, factor)
+            self.field.phase = pixelize(_field_temp.phase, factor)
 
         self.settings.child('utils', 'sizing', 'height').setValue(self.field.shape[0])
         self.settings.child('utils', 'sizing', 'width').setValue(self.field.shape[1])
