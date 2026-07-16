@@ -30,9 +30,10 @@ from pymodaq_plugins_beam_shaping.field.field_loader_app import FieldLoaderApp, 
 from pymodaq_plugins_beam_shaping.utilities.corrections import Correction
 from pymodaq_plugins_beam_shaping.algorithms import AlgorithmFactory, AlgoBase
 from pymodaq_plugins_beam_shaping.utilities import sizing
-from pymodaq_plugins_beam_shaping.algorithms.utils import ApplyMaskTo
+from pymodaq_plugins_beam_shaping.algorithms.utils import ApplyMaskTo, LensSetup
 from pymodaq_plugins_beam_shaping.utilities.calibrating import BeamShapingCalibration, Calibration
 from pymodaq_plugins_beam_shaping.utilities.data import DataShaper
+from pymodaq_plugins_beam_shaping.utilities.shaper import Shaper, ModulatorType, get_shaper
 
 logger = set_logger(get_module_name(__file__))
 layout_path = get_set_layout_path(user=True)
@@ -48,6 +49,7 @@ CLASS_NAME = 'BeamShaping'
 
 def create_calibration_scan_app(dashboard) -> tuple[SharedUI, BeamShapingCalibration]:
     return create_extension(dashboard, BeamShapingCalibration)
+
 
 
 class BeamShaping(CustomExt):
@@ -70,6 +72,8 @@ class BeamShaping(CustomExt):
         self.intermediate_viewer: Viewer2D = None
         self.other_viewers: ViewerDispatcher = None
 
+        self._shaper: Shaper = None
+
         self._algorithm: AlgoApp = None
 
         self._corrections: Correction = None
@@ -79,9 +83,9 @@ class BeamShaping(CustomExt):
         self.calibration : Calibration = Calibration()
 
         if self.modules_manager is not None and 'Shaper' in self.modules_manager.actuators_name:
-            self._shaper = self.modules_manager.get_mod_from_name('Shaper', 'act')
+            self._shaper_actuator = self.modules_manager.get_mod_from_name('Shaper', 'act')
         else:
-            self._shaper = None
+            self._shaper_actuator = None
 
         self.setup_ui()
 
@@ -118,9 +122,9 @@ class BeamShaping(CustomExt):
     def do_things_after_experiment_set(self, experiment_name: str):
         super().do_things_after_experiment_set(experiment_name)
         if self.modules_manager is not None and 'Shaper' in self.modules_manager.actuators_name:
-            self._shaper = self.modules_manager.get_mod_from_name('Shaper', 'act')
+            self._shaper_actuator = self.modules_manager.get_mod_from_name('Shaper', 'act')
         else:
-            self._shaper = None
+            self._shaper_actuator = None
 
     def update_modulator_field(self, field: Field):
         """ field contains here the modulator field"""
@@ -130,13 +134,56 @@ class BeamShaping(CustomExt):
 
         self._modulator_field = field
 
-        self.send_phase_to_shaper(field,
+        self.send_field_to_shaper(field,
                                   send_to_shaper=self.is_action_checked('send_algo_to_shaper'),
                                   with_corrections=self.is_action_checked('send_correc_to_shaper')
                                   )
+    @property
+    def shaper(self) -> Shaper:
+        if self._shaper is None:
+            self._shaper = get_shaper()
+            self.set_action_visible('calibration', self._shaper.modulator_type == ModulatorType.PHASE)
+        return self._shaper
+
+    def send_field_to_shaper(self, field: Field, send_to_shaper=True, with_corrections=True):
+        """ Send the modulator field to the shaper depending on its modulation type
+
+        Parameters
+        ----------
+        field: the field to send
+        send_to_shaper: should we send it?
+        with_corrections: should we add corrections, mostly for the field's phase
+        """
+        if self._shaper_actuator is not None:
+            if self.shaper.modulator_type == ModulatorType.PHASE:
+               self.send_phase_to_shaper(field, send_to_shaper, with_corrections)
+            elif self.shaper.modulator_type == ModulatorType.AMPLITUDE:
+                self.send_amplitude_to_shaper(field, send_to_shaper, with_corrections)
+            else:
+                self.send_phase_to_shaper(field, send_to_shaper, with_corrections)
+                self.send_amplitude_to_shaper(field, send_to_shaper, with_corrections)
+
+    def send_amplitude_to_shaper(self, field: Field, send_to_shaper=True, with_corrections=True):
+        """ Send the modulator amplitude to the shaper
+
+        Parameters
+        ----------
+        field: the field to send
+        send_to_shaper: should we send it?
+        with_corrections: should we add corrections, mostly for the field's phase
+        """
+        raise NotImplementedError
 
     def send_phase_to_shaper(self, field: Field, send_to_shaper=True, with_corrections=True):
-        if self._shaper is not None:
+        """ Send the modulator phase to the shaper
+
+        Parameters
+        ----------
+        field: the field to send
+        send_to_shaper: should we send it?
+        with_corrections: should we add corrections
+        """
+        if self._shaper_actuator is not None:
             phase_to_send = 0.
             if send_to_shaper or with_corrections:
                 if send_to_shaper:
@@ -145,15 +192,13 @@ class BeamShaping(CustomExt):
                     if self._correction_phase is not None:
                         phase_to_send = phase_to_send + self._correction_phase[0][*self.get_slm_slices()]
                 phase_to_send = sizing.unbin_to_real_slm(phase_to_send)
-                default_slm = config('beam_shaping', 'SLM', 'default_slm')[0]
-                if (config('beam_shaping', 'SLM', default_slm, 'has_internal_calibration') and
-                    config('beam_shaping', 'SLM', default_slm, 'use_internal_calibration')):
+                if self.shaper.has_internal_calibration and self.shaper.use_internal_calibration:
                     phase_dwa = DataShaper('phase', data=[phase_to_send], as_grey_levels=False)
-                    self._shaper.move_abs(phase_dwa)
+                    self._shaper_actuator.move_abs(phase_dwa)
                 else:
                     try:
                         phase_dwa = self.calibration.calibrate_phase_to_grey(phase_to_send)
-                        self._shaper.move_abs(phase_dwa)
+                        self._shaper_actuator.move_abs(phase_dwa)
                     except NameError as e:
                         messagebox(title='Calibration',
                                    text='Calibration File not found, cannot send the data to the Shaper. '
@@ -318,8 +363,7 @@ class BeamShaping(CustomExt):
                                                   title='Input Field Loader')
         self._input_field_loader.set_loader_in_settings(
             plugin_config('input', 'default_loader')[0])
-        self._input_field_loader.updated_slm(
-            plugin_config('SLM', 'default_slm')[0])
+        self._input_field_loader.updated_slm(self.shaper.name)
         self._input_field_loader.update_apply_mask(size=self.slm_shape, apply=True)
 
         self._corrections_dockarea = gutils.DockArea()
@@ -427,6 +471,8 @@ class BeamShaping(CustomExt):
 
         logger.debug('actions set')
 
+    def update_ui_from_algo(self, algo: AlgoBase):
+        self.set_action_visible('show_intermediate', algo.SETUP_TYPE == LensSetup.FourF)
 
     def plot_target(self, field: Field):
         self.target_viewers.show_data(DataToExport('Target', data=[
@@ -458,6 +504,7 @@ class BeamShaping(CustomExt):
         self.mainwindow.insertToolBarBreak(self.toolbar)
         self.dockarea.addDock(self._algorithm.docks['algo_settings'], 'left')
         self._algorithm.algo_changed.connect(self.update_target_loader_from_algo)
+        self._algorithm.algo_changed.connect(self.update_ui_from_algo)
         self._algorithm.fields_to_plot.connect(self.plot_fields)
         self.update_target_loader_from_algo(self._algorithm.algorithm)
         self._algorithm.modulator_field_signal.connect(self.update_modulator_field)
@@ -479,6 +526,8 @@ class BeamShaping(CustomExt):
             except Exception as e:
                 logger.warning(f'Could not restore layout state: {e}, deleting existing file')
                 layout_path.joinpath('shaping.dock').unlink(missing_ok=True)
+
+
 
     def show_set_target_roi_select(self):
         slices = self._algorithm.constrains_slices(eval(self._algorithm.settings[ApplyMaskTo.TARGET, 'slices']))
@@ -573,13 +622,12 @@ class BeamShaping(CustomExt):
         self._target_field_loader.update_pixels(algo.get_target_pixels_size(field_size))
 
     def do_things_after_config_changed(self):
-        self._input_field_loader.updated_slm(
-            plugin_config('SLM', 'default_slm')[0])
+        self._shaper = None  # make sure to check if the shaper object should be reinit
+        self._input_field_loader.updated_slm(self.shaper.name)
         self._input_field_loader.update_apply_mask(size=self.slm_shape, apply=True)
         self._input_field_loader.loader.load_field(notify=True)
 
-        self._target_field_loader.updated_slm(
-            plugin_config('SLM', 'default_slm')[0])
+        self._target_field_loader.updated_slm(self.shaper.name)
         self.update_target_loader_from_algo(self.algorithm.algorithm) #will reload the target
 
     def show_target(self, show=True):

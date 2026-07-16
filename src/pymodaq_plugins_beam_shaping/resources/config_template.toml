@@ -31,6 +31,7 @@ height = 1080
 pixel_size = 8  # in micrometer
 has_internal_calibration = true
 use_internal_calibration = false
+modulator_type = ['phase', 'amplitude', 'both']
 
 [SLM.LC2012]
 width = 1024
@@ -38,6 +39,7 @@ height = 768
 pixel_size = 36   # in micrometer
 has_internal_calibration = true
 use_internal_calibration = false
+modulator_type = ['phase', 'amplitude', 'both']
 
 [target]
 default_loader = ["ImageFiles"] #will be populated at startup from the reading of the factory
