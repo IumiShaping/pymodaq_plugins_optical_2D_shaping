@@ -31,5 +31,5 @@ def get_shaper() -> Shaper:
                   pixel_size=config('beam_shaping', 'SLM', default_slm, 'pixel_size'),
                   has_internal_calibration=config('beam_shaping', 'SLM', default_slm, 'has_internal_calibration'),
                   use_internal_calibration=config('beam_shaping', 'SLM', default_slm, 'use_internal_calibration'),
-                  modulator_type=ModulatorType[config('beam_shaping', 'SLM', default_slm, 'modulator_type')[0]]
+                  modulator_type=ModulatorType(config('beam_shaping', 'SLM', default_slm, 'modulator_type')[0])
                   )
