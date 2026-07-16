@@ -437,7 +437,7 @@ class BeamShaping(CustomExt):
         self.add_action('show_intermediate', 'Show Intermediate', 'visibility', checkable=True,
                         icon_checked='visibility_off', tip='Show Field intensity in intermediate plane',
                         menu='shaping_tools')
-        
+
         self.toolbar.addSeparator()
         self.add_action('calibration', 'Calibration', 'equalizer',
                         tip='Perform a calibration of the SLM phase wrt the grey levels applied to it.',
@@ -466,11 +466,10 @@ class BeamShaping(CustomExt):
                         icon_checked='ink_eraser',
                         icon_checked_color=self.get_theme().green, menu='shaping_tools')
 
-        if self.dashboard is not None:
-            self.add_action('add_corrections', 'Add Corrections', 'add_circle',
-                            'Add Focal and Zernike polynomials as individual actuators in Dashboard',
-                        toolbar='dashboard'
-                            )
+        self.add_action('add_corrections', 'Add Corrections', 'add_circle',
+                        'Add Focal and Zernike polynomials as individual actuators in Dashboard',
+                    toolbar='dashboard'
+                        )
 
         logger.debug('actions set')
 
@@ -501,10 +500,8 @@ class BeamShaping(CustomExt):
         ...
 
     def do_things_after_ui_setup(self):
-        self.mainwindow.removeToolBarBreak(self.get_toolbar('dashboard'))
 
         self._algorithm = AlgoApp(self.dockarea, toolbar=self.toolbar)
-        self.mainwindow.insertToolBarBreak(self.toolbar)
         self.dockarea.addDock(self._algorithm.docks['algo_settings'], 'left')
         self._algorithm.algo_changed.connect(self.update_target_loader_from_algo)
         self._algorithm.algo_changed.connect(self.update_ui_from_algo)
@@ -678,7 +675,7 @@ def main():
     win, dashboard = create_load_dashboard()
     win.mainwindow.setVisible(False)
 
-    win_ext, scan = create_extension(dashboard, BeamShaping, add_toolbarbreak=False)
+    win_ext, scan = create_extension(dashboard, BeamShaping)
     win_ext.show()
 
     sys.exit(app.exec())

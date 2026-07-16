@@ -394,7 +394,7 @@ class AlgoApp(CustomApp):
         if self.is_action_checked(Actions.CONTINUOUS):
             self.get_action(Actions.CONTINUOUS).trigger()
 
-    def setup_docks(self):
+    def setup_docks_and_widgets(self):
 
         self.algo_area = self.dockarea
 
@@ -423,6 +423,9 @@ class AlgoApp(CustomApp):
         self._iter_count_widget.setToolTip('Current Iteration Number')
 
         self.statusbar.addPermanentWidget(self._iter_count_widget)
+
+    def setup_menus_and_toolbars(self, menubar: QtWidgets.QMenuBar = None):
+        pass  # actions auto-affected in setup_actions
 
     def setup_actions(self):
         self.add_widget('algorithms', QtWidgets.QComboBox,
@@ -455,8 +458,7 @@ class AlgoApp(CustomApp):
                         tip='Browse the content of the current HDF5 file')
         self.set_action_visible(Actions.SHOW_SAVED_DATA, False)
 
-    def setup_menu(self, menubar: QtWidgets.QMenuBar = None):
-        pass  # actions auto-affected in setup_actions
+
 
     def connect_things(self):
         self.connect_action(Actions.STEP, self.compute_phase)
