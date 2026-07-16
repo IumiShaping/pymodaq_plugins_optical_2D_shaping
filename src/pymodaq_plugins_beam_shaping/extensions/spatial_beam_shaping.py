@@ -627,7 +627,7 @@ def main():
     win, dashboard = create_load_dashboard()
     win.mainwindow.setVisible(False)
 
-    win_ext, scan = create_extension(dashboard, BeamShaping)
+    win_ext, scan = create_extension(dashboard, BeamShaping, add_toolbarbreak=False)
     win_ext.show()
 
     sys.exit(app.exec())
