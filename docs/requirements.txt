@@ -15,4 +15,4 @@ sphinx-qt-documentation
 sphinxext-rediraffe
 numpy
 pyopengl
-pymodaq_utils
+pymodaq
