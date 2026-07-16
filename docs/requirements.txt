@@ -15,9 +15,3 @@ sphinx-qt-documentation
 sphinxext-rediraffe
 numpy
 pyopengl
-pseudo_json_lexer
-
-# -e ../packages/pymodaq_utils
-# -e ../packages/pymodaq_data
-# -e ../packages/pymodaq_gui
-# -e ../packages/pymodaq # uncomment for test purpose
