@@ -30,7 +30,7 @@ from pymodaq_plugins_beam_shaping.field.field_loader_app import FieldLoaderApp, 
 from pymodaq_plugins_beam_shaping.utilities.corrections import Correction
 from pymodaq_plugins_beam_shaping.algorithms import AlgorithmFactory, AlgoBase
 from pymodaq_plugins_beam_shaping.utilities import sizing
-from pymodaq_plugins_beam_shaping.algorithms.utils import ApplyMaskTo
+from pymodaq_plugins_beam_shaping.algorithms.utils import ApplyMaskTo, LensSetup
 from pymodaq_plugins_beam_shaping.utilities.calibrating import BeamShapingCalibration, Calibration
 from pymodaq_plugins_beam_shaping.utilities.data import DataShaper
 from pymodaq_plugins_beam_shaping.utilities.shaper import Shaper, ModulatorType, get_shaper
@@ -142,6 +142,7 @@ class BeamShaping(CustomExt):
     def shaper(self) -> Shaper:
         if self._shaper is None:
             self._shaper = get_shaper()
+            self.set_action_visible('calibration', self._shaper.modulator_type == ModulatorType.PHASE)
         return self._shaper
 
     def send_field_to_shaper(self, field: Field, send_to_shaper=True, with_corrections=True):
@@ -470,6 +471,8 @@ class BeamShaping(CustomExt):
 
         logger.debug('actions set')
 
+    def update_ui_from_algo(self, algo: AlgoBase):
+        self.set_action_visible('show_intermediate', algo.SETUP_TYPE == LensSetup.FourF)
 
     def plot_target(self, field: Field):
         self.target_viewers.show_data(DataToExport('Target', data=[
@@ -501,6 +504,7 @@ class BeamShaping(CustomExt):
         self.mainwindow.insertToolBarBreak(self.toolbar)
         self.dockarea.addDock(self._algorithm.docks['algo_settings'], 'left')
         self._algorithm.algo_changed.connect(self.update_target_loader_from_algo)
+        self._algorithm.algo_changed.connect(self.update_ui_from_algo)
         self._algorithm.fields_to_plot.connect(self.plot_fields)
         self.update_target_loader_from_algo(self._algorithm.algorithm)
         self._algorithm.modulator_field_signal.connect(self.update_modulator_field)
@@ -522,6 +526,8 @@ class BeamShaping(CustomExt):
             except Exception as e:
                 logger.warning(f'Could not restore layout state: {e}, deleting existing file')
                 layout_path.joinpath('shaping.dock').unlink(missing_ok=True)
+
+
 
     def show_set_target_roi_select(self):
         slices = self._algorithm.constrains_slices(eval(self._algorithm.settings[ApplyMaskTo.TARGET, 'slices']))
