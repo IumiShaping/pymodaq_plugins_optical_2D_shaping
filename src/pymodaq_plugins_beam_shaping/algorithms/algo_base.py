@@ -6,7 +6,7 @@ from scipy.ndimage.filters import gaussian_filter
 from pyqtgraph.parametertree import Parameter
 from qtpy import QtWidgets
 
-
+from pymodaq_plugins_beam_shaping.utilities.shaper import get_shaper, ModulatorType
 from pymodaq_utils.math_utils import gauss2D
 from pymodaq_data import Q_, DataRaw, DataToExport
 from pymodaq_gui.managers.parameter_manager import ParameterManager
@@ -47,6 +47,7 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
     ALGO_NAME: str = None  # to be reimplemented
     SETUP_TYPE: LensSetup = None # to be reimplemented
     ALGOTYPE = AlgoType.AMPLITUDE
+    INI_PHASE = True  # if True, the algorithm will init an initial phase
     ITERATIVE = False
     MANUAL_LOOP = True
     params = []
@@ -192,6 +193,19 @@ class AlgoBase(AlgoParameterManager, metaclass=ABCMeta):
 
     def set_target_intensity(self, intensity: np.ndarray):
         self._target_field.amplitude = np.sqrt(intensity)
+
+    def set_field_in_modulator_plane(self, field: Field):
+        shaper = get_shaper()
+        if shaper.modulator_type == ModulatorType.PHASE:
+            self.set_phase_in_modulator_plane(field.phase)
+        elif shaper.modulator_type == ModulatorType.AMPLITUDE:
+            self.set_amplitude_in_modulator_plane(field.amplitude)
+        else:
+            self.set_phase_in_modulator_plane(field.phase)
+            self.set_amplitude_in_modulator_plane(field.amplitude)
+
+    def set_amplitude_in_modulator_plane(self, amplitude: np.ndarray):
+        self._modulator_field.amplitude = amplitude
 
     def set_phase_in_modulator_plane(self, phase: np.ndarray, induced_amplitude: np.ndarray = None):
         if phase.shape == self._modulator_field.shape:

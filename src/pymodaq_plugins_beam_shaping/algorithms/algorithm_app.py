@@ -303,10 +303,9 @@ class AlgoApp(CustomApp):
             plugin_config['setup', 'setup_type'] = [self._algorithm.SETUP_TYPE.value] + setup_types
             plugin_config.save()
 
-            self.settings.child(str(ApplyMaskTo.INTERMEDIATE)).setOpts(
-                visible=self._algorithm.SETUP_TYPE == LensSetup.FourF)
-            self.settings.child('stopping').setOpts(
-                visible=self._algorithm.ITERATIVE == True)
+            self.settings.child('ini_phase_group').show(self._algorithm.INI_PHASE)
+            self.settings.child(str(ApplyMaskTo.INTERMEDIATE)).show(self._algorithm.SETUP_TYPE == LensSetup.FourF)
+            self.settings.child('stopping').show(self._algorithm.ITERATIVE == True)
 
 
             while True:
@@ -493,11 +492,11 @@ class AlgoApp(CustomApp):
         return self.get_action('algorithms').currentText()
 
     def define_phase(self, force_reset=False):
-        if self._algorithm is not None:
-            if force_reset:
+        if self._algorithm is not None and force_reset:
+            if self._algorithm.INI_PHASE:
                 self._current_phase = self.ini_phase_modulator.compute_phase()
                 self.algorithm.define_input_phase(self._current_phase)
-                self.command_runner.emit(ThreadCommand(Actions.RESET))
+            self.command_runner.emit(ThreadCommand(Actions.RESET))
 
     def compute_fft(self, update_plots=True):
         if self._algorithm is not None:

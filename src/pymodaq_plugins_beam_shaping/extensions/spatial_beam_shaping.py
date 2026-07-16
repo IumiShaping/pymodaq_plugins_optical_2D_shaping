@@ -198,8 +198,8 @@ class BeamShaping(CustomExt):
                     self._shaper_actuator.move_abs(phase_dwa)
                 else:
                     try:
-                        phase_dwa = self.calibration.calibrate_phase_to_grey(phase_to_send)
-                        self._shaper_actuator.move_abs(phase_dwa)
+                        grey_dwa = self.calibration.calibrate_phase_to_grey(phase_to_send)
+                        self._shaper_actuator.move_abs(grey_dwa)
                     except NameError as e:
                         messagebox(title='Calibration',
                                    text='Calibration File not found, cannot send the data to the Shaper. '
@@ -506,7 +506,7 @@ class BeamShaping(CustomExt):
         self._algorithm.algo_changed.connect(self.update_target_loader_from_algo)
         self._algorithm.algo_changed.connect(self.update_ui_from_algo)
         self._algorithm.fields_to_plot.connect(self.plot_fields)
-        self.update_target_loader_from_algo(self._algorithm.algorithm)
+
         self._algorithm.modulator_field_signal.connect(self.update_modulator_field)
         self._input_field_loader.field_signal.connect(self._algorithm.set_input_field)
         self._target_field_loader.field_signal.connect(self._algorithm.set_target_field)

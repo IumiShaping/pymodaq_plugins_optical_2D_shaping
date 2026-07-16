@@ -27,13 +27,15 @@ plugin_config = PluginConfig()
 
 @AlgorithmFactory.register_algorithm()
 class Direct(AlgoBase):
-    """ This algorithm is just sending the selected Target Field to the modulator
+    """ This algorithm is just sending the selected Target Field to the modulator (either the phase, amplitude or both
+    depending on the shaper modulation type)
     """
 
     ALGO_NAME = 'Direct'
     ALGOTYPE = AlgoType.AMPLITUDE_PHASE
     SETUP_TYPE = LensSetup.NoLens
     ITERATIVE = False
+    INI_PHASE = False
 
     params = [
     ]
@@ -52,10 +54,8 @@ class Direct(AlgoBase):
         return self._input_field.pixels_sizes
 
     def compute_phase(self, do_step=True, **kwargs):
-        self._target_field = self.normalize_wrt(self._target_field, self._input_field)
+        self.set_field_in_modulator_plane(self.normalize_wrt(self._target_field, self._input_field))
 
-        self.output_field.calibrate_axes(self._target_field.pixels_sizes)
-        self.output_field.axes = self.output_field.get_axes()
 
 
 
