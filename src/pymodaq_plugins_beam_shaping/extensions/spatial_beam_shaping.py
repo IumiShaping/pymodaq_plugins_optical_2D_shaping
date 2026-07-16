@@ -83,9 +83,9 @@ class BeamShaping(CustomExt):
         self.calibration : Calibration = Calibration()
 
         if self.modules_manager is not None and 'Shaper' in self.modules_manager.actuators_name:
-            self._shaper = self.modules_manager.get_mod_from_name('Shaper', 'act')
+            self._shaper_actuator = self.modules_manager.get_mod_from_name('Shaper', 'act')
         else:
-            self._shaper = None
+            self._shaper_actuator = None
 
         self.setup_ui()
 
@@ -122,9 +122,9 @@ class BeamShaping(CustomExt):
     def do_things_after_experiment_set(self, experiment_name: str):
         super().do_things_after_experiment_set(experiment_name)
         if self.modules_manager is not None and 'Shaper' in self.modules_manager.actuators_name:
-            self._shaper = self.modules_manager.get_mod_from_name('Shaper', 'act')
+            self._shaper_actuator = self.modules_manager.get_mod_from_name('Shaper', 'act')
         else:
-            self._shaper = None
+            self._shaper_actuator = None
 
     def update_modulator_field(self, field: Field):
         """ field contains here the modulator field"""
@@ -134,7 +134,7 @@ class BeamShaping(CustomExt):
 
         self._modulator_field = field
 
-        self.send_phase_to_shaper(field,
+        self.send_field_to_shaper(field,
                                   send_to_shaper=self.is_action_checked('send_algo_to_shaper'),
                                   with_corrections=self.is_action_checked('send_correc_to_shaper')
                                   )
@@ -144,8 +144,45 @@ class BeamShaping(CustomExt):
             self._shaper = get_shaper()
         return self._shaper
 
+    def send_field_to_shaper(self, field: Field, send_to_shaper=True, with_corrections=True):
+        """ Send the modulator field to the shaper depending on its modulation type
+
+        Parameters
+        ----------
+        field: the field to send
+        send_to_shaper: should we send it?
+        with_corrections: should we add corrections, mostly for the field's phase
+        """
+        if self._shaper_actuator is not None:
+            if self.shaper.modulator_type == ModulatorType.PHASE:
+               self.send_phase_to_shaper(field, send_to_shaper, with_corrections)
+            elif self.shaper.modulator_type == ModulatorType.AMPLITUDE:
+                self.send_amplitude_to_shaper(field, send_to_shaper, with_corrections)
+            else:
+                self.send_phase_to_shaper(field, send_to_shaper, with_corrections)
+                self.send_amplitude_to_shaper(field, send_to_shaper, with_corrections)
+
+    def send_amplitude_to_shaper(self, field: Field, send_to_shaper=True, with_corrections=True):
+        """ Send the modulator amplitude to the shaper
+
+        Parameters
+        ----------
+        field: the field to send
+        send_to_shaper: should we send it?
+        with_corrections: should we add corrections, mostly for the field's phase
+        """
+        raise NotImplementedError
+
     def send_phase_to_shaper(self, field: Field, send_to_shaper=True, with_corrections=True):
-        if self._shaper is not None:
+        """ Send the modulator phase to the shaper
+
+        Parameters
+        ----------
+        field: the field to send
+        send_to_shaper: should we send it?
+        with_corrections: should we add corrections
+        """
+        if self._shaper_actuator is not None:
             phase_to_send = 0.
             if send_to_shaper or with_corrections:
                 if send_to_shaper:
@@ -156,11 +193,11 @@ class BeamShaping(CustomExt):
                 phase_to_send = sizing.unbin_to_real_slm(phase_to_send)
                 if self.shaper.has_internal_calibration and self.shaper.use_internal_calibration:
                     phase_dwa = DataShaper('phase', data=[phase_to_send], as_grey_levels=False)
-                    self._shaper.move_abs(phase_dwa)
+                    self._shaper_actuator.move_abs(phase_dwa)
                 else:
                     try:
                         phase_dwa = self.calibration.calibrate_phase_to_grey(phase_to_send)
-                        self._shaper.move_abs(phase_dwa)
+                        self._shaper_actuator.move_abs(phase_dwa)
                     except NameError as e:
                         messagebox(title='Calibration',
                                    text='Calibration File not found, cannot send the data to the Shaper. '
