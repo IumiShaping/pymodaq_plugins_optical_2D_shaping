@@ -1,0 +1,23 @@
+sphinx
+sphinx_rtd_theme
+releases
+sphinx-csv-filter
+pillow
+toml
+numpydoc
+sphinx-datatables
+pyqt6
+sphinx-design
+sphinxcontrib-images
+sphinx-favicon
+sphinx-autodoc-typehints
+sphinx-qt-documentation
+sphinxext-rediraffe
+numpy
+pyopengl
+pseudo_json_lexer
+
+# -e ../packages/pymodaq_utils
+# -e ../packages/pymodaq_data
+# -e ../packages/pymodaq_gui
+# -e ../packages/pymodaq # uncomment for test purpose
