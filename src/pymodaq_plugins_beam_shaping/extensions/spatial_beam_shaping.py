@@ -142,7 +142,8 @@ class BeamShaping(CustomExt):
     def shaper(self) -> Shaper:
         if self._shaper is None:
             self._shaper = get_shaper()
-            self.set_action_visible('calibration', self._shaper.modulator_type == ModulatorType.PHASE)
+            if self.has_action('calibration'):
+                self.set_action_visible('calibration', self._shaper.modulator_type == ModulatorType.PHASE)
         return self._shaper
 
     def send_field_to_shaper(self, field: Field, send_to_shaper=True, with_corrections=True):
@@ -197,8 +198,8 @@ class BeamShaping(CustomExt):
                     self._shaper_actuator.move_abs(phase_dwa)
                 else:
                     try:
-                        phase_dwa = self.calibration.calibrate_phase_to_grey(phase_to_send)
-                        self._shaper_actuator.move_abs(phase_dwa)
+                        grey_dwa = self.calibration.calibrate_phase_to_grey(phase_to_send)
+                        self._shaper_actuator.move_abs(grey_dwa)
                     except NameError as e:
                         messagebox(title='Calibration',
                                    text='Calibration File not found, cannot send the data to the Shaper. '
@@ -436,10 +437,12 @@ class BeamShaping(CustomExt):
         self.add_action('show_intermediate', 'Show Intermediate', 'visibility', checkable=True,
                         icon_checked='visibility_off', tip='Show Field intensity in intermediate plane',
                         menu='shaping_tools')
+
         self.toolbar.addSeparator()
         self.add_action('calibration', 'Calibration', 'equalizer',
                         tip='Perform a calibration of the SLM phase wrt the grey levels applied to it.',
-                        checkable=True, menu='calibration')
+                        checkable=True, menu='calibration',
+                        enabled=self.shaper.modulator_type == ModulatorType.PHASE)
         self.add_action('show_calibration', 'ShowCalibration',
                         tip='Show the saved calibration curve if any...', auto_toolbar=False,
                         checkable=False, menu='calibration')
@@ -463,11 +466,10 @@ class BeamShaping(CustomExt):
                         icon_checked='ink_eraser',
                         icon_checked_color=self.get_theme().green, menu='shaping_tools')
 
-        if self.dashboard is not None:
-            self.add_action('add_corrections', 'Add Corrections', 'add_circle',
-                            'Add Focal and Zernike polynomials as individual actuators in Dashboard',
-                        toolbar='dashboard'
-                            )
+        self.add_action('add_corrections', 'Add Corrections', 'add_circle',
+                        'Add Focal and Zernike polynomials as individual actuators in Dashboard',
+                    toolbar='dashboard'
+                        )
 
         logger.debug('actions set')
 
@@ -498,15 +500,13 @@ class BeamShaping(CustomExt):
         ...
 
     def do_things_after_ui_setup(self):
-        self.mainwindow.removeToolBarBreak(self.get_toolbar('dashboard'))
 
         self._algorithm = AlgoApp(self.dockarea, toolbar=self.toolbar)
-        self.mainwindow.insertToolBarBreak(self.toolbar)
         self.dockarea.addDock(self._algorithm.docks['algo_settings'], 'left')
         self._algorithm.algo_changed.connect(self.update_target_loader_from_algo)
         self._algorithm.algo_changed.connect(self.update_ui_from_algo)
         self._algorithm.fields_to_plot.connect(self.plot_fields)
-        self.update_target_loader_from_algo(self._algorithm.algorithm)
+
         self._algorithm.modulator_field_signal.connect(self.update_modulator_field)
         self._input_field_loader.field_signal.connect(self._algorithm.set_input_field)
         self._target_field_loader.field_signal.connect(self._algorithm.set_target_field)
@@ -675,7 +675,7 @@ def main():
     win, dashboard = create_load_dashboard()
     win.mainwindow.setVisible(False)
 
-    win_ext, scan = create_extension(dashboard, BeamShaping, add_toolbarbreak=False)
+    win_ext, scan = create_extension(dashboard, BeamShaping)
     win_ext.show()
 
     sys.exit(app.exec())

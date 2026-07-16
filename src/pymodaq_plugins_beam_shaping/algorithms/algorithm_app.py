@@ -303,10 +303,9 @@ class AlgoApp(CustomApp):
             plugin_config['setup', 'setup_type'] = [self._algorithm.SETUP_TYPE.value] + setup_types
             plugin_config.save()
 
-            self.settings.child(str(ApplyMaskTo.INTERMEDIATE)).setOpts(
-                visible=self._algorithm.SETUP_TYPE == LensSetup.FourF)
-            self.settings.child('stopping').setOpts(
-                visible=self._algorithm.ITERATIVE == True)
+            self.settings.child('ini_phase_group').show(self._algorithm.INI_PHASE)
+            self.settings.child(str(ApplyMaskTo.INTERMEDIATE)).show(self._algorithm.SETUP_TYPE == LensSetup.FourF)
+            self.settings.child('stopping').show(self._algorithm.ITERATIVE == True)
 
 
             while True:
@@ -394,7 +393,7 @@ class AlgoApp(CustomApp):
         if self.is_action_checked(Actions.CONTINUOUS):
             self.get_action(Actions.CONTINUOUS).trigger()
 
-    def setup_docks(self):
+    def setup_docks_and_widgets(self):
 
         self.algo_area = self.dockarea
 
@@ -423,6 +422,9 @@ class AlgoApp(CustomApp):
         self._iter_count_widget.setToolTip('Current Iteration Number')
 
         self.statusbar.addPermanentWidget(self._iter_count_widget)
+
+    def setup_menus_and_toolbars(self, menubar: QtWidgets.QMenuBar = None):
+        pass  # actions auto-affected in setup_actions
 
     def setup_actions(self):
         self.add_widget('algorithms', QtWidgets.QComboBox,
@@ -455,8 +457,7 @@ class AlgoApp(CustomApp):
                         tip='Browse the content of the current HDF5 file')
         self.set_action_visible(Actions.SHOW_SAVED_DATA, False)
 
-    def setup_menu(self, menubar: QtWidgets.QMenuBar = None):
-        pass  # actions auto-affected in setup_actions
+
 
     def connect_things(self):
         self.connect_action(Actions.STEP, self.compute_phase)
@@ -491,11 +492,11 @@ class AlgoApp(CustomApp):
         return self.get_action('algorithms').currentText()
 
     def define_phase(self, force_reset=False):
-        if self._algorithm is not None:
-            if force_reset:
+        if self._algorithm is not None and force_reset:
+            if self._algorithm.INI_PHASE:
                 self._current_phase = self.ini_phase_modulator.compute_phase()
                 self.algorithm.define_input_phase(self._current_phase)
-                self.command_runner.emit(ThreadCommand(Actions.RESET))
+            self.command_runner.emit(ThreadCommand(Actions.RESET))
 
     def compute_fft(self, update_plots=True):
         if self._algorithm is not None:
