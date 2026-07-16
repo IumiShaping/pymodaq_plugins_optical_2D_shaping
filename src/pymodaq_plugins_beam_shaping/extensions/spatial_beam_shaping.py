@@ -17,6 +17,7 @@ from pymodaq_gui.plotting.data_viewers.viewer2D import Viewer2D
 from pymodaq_gui.plotting.data_viewers.viewer import ViewerDispatcher
 from pymodaq_gui.utils.file_io import select_file
 from pymodaq_gui import utils as gutils
+from pymodaq_gui.parameter.pymodaq_ptypes.slide import SliderSpinBox
 
 from pymodaq_gui.utils.layout import save_layout_state, load_layout_state
 from pymodaq_gui.parameter.ioxml import  xml_string_to_parameter
@@ -149,13 +150,10 @@ class BeamShaping(CustomExt):
         self.zoom_factor -= 1
         self._apply_zoom()
 
-    def bin_array(self, data: np.ndarray, bin_factor: int) -> np.ndarray:
-        bins = mutils.linspace_step(0, (data.shape[0] // bin_factor) - 1, bin_factor)
-        indices = np.digitize(data, bins)
-        occ = np.bincount(indices, minlength=len(bins) + 1)
-        occwy = np.bincount(indices, weights=data, minlength=len(bins) + 1)
-        bin_means = np.true_divide(occwy, occ)
-        return bin_means
+    def zoom(self, value: float):
+        if self._modulator_field is not None:
+            self.send_phase_to_shaper(sizing.scale_field(self._modulator_field,
+                                                         value))
 
     def update_modulator_field(self, field: Field):
         """ field contains here the modulator field"""
@@ -463,6 +461,10 @@ class BeamShaping(CustomExt):
                         'Zoom Out by binning the Phase mask', enabled=False,
                         toolbar='dashboard', menu='shaping_tools')
 
+        self.add_widget('zoom', SliderSpinBox, tip='zoom by rescaling the modulator field',
+                        toolbar='dashboard', enabled=False, bounds=(1, 5), value=1,
+                        signal_str='valueChanged', slot=self.zoom)
+
         if self.dashboard is not None:
             self.add_action('add_corrections', 'Add Corrections', 'add_circle',
                             'Add Focal and Zernike polynomials as individual actuators in Dashboard',
@@ -564,6 +566,7 @@ class BeamShaping(CustomExt):
     def enable_zoom(self):
         self.set_action_enabled('zoom_in', self.is_action_checked('send_algo_to_shaper'))
         self.set_action_enabled('zoom_out', self.is_action_checked('send_algo_to_shaper'))
+        self.set_action_enabled('zoom', self.is_action_checked('send_algo_to_shaper'))
 
     def plot_fields(self, dte: DataToExport):
         metrics = dte.remove(dte.get_data_from_name('metrics'))

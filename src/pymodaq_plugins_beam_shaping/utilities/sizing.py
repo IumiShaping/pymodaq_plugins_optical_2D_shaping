@@ -101,6 +101,16 @@ def crop_array(array: np.ndarray,
     return np.pad(cropped_array, get_npad_between(size, cropped_array.shape),
                   mode='edge')
 
+def scale_array(array: np.ndarray, scale: float, **kwargs) -> np.ndarray:
+    scaled_array = rescale(array, scale, **kwargs)
+    return crop_array(scaled_array, array.shape)
+
+def scale_field(field: 'Field', scale: float) -> 'Field':
+    field_tmp = field.deepcopy()
+    field_tmp.amplitude = scale_array(field_tmp.amplitude, scale)
+    field_tmp.phase = scale_array(field_tmp.phase, scale)
+    return field_tmp
+
 def pixelize_field(field: 'Field', n_pixels: int):
     field_tmp = field.deepcopy()
     field_tmp.amplitude = pixelize_array(field_tmp.amplitude, n_pixels)
