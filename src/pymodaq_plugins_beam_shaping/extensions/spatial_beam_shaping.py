@@ -142,7 +142,8 @@ class BeamShaping(CustomExt):
     def shaper(self) -> Shaper:
         if self._shaper is None:
             self._shaper = get_shaper()
-            self.set_action_visible('calibration', self._shaper.modulator_type == ModulatorType.PHASE)
+            if self.has_action('calibration'):
+                self.set_action_visible('calibration', self._shaper.modulator_type == ModulatorType.PHASE)
         return self._shaper
 
     def send_field_to_shaper(self, field: Field, send_to_shaper=True, with_corrections=True):
@@ -436,10 +437,12 @@ class BeamShaping(CustomExt):
         self.add_action('show_intermediate', 'Show Intermediate', 'visibility', checkable=True,
                         icon_checked='visibility_off', tip='Show Field intensity in intermediate plane',
                         menu='shaping_tools')
+        
         self.toolbar.addSeparator()
         self.add_action('calibration', 'Calibration', 'equalizer',
                         tip='Perform a calibration of the SLM phase wrt the grey levels applied to it.',
-                        checkable=True, menu='calibration')
+                        checkable=True, menu='calibration',
+                        enabled=self.shaper.modulator_type == ModulatorType.PHASE)
         self.add_action('show_calibration', 'ShowCalibration',
                         tip='Show the saved calibration curve if any...', auto_toolbar=False,
                         checkable=False, menu='calibration')
