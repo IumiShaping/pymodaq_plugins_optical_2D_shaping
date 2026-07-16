@@ -33,6 +33,7 @@ from pymodaq_plugins_beam_shaping.utilities import sizing
 from pymodaq_plugins_beam_shaping.algorithms.utils import ApplyMaskTo
 from pymodaq_plugins_beam_shaping.utilities.calibrating import BeamShapingCalibration, Calibration
 from pymodaq_plugins_beam_shaping.utilities.data import DataShaper
+from pymodaq_plugins_beam_shaping.utilities.shaper import Shaper, ModulatorType, get_shaper
 
 logger = set_logger(get_module_name(__file__))
 layout_path = get_set_layout_path(user=True)
@@ -48,6 +49,7 @@ CLASS_NAME = 'BeamShaping'
 
 def create_calibration_scan_app(dashboard) -> tuple[SharedUI, BeamShapingCalibration]:
     return create_extension(dashboard, BeamShapingCalibration)
+
 
 
 class BeamShaping(CustomExt):
@@ -69,6 +71,8 @@ class BeamShaping(CustomExt):
         self.output_viewers: ViewerDispatcher = None
         self.intermediate_viewer: Viewer2D = None
         self.other_viewers: ViewerDispatcher = None
+
+        self._shaper: Shaper = None
 
         self._algorithm: AlgoApp = None
 
@@ -134,6 +138,11 @@ class BeamShaping(CustomExt):
                                   send_to_shaper=self.is_action_checked('send_algo_to_shaper'),
                                   with_corrections=self.is_action_checked('send_correc_to_shaper')
                                   )
+    @property
+    def shaper(self) -> Shaper:
+        if self._shaper is None:
+            self._shaper = get_shaper()
+        return self._shaper
 
     def send_phase_to_shaper(self, field: Field, send_to_shaper=True, with_corrections=True):
         if self._shaper is not None:
@@ -145,9 +154,7 @@ class BeamShaping(CustomExt):
                     if self._correction_phase is not None:
                         phase_to_send = phase_to_send + self._correction_phase[0][*self.get_slm_slices()]
                 phase_to_send = sizing.unbin_to_real_slm(phase_to_send)
-                default_slm = config('beam_shaping', 'SLM', 'default_slm')[0]
-                if (config('beam_shaping', 'SLM', default_slm, 'has_internal_calibration') and
-                    config('beam_shaping', 'SLM', default_slm, 'use_internal_calibration')):
+                if self.shaper.has_internal_calibration and self.shaper.use_internal_calibration:
                     phase_dwa = DataShaper('phase', data=[phase_to_send], as_grey_levels=False)
                     self._shaper.move_abs(phase_dwa)
                 else:
@@ -318,8 +325,7 @@ class BeamShaping(CustomExt):
                                                   title='Input Field Loader')
         self._input_field_loader.set_loader_in_settings(
             plugin_config('input', 'default_loader')[0])
-        self._input_field_loader.updated_slm(
-            plugin_config('SLM', 'default_slm')[0])
+        self._input_field_loader.updated_slm(self.shaper.name)
         self._input_field_loader.update_apply_mask(size=self.slm_shape, apply=True)
 
         self._corrections_dockarea = gutils.DockArea()
@@ -573,13 +579,12 @@ class BeamShaping(CustomExt):
         self._target_field_loader.update_pixels(algo.get_target_pixels_size(field_size))
 
     def do_things_after_config_changed(self):
-        self._input_field_loader.updated_slm(
-            plugin_config('SLM', 'default_slm')[0])
+        self._shaper = None  # make sure to check if the shaper object should be reinit
+        self._input_field_loader.updated_slm(self.shaper.name)
         self._input_field_loader.update_apply_mask(size=self.slm_shape, apply=True)
         self._input_field_loader.loader.load_field(notify=True)
 
-        self._target_field_loader.updated_slm(
-            plugin_config('SLM', 'default_slm')[0])
+        self._target_field_loader.updated_slm(self.shaper.name)
         self.update_target_loader_from_algo(self.algorithm.algorithm) #will reload the target
 
     def show_target(self, show=True):
