@@ -74,8 +74,6 @@ class BeamShaping(CustomExt):
 
         self._corrections: Correction = None
 
-        self._zoom_factor: int = 1
-
         self._calibration_shared_ui: QtWidgets.QMainWindow = None
         self._calibration_app: BeamShapingCalibration = None
         self.calibration : Calibration = Calibration()
@@ -124,29 +122,6 @@ class BeamShaping(CustomExt):
         else:
             self._shaper = None
 
-    @property
-    def zoom_factor(self):
-        """ Get/Set the zoom factor to be applied to the SLM"""
-        return self._zoom_factor
-
-    @zoom_factor.setter
-    def zoom_factor(self, value: int):
-        if self._zoom_factor + value > 0:
-            self._zoom_factor += value
-        self.set_action_enabled('zoom_out', self._zoom_factor == 1)
-
-    def zoom_in(self):
-        self.zoom_factor += 1
-        if self._modulator_field is not None:
-            #todo apply some binning to a copy of the field
-            self.send_phase_to_shaper(self._modulator_field)
-
-    def zoom_out(self):
-        self.zoom_factor -= 1
-        if self._modulator_field is not None:
-            # todo apply some binning to a copy of the field
-            self.send_phase_to_shaper(self._modulator_field)
-
     def update_modulator_field(self, field: Field):
         """ field contains here the modulator field"""
 
@@ -159,7 +134,6 @@ class BeamShaping(CustomExt):
                                   send_to_shaper=self.is_action_checked('send_algo_to_shaper'),
                                   with_corrections=self.is_action_checked('send_correc_to_shaper')
                                   )
-
 
     def send_phase_to_shaper(self, field: Field, send_to_shaper=True, with_corrections=True):
         if self._shaper is not None:
@@ -445,14 +419,6 @@ class BeamShaping(CustomExt):
                         icon_checked='ink_eraser',
                         icon_checked_color=self.get_theme().green, menu='shaping_tools')
 
-        self.add_action('zoom_in', 'Zoom In', 'zoom_in',
-                        'Zoom In by binning the Phase mask', enabled=False,
-                        toolbar='dashboard', menu='shaping_tools')
-
-        self.add_action('zoom_out', 'Zoom Out', 'zoom_out',
-                        'Zoom Out by binning the Phase mask', enabled=False,
-                        toolbar='dashboard', menu='shaping_tools')
-
         if self.dashboard is not None:
             self.add_action('add_corrections', 'Add Corrections', 'add_circle',
                             'Add Focal and Zernike polynomials as individual actuators in Dashboard',
@@ -545,12 +511,6 @@ class BeamShaping(CustomExt):
         self.config_changed.connect(self.do_things_after_config_changed)
 
         self.connect_action('calibration', self.open_calibration_app)
-
-        self.connect_action('send_algo_to_shaper', self.get_action('zoom_in').setEnabled)
-        self.connect_action('send_algo_to_shaper', self.get_action('zoom_out').setEnabled)
-
-        self.connect_action('zoom_in', self.zoom_in)
-        self.connect_action('zoom_out', self.zoom_out)
 
     def plot_fields(self, dte: DataToExport):
         metrics = dte.remove(dte.get_data_from_name('metrics'))
