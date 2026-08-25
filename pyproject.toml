@@ -52,6 +52,9 @@ classifiers = [
     "Topic :: Software Development :: User Interfaces",
 ]
 
+[project.scripts]
+beam_shaping = "pymodaq_plugins_beam_shaping.extensions.spatial_beam_shaping:main"
+
 [project.optional-dependencies]
 pytorch = [
     'pytorch-minimize',

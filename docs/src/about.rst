@@ -1,5 +1,0 @@
-About
-=====
-
-
-Site under construction

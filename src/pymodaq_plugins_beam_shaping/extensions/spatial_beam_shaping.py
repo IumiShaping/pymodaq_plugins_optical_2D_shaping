@@ -2,7 +2,6 @@ import numpy as np
 from qtpy import QtWidgets, QtCore
 from pathlib import Path
 
-from pymodaq.utils.shared_ui import SharedUI
 from pymodaq_utils import utils as utils
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_utils.config import GlobalConfig
@@ -22,7 +21,7 @@ from pymodaq_gui.parameter.ioxml import  xml_string_to_parameter
 
 from pymodaq.extensions.custom_ext import CustomExt
 from pymodaq.utils.gui_utils.loader_utils import create_extension
-from pymodaq.utils.data import DataToExport, DataCalculated, DataActuator, DataDim
+from pymodaq.utils.data import DataToExport, DataCalculated, DataDim
 
 from pymodaq_plugins_beam_shaping.utils import Config as PluginConfig
 from pymodaq_plugins_beam_shaping.algorithms.algorithm_app import AlgoApp
