@@ -26,7 +26,6 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
-    "sphinx_qt_documentation",
     "sphinx_design",
     "sphinx_favicon",
     "sphinxext.rediraffe",
