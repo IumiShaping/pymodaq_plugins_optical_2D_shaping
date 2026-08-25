@@ -12,7 +12,7 @@ package-url = 'https://github.com/IumiShaping/pymodaq_plugins_optical_2D_shaping
 name = "pymodaq_plugins_beam_shaping"
 description = "PyMoDAQ's extension plugin to run optical shaping from various shapers (focusing on amplitude and phase shaping) and the image propagation"
 dependencies = [
-    "pymodaq>5.1.5",
+    "pymodaq>5.2.8",
     'pyfftw',
     'scikit-image',
     'opencv-python',
@@ -51,6 +51,9 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: User Interfaces",
 ]
+
+[project.scripts]
+beam_shaping = "pymodaq_plugins_beam_shaping.extensions.spatial_beam_shaping:main"
 
 [project.optional-dependencies]
 pytorch = [
