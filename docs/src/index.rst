@@ -13,8 +13,6 @@ It enables dynamic control of **phase and/or amplitude** of optical fields to ge
    All modules are controlled from this interface.
 
 
-
-
 .. toctree::
    :maxdepth: 2
    :caption: Getting Started
@@ -23,6 +21,7 @@ It enables dynamic control of **phase and/or amplitude** of optical fields to ge
    introduction
    installation
    quick_start
+   tutorials
 
 .. toctree::
    :maxdepth: 2
