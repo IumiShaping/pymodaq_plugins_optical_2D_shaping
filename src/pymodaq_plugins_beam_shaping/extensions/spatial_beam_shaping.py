@@ -1,4 +1,7 @@
 import numpy as np
+from pymodaq.control_modules.utils import ControllerAndThread, QThreadProxy
+from pymodaq.utils.managers.modules import ModuleType
+from pymodaq.utils.managers.modules.loader import PluginInfo
 from qtpy import QtWidgets, QtCore
 from pathlib import Path
 
@@ -595,18 +598,42 @@ class BeamShaping(CustomExt):
 
     def add_corrections_actuators(self):
         try:
+            plugins: list[PluginInfo] = []
             if plugin_config('corrections', 'actuators', 'focal_length'):
-                self.dashboard.add_move_from_extension(f'FocalLength', "FocalLength",
-                                                       self._corrections,
-                                                       ui_identifier='Simple')
+                id = self.dashboard.modules_manager.get_random_id()
+                plugins.append(
+                    PluginInfo(
+                        id=id,
+                        name='FocalLength',
+                        class_name='FocalLength',
+                        type=ModuleType.Actuator,
+                        controller=ControllerAndThread('FocalLength',
+                                                       thread=QThreadProxy(thread=self.thread()),
+                                                       controller=self._corrections,
+                                                       is_master=False,
+                                                       id=id),
+                    )
+                )
             for n in range(plugin_config('corrections', 'zernike', 'order_max')):
                 if plugin_config('corrections', 'zernike', 'actuators', f'n{n}'):
                     for m in range(-n, n+2, 2):
-                        self.dashboard.add_move_from_extension(f'Zernike {n}/{m}',
-                                                               "Zernike",
-                                                               self._corrections,
-                                                               ui_identifier = 'Simple')
-                        self.dashboard.actuators_modules[-1].axis_name = f'{n}{m}'
+                        id = self.dashboard.modules_manager.get_random_id()
+                        plugins.append(
+                            PluginInfo(
+                                id=id,
+                                name=f'Zernike {n}/{m}',
+                                class_name=f'Zernike',
+                                type=ModuleType.Actuator,
+                                controller=ControllerAndThread('Zernike',
+                                                               thread=QThreadProxy(thread=self.thread()),
+                                                               controller=self._corrections,
+                                                               is_master=False,
+                                                               id=id),
+                                axis_name=f'{n}{m}',
+                            )
+                        )
+
+            self.dashboard.add_move_from_extension(modules=plugins)
             self.set_action_enabled("add_corrections", False)
 
         except Exception as e:
